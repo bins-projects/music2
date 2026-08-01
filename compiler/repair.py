@@ -280,18 +280,9 @@ def normalize_replacement_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
-def analyze_repair_delta(before: str, after: str) -> RepairDeltaAnalysis:
+def deletion_subsequence(before: str, after: str) -> str | None:
     compact_before = re.sub(r"\s+", "", before)
     compact_after = re.sub(r"\s+", "", after)
-    if compact_before == compact_after:
-        return RepairDeltaAnalysis("whitespace_only", 0)
-
-    if compact_before.startswith(compact_after):
-        return RepairDeltaAnalysis(
-            "trailing_metadata_removed",
-            len(compact_before) - len(compact_after),
-        )
-
     after_index = 0
     removed = []
     for character in compact_before:
@@ -304,7 +295,26 @@ def analyze_repair_delta(before: str, after: str) -> RepairDeltaAnalysis:
             removed.append(character)
 
     if after_index != len(compact_after):
-        return RepairDeltaAnalysis("manual_text_rewrite", len(removed))
+        return None
+    return "".join(removed)
+
+
+def analyze_repair_delta(before: str, after: str) -> RepairDeltaAnalysis:
+    compact_before = re.sub(r"\s+", "", before)
+    compact_after = re.sub(r"\s+", "", after)
+    if compact_before == compact_after:
+        return RepairDeltaAnalysis("whitespace_only", 0)
+
+    if compact_before.startswith(compact_after):
+        return RepairDeltaAnalysis(
+            "trailing_metadata_removed",
+            len(compact_before) - len(compact_after),
+        )
+
+    removed_text = deletion_subsequence(before, after)
+    if removed_text is None:
+        return RepairDeltaAnalysis("manual_text_rewrite", 0)
+    removed = list(removed_text)
 
     overlay_like = (
         len(removed) >= 4

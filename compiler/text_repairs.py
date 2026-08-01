@@ -30,6 +30,19 @@ class TextRepairResult:
     analysis: TextRepairAnalysis
 
 
+@dataclass(frozen=True)
+class TypographyNormalization:
+    text: str
+    opening_marks_replaced: int
+    closing_marks_replaced: int
+    opening_quotes: int
+    closing_quotes: int
+
+    @property
+    def balanced(self) -> bool:
+        return self.opening_quotes == self.closing_quotes
+
+
 APPROVED_TEXT_REPAIRS = (
     ApprovedTextRepair(
         rule_id="join_medications_suffix",
@@ -48,6 +61,20 @@ SPLIT_SUFFIX_RE = re.compile(
     r"(s|ed|ing|ly|tion|ment|ness|ity|al|ous|ive)\b"
 )
 WORD_RE = re.compile(r"\b[A-Za-z]+\b")
+
+
+def normalize_extraction_typography(text: str) -> TypographyNormalization:
+    opening_marks = text.count("―")
+    closing_marks = text.count("‖")
+    normalized = text.replace("―", "“").replace("‖", "”")
+
+    return TypographyNormalization(
+        text=normalized,
+        opening_marks_replaced=opening_marks,
+        closing_marks_replaced=closing_marks,
+        opening_quotes=normalized.count("“"),
+        closing_quotes=normalized.count("”"),
+    )
 
 
 def case_transitions(word: str) -> int:

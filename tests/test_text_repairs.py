@@ -1,6 +1,7 @@
 from compiler.text_repairs import (
     analyze_text_repairs,
     apply_approved_text_repairs,
+    normalize_extraction_typography,
 )
 
 
@@ -64,3 +65,36 @@ def test_clean_reviewed_text_is_not_blocked() -> None:
 
     assert analysis.blocked is False
     assert analysis.approved_rule_ids == ("join_ask_fragment",)
+
+
+def test_extraction_quote_artifacts_normalize_deterministically() -> None:
+    result = normalize_extraction_typography(
+        "The patient states, ―I understand.‖"
+    )
+
+    assert result.text == "The patient states, “I understand.”"
+    assert result.opening_marks_replaced == 1
+    assert result.closing_marks_replaced == 1
+    assert result.balanced is True
+
+
+def test_typography_normalization_preserves_real_punctuation() -> None:
+    text = "Use an em dash — and preserve “correct quotation marks.”"
+
+    result = normalize_extraction_typography(text)
+
+    assert result.text == text
+    assert result.opening_marks_replaced == 0
+    assert result.closing_marks_replaced == 0
+    assert result.balanced is True
+
+
+def test_missing_closing_quote_remains_review_required() -> None:
+    result = normalize_extraction_typography(
+        "The patient states, ―I understand."
+    )
+
+    assert result.text == "The patient states, “I understand."
+    assert result.opening_marks_replaced == 1
+    assert result.closing_marks_replaced == 0
+    assert result.balanced is False

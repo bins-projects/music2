@@ -10,7 +10,10 @@ from compiler.repair import (
     load_pack,
 )
 from compiler.repair_cli import DEFAULT_LEDGER, DEFAULT_PACK
-from compiler.text_repairs import analyze_text_repairs
+from compiler.text_repairs import (
+    analyze_text_repairs,
+    normalize_extraction_typography,
+)
 
 
 def classify_analysis(analysis) -> str:
@@ -50,6 +53,43 @@ def audit_split_findings(pack: dict, findings: list) -> list[dict]:
     return results
 
 
+def iter_question_text(question: dict):
+    for field in ("chapter_title", "stem", "rationale"):
+        value = question.get(field)
+        if isinstance(value, str):
+            yield field, value
+
+    choices = question.get("choices")
+    if isinstance(choices, list):
+        for index, choice in enumerate(choices):
+            if isinstance(choice, dict) and isinstance(choice.get("text"), str):
+                yield f"choices[{index}].text", choice["text"]
+
+
+def audit_typography(pack: dict) -> list[dict]:
+    results = []
+    for question in pack["questions"]:
+        for field, text in iter_question_text(question):
+            normalization = normalize_extraction_typography(text)
+            if not (
+                normalization.opening_marks_replaced
+                or normalization.closing_marks_replaced
+            ):
+                continue
+
+            results.append(
+                {
+                    "question_id": question["id"],
+                    "field": field,
+                    "opening_marks": normalization.opening_marks_replaced,
+                    "closing_marks": normalization.closing_marks_replaced,
+                    "balanced_after": normalization.balanced,
+                }
+            )
+
+    return results
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Dry-run approved repairs and review-only split candidates."
@@ -57,6 +97,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pack", type=Path, default=DEFAULT_PACK)
     parser.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER)
     parser.add_argument("--show-all", action="store_true")
+    parser.add_argument(
+        "--show-typography-details",
+        action="store_true",
+    )
     return parser
 
 
@@ -67,6 +111,7 @@ def main() -> None:
         pack = load_pack(args.pack)
         findings = load_findings(args.ledger)
         results = audit_split_findings(pack, findings)
+        typography = audit_typography(pack)
     except (OSError, RepairError) as error:
         raise SystemExit(f"Repair audit stopped: {error}") from error
 
@@ -107,6 +152,30 @@ def main() -> None:
 
     print()
     print("Dry run only. No Pack or repair record was written.")
+
+    opening_count = sum(item["opening_marks"] for item in typography)
+    closing_count = sum(item["closing_marks"] for item in typography)
+    unbalanced = [item for item in typography if not item["balanced_after"]]
+
+    print()
+    print("PrepFlow typography-normalization dry run")
+    print(f"Fields affected: {len(typography)}")
+    print(f"Horizontal bars to opening quotes: {opening_count}")
+    print(f"Double vertical lines to closing quotes: {closing_count}")
+    print(f"Unbalanced fields after normalization: {len(unbalanced)}")
+
+    visible_typography = typography if args.show_typography_details else unbalanced
+    if visible_typography:
+        print()
+    for item in visible_typography:
+        status = "balanced" if item["balanced_after"] else "review_required"
+        print(
+            f"{item['question_id']} | {item['field']} | {status} | "
+            f"open={item['opening_marks']} close={item['closing_marks']}"
+        )
+
+    print()
+    print("Dry run only. No typography changes were written.")
 
 
 if __name__ == "__main__":

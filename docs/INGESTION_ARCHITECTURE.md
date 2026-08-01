@@ -200,6 +200,11 @@ and no unresolved text-damage signals after applying a tightly grouped artifact
 signature learned only from approved temporary repairs. The batch reports and
 leaves all other findings untouched. It remains candidate-only.
 
+An exact duplicate-choice batch may remove only the second of two consecutive,
+byte-for-byte identical choice blocks. Eligibility also requires canonical retained
+label order and valid correct-answer mappings. The repair records the complete
+expected choice shape, blocks stale application, and remains candidate-only.
+
 ## 7. Repair Confidence
 
 Repairs are separated by risk.

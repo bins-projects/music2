@@ -66,6 +66,20 @@ class StemChoiceSplitRecord:
 
 
 @dataclass(frozen=True)
+class DuplicateChoiceBlockRecord:
+    format: str
+    version: str
+    repair_id: str
+    pack_id: str
+    question_id: str
+    expected_choices: tuple[tuple[str, str], ...]
+    retained_choices: tuple[tuple[str, str], ...]
+    damage_type: str
+    approval: str
+    disposition: str
+
+
+@dataclass(frozen=True)
 class RepairDeltaAnalysis:
     classification: str
     removed_characters: int
@@ -77,7 +91,10 @@ REPAIR_RECORD_FIELDS = {
 STEM_CHOICE_SPLIT_FIELDS = {
     field.name for field in StemChoiceSplitRecord.__dataclass_fields__.values()
 }
-RepairEntry = RepairRecord | StemChoiceSplitRecord
+DUPLICATE_CHOICE_BLOCK_FIELDS = {
+    field.name for field in DuplicateChoiceBlockRecord.__dataclass_fields__.values()
+}
+RepairEntry = RepairRecord | StemChoiceSplitRecord | DuplicateChoiceBlockRecord
 
 
 def load_json(path: str | Path) -> dict:
@@ -347,6 +364,82 @@ def create_stem_choice_split_record(
     )
 
 
+def choice_pairs(question: dict) -> tuple[tuple[str, str], ...]:
+    choices = question.get("choices")
+    if not isinstance(choices, list):
+        raise RepairError("Question choices must be a list")
+
+    pairs = []
+    for choice in choices:
+        if not isinstance(choice, dict):
+            raise RepairError("Each choice must be an object")
+        label = choice.get("label")
+        text = choice.get("text")
+        if not isinstance(label, str) or not label:
+            raise RepairError("Each choice must have a label")
+        if not isinstance(text, str) or not text.strip():
+            raise RepairError("Each choice must have text")
+        pairs.append((label, text))
+    return tuple(pairs)
+
+
+def exact_duplicate_choice_block(
+    question: dict,
+) -> tuple[tuple[str, str], ...] | None:
+    try:
+        pairs = choice_pairs(question)
+    except RepairError:
+        return None
+    if len(pairs) < 4 or len(pairs) % 2:
+        return None
+
+    midpoint = len(pairs) // 2
+    retained = pairs[:midpoint]
+    if retained != pairs[midpoint:]:
+        return None
+
+    labels = tuple(label for label, _ in retained)
+    expected_labels = tuple(chr(ord("A") + index) for index in range(midpoint))
+    if labels != expected_labels:
+        return None
+
+    answers = question.get("correct_answers")
+    if not isinstance(answers, list) or not answers:
+        return None
+    if any(str(answer) not in labels for answer in answers):
+        return None
+    return retained
+
+
+def create_duplicate_choice_block_record(
+    pack: dict,
+    *,
+    question_id: str,
+    repair_id: str,
+    disposition: str = "repair_rule_candidate",
+) -> DuplicateChoiceBlockRecord:
+    if disposition not in REPAIR_DISPOSITIONS:
+        raise RepairError(f"Unsupported repair disposition: {disposition}")
+
+    question = find_question(pack, question_id)
+    retained = exact_duplicate_choice_block(question)
+    if retained is None:
+        raise RepairError("Question does not contain one exact duplicate choice block")
+
+    return DuplicateChoiceBlockRecord(
+        format="prepflow_duplicate_choice_block_record",
+        version="1.0",
+        repair_id=repair_id,
+        pack_id=pack["pack_id"],
+        question_id=question_id,
+        expected_choices=choice_pairs(question),
+        retained_choices=retained,
+        damage_type="choice structure: exact duplicate choice block",
+        approval="approved",
+        disposition=disposition,
+    )
+
+
 def normalize_replacement_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
@@ -418,6 +511,8 @@ def apply_repairs(pack: dict, records: list[RepairEntry]) -> dict:
 
         if isinstance(record, StemChoiceSplitRecord):
             apply_stem_choice_split_to_candidate(candidate, record)
+        elif isinstance(record, DuplicateChoiceBlockRecord):
+            apply_duplicate_choice_block_to_candidate(candidate, record)
         else:
             apply_repair_to_candidate(candidate, record)
 
@@ -464,6 +559,45 @@ def apply_stem_choice_split_to_candidate(
     validate_candidate_question(question)
 
 
+def apply_duplicate_choice_block_to_candidate(
+    candidate: dict,
+    record: DuplicateChoiceBlockRecord,
+) -> None:
+    if record.pack_id != candidate.get("pack_id"):
+        raise RepairError("Repair record belongs to a different Pack")
+
+    question = find_question(candidate, record.question_id)
+    if choice_pairs(question) != record.expected_choices:
+        raise RepairError(
+            "Duplicate-choice repair no longer matches current choices"
+        )
+    if record.expected_choices != record.retained_choices * 2:
+        raise RepairError("Duplicate-choice repair is not an exact repeated block")
+    if exact_duplicate_choice_block(question) != record.retained_choices:
+        raise RepairError("Duplicate-choice repair is no longer mechanically safe")
+
+    question["choices"] = [
+        {"label": label, "text": text}
+        for label, text in record.retained_choices
+    ]
+    validate_candidate_question(question)
+
+
+def choice_pair_tuple(value: object, *, field: str) -> tuple[tuple[str, str], ...]:
+    if not isinstance(value, list):
+        raise RepairError(f"Duplicate-choice {field} must be a list")
+    pairs = []
+    for pair in value:
+        if (
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or not all(isinstance(item, str) for item in pair)
+        ):
+            raise RepairError(f"Duplicate-choice {field} is malformed")
+        pairs.append((pair[0], pair[1]))
+    return tuple(pairs)
+
+
 def repair_record_from_dict(value: object) -> RepairEntry:
     if not isinstance(value, dict):
         raise RepairError("Repair record must be an object")
@@ -483,6 +617,29 @@ def repair_record_from_dict(value: object) -> RepairEntry:
             raise RepairError(
                 f"Unsupported repair disposition: {record.disposition}"
             )
+        return record
+
+    if value.get("format") == "prepflow_duplicate_choice_block_record":
+        if set(value) != DUPLICATE_CHOICE_BLOCK_FIELDS:
+            raise RepairError("Duplicate-choice repair fields do not match the schema")
+        converted = dict(value)
+        converted["expected_choices"] = choice_pair_tuple(
+            converted.get("expected_choices"),
+            field="expected choices",
+        )
+        converted["retained_choices"] = choice_pair_tuple(
+            converted.get("retained_choices"),
+            field="retained choices",
+        )
+        record = DuplicateChoiceBlockRecord(**converted)
+        if record.version != "1.0":
+            raise RepairError("Unsupported duplicate-choice repair format")
+        if record.disposition not in REPAIR_DISPOSITIONS:
+            raise RepairError(
+                f"Unsupported repair disposition: {record.disposition}"
+            )
+        if record.expected_choices != record.retained_choices * 2:
+            raise RepairError("Duplicate-choice repair is not an exact repeated block")
         return record
 
     if set(value) != REPAIR_RECORD_FIELDS:

@@ -1,0 +1,174 @@
+import json
+from dataclasses import asdict
+from pathlib import Path
+
+import pytest
+
+from compiler.repair import (
+    Finding,
+    RepairError,
+    apply_repair,
+    create_repair_record,
+    find_question,
+    load_findings,
+    write_candidate_pack,
+    write_repair_record,
+)
+
+
+def sample_pack() -> dict:
+    return {
+        "format": "prepflow_pack",
+        "version": "1.0",
+        "pack_id": "test-pack",
+        "title": "Test Pack",
+        "questions": [
+            {
+                "id": "PFQ-test-pack-000000001",
+                "chapter": 1,
+                "chapter_title": "Safety",
+                "type": "mc",
+                "stem": "Which act ion is appropriate?",
+                "choices": [
+                    {"label": "A", "text": "First action"},
+                    {"label": "B", "text": "Second action"},
+                ],
+                "correct_answers": ["A"],
+                "rationale": "The first action is appropriate.",
+            }
+        ],
+    }
+
+
+def sample_finding() -> Finding:
+    return Finding(
+        finding_id="TEST-DAMAGE-001",
+        question_id="PFQ-test-pack-000000001",
+        field="stem",
+        damage_type="possible split word",
+    )
+
+
+def test_legacy_ledger_loads_only_source_neutral_finding_fields(
+    tmp_path: Path,
+) -> None:
+    ledger_path = tmp_path / "ledger.json"
+    ledger_path.write_text(
+        json.dumps(
+            {
+                "entries": [
+                    {
+                        "repair_id": "TEST-DAMAGE-001",
+                        "question_id": "PFQ-test-pack-000000001",
+                        "json_path": "$.questions[0].stem",
+                        "rule": "possible split word",
+                        "source_verified": True,
+                        "source_location": "private-notes.docx, page 2",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    finding = load_findings(ledger_path)[0]
+
+    assert asdict(finding) == {
+        "finding_id": "TEST-DAMAGE-001",
+        "question_id": "PFQ-test-pack-000000001",
+        "field": "stem",
+        "damage_type": "possible split word",
+    }
+
+
+def test_repair_changes_candidate_without_mutating_canonical_pack() -> None:
+    canonical = sample_pack()
+    record = create_repair_record(
+        canonical,
+        sample_finding(),
+        "Which action is appropriate?",
+    )
+
+    candidate = apply_repair(canonical, record)
+
+    assert find_question(canonical, record.question_id)["stem"] == (
+        "Which act ion is appropriate?"
+    )
+    assert find_question(candidate, record.question_id)["stem"] == (
+        "Which action is appropriate?"
+    )
+
+
+def test_stale_repair_record_is_rejected() -> None:
+    canonical = sample_pack()
+    record = create_repair_record(
+        canonical,
+        sample_finding(),
+        "Which action is appropriate?",
+    )
+    canonical["questions"][0]["stem"] = "Question changed elsewhere."
+
+    with pytest.raises(RepairError, match="no longer matches"):
+        apply_repair(canonical, record)
+
+
+def test_candidate_writer_refuses_to_overwrite_canonical_pack(
+    tmp_path: Path,
+) -> None:
+    canonical_path = tmp_path / "canonical.prepflow.json"
+    canonical_path.write_text("canonical", encoding="utf-8")
+
+    with pytest.raises(RepairError, match="must not overwrite"):
+        write_candidate_pack(
+            sample_pack(),
+            canonical_path=canonical_path,
+            candidate_path=canonical_path,
+        )
+
+    assert canonical_path.read_text(encoding="utf-8") == "canonical"
+
+
+def test_candidate_writer_leaves_canonical_bytes_unchanged(
+    tmp_path: Path,
+) -> None:
+    canonical_path = tmp_path / "canonical.prepflow.json"
+    candidate_path = tmp_path / "output" / "candidate.prepflow.json"
+    canonical_bytes = b"canonical pack bytes\n"
+    canonical_path.write_bytes(canonical_bytes)
+
+    write_candidate_pack(
+        sample_pack(),
+        canonical_path=canonical_path,
+        candidate_path=candidate_path,
+    )
+
+    assert canonical_path.read_bytes() == canonical_bytes
+    assert json.loads(candidate_path.read_text(encoding="utf-8"))[
+        "pack_id"
+    ] == "test-pack"
+
+
+def test_repair_record_contains_no_source_provenance(
+    tmp_path: Path,
+) -> None:
+    record = create_repair_record(
+        sample_pack(),
+        sample_finding(),
+        "Which action is appropriate?",
+    )
+    path = write_repair_record(record, tmp_path / "repair.json")
+    stored = json.loads(path.read_text(encoding="utf-8"))
+
+    assert set(stored) == {
+        "format",
+        "version",
+        "repair_id",
+        "pack_id",
+        "question_id",
+        "field",
+        "before",
+        "after",
+        "damage_type",
+        "approval",
+        "disposition",
+    }

@@ -10,10 +10,8 @@ from compiler.repair import (
     load_pack,
 )
 from compiler.repair_cli import DEFAULT_LEDGER, DEFAULT_PACK
-from compiler.text_repairs import (
-    analyze_text_repairs,
-    normalize_extraction_typography,
-)
+from compiler.pack_qa import audit_typography
+from compiler.text_repairs import analyze_text_repairs
 
 
 def classify_analysis(analysis) -> str:
@@ -49,43 +47,6 @@ def audit_split_findings(pack: dict, findings: list) -> list[dict]:
                 ),
             }
         )
-
-    return results
-
-
-def iter_question_text(question: dict):
-    for field in ("chapter_title", "stem", "rationale"):
-        value = question.get(field)
-        if isinstance(value, str):
-            yield field, value
-
-    choices = question.get("choices")
-    if isinstance(choices, list):
-        for index, choice in enumerate(choices):
-            if isinstance(choice, dict) and isinstance(choice.get("text"), str):
-                yield f"choices[{index}].text", choice["text"]
-
-
-def audit_typography(pack: dict) -> list[dict]:
-    results = []
-    for question in pack["questions"]:
-        for field, text in iter_question_text(question):
-            normalization = normalize_extraction_typography(text)
-            if not (
-                normalization.opening_marks_replaced
-                or normalization.closing_marks_replaced
-            ):
-                continue
-
-            results.append(
-                {
-                    "question_id": question["id"],
-                    "field": field,
-                    "opening_marks": normalization.opening_marks_replaced,
-                    "closing_marks": normalization.closing_marks_replaced,
-                    "balanced_after": normalization.balanced,
-                }
-            )
 
     return results
 
@@ -153,9 +114,9 @@ def main() -> None:
     print()
     print("Dry run only. No Pack or repair record was written.")
 
-    opening_count = sum(item["opening_marks"] for item in typography)
-    closing_count = sum(item["closing_marks"] for item in typography)
-    unbalanced = [item for item in typography if not item["balanced_after"]]
+    opening_count = sum(item.opening_marks for item in typography)
+    closing_count = sum(item.closing_marks for item in typography)
+    unbalanced = [item for item in typography if not item.balanced_after]
 
     print()
     print("PrepFlow typography-normalization dry run")
@@ -168,10 +129,10 @@ def main() -> None:
     if visible_typography:
         print()
     for item in visible_typography:
-        status = "balanced" if item["balanced_after"] else "review_required"
+        status = "balanced" if item.balanced_after else "review_required"
         print(
-            f"{item['question_id']} | {item['field']} | {status} | "
-            f"open={item['opening_marks']} close={item['closing_marks']}"
+            f"{item.question_id} | {item.field} | {status} | "
+            f"open={item.opening_marks} close={item.closing_marks}"
         )
 
     print()

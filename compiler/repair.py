@@ -47,6 +47,11 @@ class RepairRecord:
     disposition: str
 
 
+REPAIR_RECORD_FIELDS = {
+    field.name for field in RepairRecord.__dataclass_fields__.values()
+}
+
+
 def load_json(path: str | Path) -> dict:
     with Path(path).open("r", encoding="utf-8") as file:
         value = json.load(file)
@@ -266,10 +271,27 @@ def create_repair_record(
 
 
 def apply_repair(pack: dict, record: RepairRecord) -> dict:
-    if record.pack_id != pack.get("pack_id"):
+    return apply_repairs(pack, [record])
+
+
+def apply_repairs(pack: dict, records: list[RepairRecord]) -> dict:
+    candidate = copy.deepcopy(pack)
+    seen_ids = set()
+
+    for record in records:
+        if record.repair_id in seen_ids:
+            raise RepairError(f"Duplicate repair identifier: {record.repair_id}")
+        seen_ids.add(record.repair_id)
+
+        apply_repair_to_candidate(candidate, record)
+
+    return candidate
+
+
+def apply_repair_to_candidate(candidate: dict, record: RepairRecord) -> None:
+    if record.pack_id != candidate.get("pack_id"):
         raise RepairError("Repair record belongs to a different Pack")
 
-    candidate = copy.deepcopy(pack)
     question = find_question(candidate, record.question_id)
     current = get_text_field(question, record.field)
     if current != record.before:
@@ -279,7 +301,48 @@ def apply_repair(pack: dict, record: RepairRecord) -> dict:
 
     set_text_field(question, record.field, record.after)
     validate_candidate_question(question)
-    return candidate
+
+
+def repair_record_from_dict(value: object) -> RepairRecord:
+    if not isinstance(value, dict):
+        raise RepairError("Repair record must be an object")
+    if set(value) != REPAIR_RECORD_FIELDS:
+        raise RepairError("Repair record fields do not match the schema")
+
+    record = RepairRecord(**value)
+    if record.format != "prepflow_repair_record" or record.version != "1.0":
+        raise RepairError("Unsupported repair record format")
+    if record.disposition not in REPAIR_DISPOSITIONS:
+        raise RepairError(
+            f"Unsupported repair disposition: {record.disposition}"
+        )
+    return record
+
+
+def load_repair_records(path: str | Path) -> list[RepairRecord]:
+    source = Path(path)
+    if not source.exists():
+        return []
+
+    payload = load_json(source)
+    if payload.get("format") == "prepflow_repair_record":
+        return [repair_record_from_dict(payload)]
+    if payload.get("format") != "prepflow_repair_set":
+        raise RepairError("Unsupported repair collection format")
+    if payload.get("version") != "1.0":
+        raise RepairError("Unsupported repair collection version")
+
+    values = payload.get("repairs")
+    if not isinstance(values, list):
+        raise RepairError("Repair collection must contain a repairs list")
+
+    records = [repair_record_from_dict(value) for value in values]
+    pack_id = payload.get("pack_id")
+    if any(record.pack_id != pack_id for record in records):
+        raise RepairError("Repair collection contains a different Pack ID")
+    if len({record.repair_id for record in records}) != len(records):
+        raise RepairError("Repair collection contains duplicate identifiers")
+    return records
 
 
 def write_candidate_pack(
@@ -302,14 +365,30 @@ def write_candidate_pack(
     return destination
 
 
-def write_repair_record(
-    record: RepairRecord,
+def write_repair_set(
+    records: list[RepairRecord],
     path: str | Path,
 ) -> Path:
+    if not records:
+        raise RepairError("Cannot write an empty repair collection")
+    pack_ids = {record.pack_id for record in records}
+    if len(pack_ids) != 1:
+        raise RepairError("Repair collection must belong to one Pack")
+    if len({record.repair_id for record in records}) != len(records):
+        raise RepairError("Repair collection contains duplicate identifiers")
+
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with destination.open("w", encoding="utf-8") as file:
-        json.dump(asdict(record), file, indent=2, ensure_ascii=False)
+    temporary = destination.with_suffix(destination.suffix + ".tmp")
+    payload = {
+        "format": "prepflow_repair_set",
+        "version": "1.0",
+        "pack_id": next(iter(pack_ids)),
+        "repairs": [asdict(record) for record in records],
+    }
+    with temporary.open("w", encoding="utf-8") as file:
+        json.dump(payload, file, indent=2, ensure_ascii=False)
         file.write("\n")
+    temporary.replace(destination)
 
     return destination

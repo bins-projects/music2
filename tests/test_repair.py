@@ -8,11 +8,13 @@ from compiler.repair import (
     Finding,
     RepairError,
     apply_repair,
+    apply_repairs,
     create_repair_record,
     find_question,
     load_findings,
+    load_repair_records,
     write_candidate_pack,
-    write_repair_record,
+    write_repair_set,
 )
 
 
@@ -175,10 +177,16 @@ def test_repair_record_contains_no_source_provenance(
         sample_finding(),
         "Which action is appropriate?",
     )
-    path = write_repair_record(record, tmp_path / "repair.json")
+    path = write_repair_set([record], tmp_path / "repairs.json")
     stored = json.loads(path.read_text(encoding="utf-8"))
 
     assert set(stored) == {
+        "format",
+        "version",
+        "pack_id",
+        "repairs",
+    }
+    assert set(stored["repairs"][0]) == {
         "format",
         "version",
         "repair_id",
@@ -191,3 +199,55 @@ def test_repair_record_contains_no_source_provenance(
         "approval",
         "disposition",
     }
+
+
+def test_legacy_single_record_loads_for_migration(tmp_path: Path) -> None:
+    record = create_repair_record(
+        sample_pack(),
+        sample_finding(),
+        "Which action is appropriate?",
+    )
+    path = tmp_path / "repair-record.json"
+    path.write_text(json.dumps(asdict(record)), encoding="utf-8")
+
+    assert load_repair_records(path) == [record]
+
+
+def test_multiple_repairs_rebuild_one_candidate() -> None:
+    pack = sample_pack()
+    first = create_repair_record(
+        pack,
+        sample_finding(),
+        "Which action is appropriate?",
+    )
+    second = create_repair_record(
+        pack,
+        Finding(
+            finding_id="TEST-DAMAGE-002",
+            question_id="PFQ-test-pack-000000001",
+            field="rationale",
+            damage_type="possible split word",
+        ),
+        "The first action is the appropriate response.",
+    )
+
+    candidate = apply_repairs(pack, [first, second])
+    question = candidate["questions"][0]
+
+    assert question["stem"] == "Which action is appropriate?"
+    assert question["rationale"] == (
+        "The first action is the appropriate response."
+    )
+    assert pack == sample_pack()
+
+
+def test_duplicate_repairs_are_rejected() -> None:
+    pack = sample_pack()
+    record = create_repair_record(
+        pack,
+        sample_finding(),
+        "Which action is appropriate?",
+    )
+
+    with pytest.raises(RepairError, match="Duplicate repair identifier"):
+        apply_repairs(pack, [record, record])

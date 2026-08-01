@@ -6,15 +6,16 @@ from compiler.repair import (
     REPAIR_DISPOSITIONS,
     Finding,
     RepairError,
-    apply_repair,
+    apply_repairs,
     create_repair_record,
     find_question,
     get_text_field,
     load_findings,
     load_pack,
+    load_repair_records,
     select_finding,
     write_candidate_pack,
-    write_repair_record,
+    write_repair_set,
 )
 
 
@@ -156,16 +157,30 @@ def main() -> None:
             replacement,
             disposition=args.disposition,
         )
-        candidate = apply_repair(pack, record)
-
         candidate_path = args.output / "candidate.prepflow.json"
-        record_path = args.output / "repair-record.json"
+        legacy_record_path = args.output / "repair-record.json"
+        record_set_path = args.output / "repair-records.json"
+        existing_record_path = (
+            record_set_path
+            if record_set_path.exists()
+            else legacy_record_path
+        )
+        records = load_repair_records(existing_record_path)
+        if any(item.repair_id == record.repair_id for item in records):
+            raise RepairError(
+                f"Repair is already recorded: {record.repair_id}"
+            )
+        records.append(record)
+        candidate = apply_repairs(pack, records)
+
         write_candidate_pack(
             candidate,
             canonical_path=args.pack,
             candidate_path=candidate_path,
         )
-        write_repair_record(record, record_path)
+        write_repair_set(records, record_set_path)
+        if legacy_record_path.exists():
+            legacy_record_path.unlink()
 
         print()
         print("Repair recorded and applied to a candidate only.")
@@ -173,7 +188,8 @@ def main() -> None:
         print(wrapped("After", record.after, args.width))
         print(f"Pipeline classification: {record.disposition}")
         print(f"Candidate: {candidate_path}")
-        print(f"Repair record: {record_path}")
+        print(f"Repairs in candidate: {len(records)}")
+        print(f"Repair set: {record_set_path}")
         print(f"Canonical Pack unchanged: {args.pack}")
     except (OSError, RepairError) as error:
         raise SystemExit(f"Repair workbench stopped: {error}") from error

@@ -2,6 +2,10 @@ import argparse
 import textwrap
 from pathlib import Path
 
+from compiler.artifact_profile import (
+    ARTIFACT_EVIDENCE_LEVELS,
+    artifact_evidence_findings,
+)
 from compiler.pack_qa import (
     INTERLEAVING_SEVERITIES,
     interleaving_repair_findings,
@@ -155,6 +159,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=INTERLEAVING_SEVERITIES,
         help="Open the next Pack-wide interleaving finding in this tier.",
     )
+    selection.add_argument(
+        "--next-artifact",
+        choices=ARTIFACT_EVIDENCE_LEVELS,
+        help="Open the next unresolved field in an artifact-evidence tier.",
+    )
     parser.add_argument("--width", type=int, default=88)
     parser.add_argument(
         "--disposition",
@@ -187,7 +196,19 @@ def main() -> None:
         findings = load_findings(args.ledger)
         findings.extend(typography_repair_findings(pack))
         findings.extend(interleaving_repair_findings(pack))
-        if args.next_interleaving:
+        if args.next_artifact:
+            queue = artifact_evidence_findings(
+                pack,
+                records,
+                args.next_artifact,
+            )
+            if not queue:
+                raise RepairError(
+                    "No findings remain in artifact evidence tier: "
+                    + args.next_artifact
+                )
+            finding = queue[0]
+        elif args.next_interleaving:
             queue = interleaving_repair_findings(
                 pack,
                 severity=args.next_interleaving,

@@ -2,13 +2,26 @@ import math
 from collections import Counter
 from dataclasses import dataclass
 
-from compiler.pack_qa import audit_interleaving, iter_question_text
+from compiler.pack_qa import (
+    audit_interleaving,
+    finding_id_for_interleaving,
+    iter_question_text,
+)
 from compiler.repair import (
+    Finding,
     RepairError,
     RepairRecord,
     analyze_repair_delta,
     apply_repairs,
     deletion_subsequence,
+)
+
+
+ARTIFACT_EVIDENCE_LEVELS = (
+    "full_signature_evidence",
+    "near_complete_evidence",
+    "partial_evidence",
+    "insufficient_evidence",
 )
 
 
@@ -18,6 +31,13 @@ class ArtifactProfileResult:
     signature_length: int
     unresolved_fields: int
     evidence_counts: tuple[tuple[str, int], ...]
+
+
+@dataclass(frozen=True)
+class ArtifactEvidenceFinding:
+    finding: Finding
+    classification: str
+    score: int
 
 
 def shortest_common_supersequence(left: str, right: str) -> str:
@@ -130,28 +150,69 @@ def profile_pack_artifacts(
     records: list[RepairRecord],
 ) -> ArtifactProfileResult:
     signature, training_repairs = learn_overlay_signature(records)
+    scored = score_pack_artifacts(pack, records, signature=signature)
+    counts = Counter(item.classification for item in scored)
+
+    return ArtifactProfileResult(
+        training_repairs=training_repairs,
+        signature_length=len(signature),
+        unresolved_fields=len(scored),
+        evidence_counts=tuple(
+            (name, counts[name]) for name in ARTIFACT_EVIDENCE_LEVELS
+        ),
+    )
+
+
+def score_pack_artifacts(
+    pack: dict,
+    records: list[RepairRecord],
+    *,
+    signature: str | None = None,
+) -> list[ArtifactEvidenceFinding]:
+    if signature is None:
+        signature, _ = learn_overlay_signature(records)
     candidate = apply_repairs(pack, records)
     text_by_field = {
         (question["id"], field): text
         for question in candidate["questions"]
         for field, text in iter_question_text(question)
     }
-    counts = Counter()
+    results = []
     findings = audit_interleaving(candidate)
     for finding in findings:
         text = text_by_field[(finding.question_id, finding.field)]
         score = evidence_score(text, signature)
-        counts[classify_evidence(score, len(signature))] += 1
+        classification = classify_evidence(score, len(signature))
+        results.append(
+            ArtifactEvidenceFinding(
+                finding=Finding(
+                    finding_id=finding_id_for_interleaving(finding),
+                    question_id=finding.question_id,
+                    field=finding.field,
+                    damage_type=(
+                        classification.replace("_", " ")
+                        + "; "
+                        + finding.severity.replace("_", " ")
+                    ),
+                ),
+                classification=classification,
+                score=score,
+            )
+        )
+    return results
 
-    order = (
-        "full_signature_evidence",
-        "near_complete_evidence",
-        "partial_evidence",
-        "insufficient_evidence",
-    )
-    return ArtifactProfileResult(
-        training_repairs=training_repairs,
-        signature_length=len(signature),
-        unresolved_fields=len(findings),
-        evidence_counts=tuple((name, counts[name]) for name in order),
-    )
+
+def artifact_evidence_findings(
+    pack: dict,
+    records: list[RepairRecord],
+    classification: str,
+) -> list[Finding]:
+    if classification not in ARTIFACT_EVIDENCE_LEVELS:
+        raise RepairError(
+            f"Unsupported artifact evidence level: {classification}"
+        )
+    return [
+        item.finding
+        for item in score_pack_artifacts(pack, records)
+        if item.classification == classification
+    ]

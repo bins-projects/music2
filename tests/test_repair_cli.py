@@ -53,6 +53,14 @@ def test_cli_can_open_next_interleaving_tier() -> None:
     assert args.next_interleaving == "severe_interleaving"
 
 
+def test_cli_can_open_next_artifact_evidence_tier() -> None:
+    args = build_parser().parse_args(
+        ["--next-artifact", "full_signature_evidence"]
+    )
+
+    assert args.next_artifact == "full_signature_evidence"
+
+
 def test_cli_accepts_explicit_repair_amendment() -> None:
     args = build_parser().parse_args(
         ["--finding-id", "TEST-DAMAGE-001", "--amend-existing"]

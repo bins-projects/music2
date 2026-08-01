@@ -151,18 +151,39 @@ def main() -> None:
     print()
     print("PrepFlow Pack-wide interleaving scan")
     print(f"Fields requiring review: {len(interleaving)}")
+    print(
+        "Questions affected: "
+        f"{len({item.question_id for item in interleaving})}"
+    )
+    severity_counts = Counter(item.severity for item in interleaving)
+    print("Review tiers:")
+    for severity in (
+        "severe_interleaving",
+        "probable_interleaving",
+        "fragment_review",
+    ):
+        print(f"  {severity}: {severity_counts[severity]}")
+    print("Affected fields:")
+    field_counts = Counter(
+        "choice" if item.field.startswith("choices[") else item.field
+        for item in interleaving
+    )
+    for field in ("stem", "choice", "rationale"):
+        print(f"  {field}: {field_counts[field]}")
+    print("Detector signals:")
     for code in (
         "fragment_density",
         "mixed_case_interleaving",
         "combined_interleaving",
     ):
-        print(f"{code}: {interleaving_counts[code]}")
+        print(f"  {code}: {interleaving_counts[code]}")
 
     if args.show_interleaving_details and interleaving:
         print()
         for item in interleaving:
             print(
                 f"{item.question_id} | {item.field} | "
+                f"{item.severity} | "
                 + ", ".join(item.blocker_codes)
             )
 

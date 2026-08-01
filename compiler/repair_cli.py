@@ -3,6 +3,7 @@ import textwrap
 from pathlib import Path
 
 from compiler.pack_qa import (
+    INTERLEAVING_SEVERITIES,
     interleaving_repair_findings,
     typography_repair_findings,
 )
@@ -119,6 +120,11 @@ def build_parser() -> argparse.ArgumentParser:
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument("--finding-id")
     selection.add_argument("--question-id")
+    selection.add_argument(
+        "--next-interleaving",
+        choices=INTERLEAVING_SEVERITIES,
+        help="Open the next Pack-wide interleaving finding in this tier.",
+    )
     parser.add_argument("--width", type=int, default=88)
     parser.add_argument(
         "--disposition",
@@ -137,11 +143,23 @@ def main() -> None:
         findings = load_findings(args.ledger)
         findings.extend(typography_repair_findings(pack))
         findings.extend(interleaving_repair_findings(pack))
-        finding = select_finding(
-            findings,
-            finding_id=args.finding_id,
-            question_id=args.question_id,
-        )
+        if args.next_interleaving:
+            queue = interleaving_repair_findings(
+                pack,
+                severity=args.next_interleaving,
+            )
+            if not queue:
+                raise RepairError(
+                    "No findings remain in interleaving tier: "
+                    + args.next_interleaving
+                )
+            finding = queue[0]
+        else:
+            finding = select_finding(
+                findings,
+                finding_id=args.finding_id,
+                question_id=args.question_id,
+            )
         question = find_question(pack, finding.question_id)
 
         print()

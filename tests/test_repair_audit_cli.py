@@ -2,6 +2,7 @@ from compiler.repair import Finding
 from compiler.pack_qa import (
     audit_interleaving,
     audit_typography,
+    classify_interleaving,
     interleaving_repair_findings,
     typography_repair_findings,
 )
@@ -91,7 +92,7 @@ def test_interleaving_audit_scans_every_question_text_field() -> None:
                 "id": "Q1",
                 "stem": "Clean stem",
                 "choices": [
-                    {"text": "Damaged abCdEf g h j fragments"},
+                    {"text": "Damaged abCdEf xyZaBc g h j fragments"},
                 ],
                 "rationale": "Clean rationale",
             }
@@ -104,4 +105,17 @@ def test_interleaving_audit_scans_every_question_text_field() -> None:
     assert len(results) == 1
     assert results[0].field == "choices[0].text"
     assert "combined_interleaving" in results[0].blocker_codes
+    assert results[0].severity == "severe_interleaving"
     assert findings[0].finding_id == "PFQA-INTERLEAVE-Q1-CHOICES-0-TEXT"
+
+
+def test_interleaving_severity_prioritizes_without_rewriting() -> None:
+    assert classify_interleaving(
+        ("fragment_density", "mixed_case_interleaving")
+    ) == "severe_interleaving"
+    assert classify_interleaving(
+        ("combined_interleaving",)
+    ) == "probable_interleaving"
+    assert classify_interleaving(
+        ("fragment_density",)
+    ) == "fragment_review"

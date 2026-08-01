@@ -22,6 +22,23 @@ class InterleavingAuditResult:
     question_id: str
     field: str
     blocker_codes: tuple[str, ...]
+    severity: str
+
+
+INTERLEAVING_SEVERITIES = (
+    "severe_interleaving",
+    "probable_interleaving",
+    "fragment_review",
+)
+
+
+def classify_interleaving(blocker_codes: tuple[str, ...]) -> str:
+    codes = set(blocker_codes)
+    if {"fragment_density", "mixed_case_interleaving"} <= codes:
+        return "severe_interleaving"
+    if "mixed_case_interleaving" in codes or "combined_interleaving" in codes:
+        return "probable_interleaving"
+    return "fragment_review"
 
 
 def iter_question_text(question: dict):
@@ -91,6 +108,7 @@ def audit_interleaving(pack: dict) -> list[InterleavingAuditResult]:
                         question_id=question["id"],
                         field=field,
                         blocker_codes=blockers,
+                        severity=classify_interleaving(blockers),
                     )
                 )
     return results
@@ -102,17 +120,26 @@ def finding_id_for_interleaving(result: InterleavingAuditResult) -> str:
     return f"PFQA-INTERLEAVE-{safe_question}-{safe_field}".upper()
 
 
-def interleaving_repair_findings(pack: dict) -> list[Finding]:
+def interleaving_repair_findings(
+    pack: dict,
+    *,
+    severity: str | None = None,
+) -> list[Finding]:
+    if severity is not None and severity not in INTERLEAVING_SEVERITIES:
+        raise ValueError(f"Unsupported interleaving severity: {severity}")
+
     return [
         Finding(
             finding_id=finding_id_for_interleaving(result),
             question_id=result.question_id,
             field=result.field,
             damage_type=(
-                "probable interleaved extraction text ("
+                result.severity.replace("_", " ")
+                + " ("
                 + ", ".join(result.blocker_codes)
                 + ")"
             ),
         )
         for result in audit_interleaving(pack)
+        if severity is None or result.severity == severity
     ]

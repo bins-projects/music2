@@ -35,3 +35,11 @@ def test_cli_accepts_pipeline_disposition() -> None:
     )
 
     assert args.disposition == "repair_rule_candidate"
+
+
+def test_cli_can_open_next_interleaving_tier() -> None:
+    args = build_parser().parse_args(
+        ["--next-interleaving", "severe_interleaving"]
+    )
+
+    assert args.next_interleaving == "severe_interleaving"

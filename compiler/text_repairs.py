@@ -61,6 +61,7 @@ SPLIT_SUFFIX_RE = re.compile(
     r"(s|ed|ing|ly|tion|ment|ness|ity|al|ous|ive)\b"
 )
 WORD_RE = re.compile(r"\b[A-Za-z]+\b")
+APOSTROPHE_MARKS = {"'", "‘", "’"}
 
 
 def normalize_extraction_typography(text: str) -> TypographyNormalization:
@@ -86,11 +87,18 @@ def case_transitions(word: str) -> int:
 
 
 def interleaving_blockers(text: str) -> tuple[str, ...]:
-    words = WORD_RE.findall(text)
+    word_matches = tuple(WORD_RE.finditer(text))
+    words = [match.group(0) for match in word_matches]
     singleton_fragments = [
-        word
-        for word in words
-        if len(word) == 1 and word.lower() not in {"a", "i"}
+        match.group(0)
+        for match in word_matches
+        if len(match.group(0)) == 1
+        and match.group(0).lower() not in {"a", "i"}
+        and not (
+            match.group(0).lower() == "s"
+            and match.start() > 0
+            and text[match.start() - 1] in APOSTROPHE_MARKS
+        )
     ]
     mixed_case_fragments = [
         word

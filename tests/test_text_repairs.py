@@ -67,6 +67,15 @@ def test_clean_reviewed_text_is_not_blocked() -> None:
     assert analysis.approved_rule_ids == ("join_ask_fragment",)
 
 
+def test_possessive_s_is_not_counted_as_fragment_damage() -> None:
+    analysis = analyze_text_repairs(
+        "The nurse‘s response reflects Erikson‘s theory and the patient‘s needs."
+    )
+
+    assert analysis.blocked is False
+    assert analysis.blocker_codes == ()
+
+
 def test_extraction_quote_artifacts_normalize_deterministically() -> None:
     result = normalize_extraction_typography(
         "The patient states, ―I understand.‖"

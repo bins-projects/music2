@@ -10,6 +10,14 @@ TEXT_FIELD_RE = re.compile(
 )
 LEDGER_PATH_RE = re.compile(r"^\$\.questions\[\d+]\.(.+)$")
 CHOICE_REQUIRED_TYPES = {"mc", "multiple_response", "ordered_response"}
+REPAIR_DISPOSITIONS = {
+    "one_question",
+    "detector_candidate",
+    "repair_rule_candidate",
+    "parser_candidate",
+    "validation_candidate",
+    "promotion_blocker",
+}
 
 
 class RepairError(ValueError):
@@ -230,6 +238,9 @@ def create_repair_record(
     *,
     disposition: str = "one_question",
 ) -> RepairRecord:
+    if disposition not in REPAIR_DISPOSITIONS:
+        raise RepairError(f"Unsupported repair disposition: {disposition}")
+
     replacement = replacement.strip()
     if not replacement:
         raise RepairError("Replacement text must not be empty")

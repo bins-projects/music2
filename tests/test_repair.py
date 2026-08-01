@@ -112,6 +112,25 @@ def test_stale_repair_record_is_rejected() -> None:
         apply_repair(canonical, record)
 
 
+def test_repair_records_validate_pipeline_disposition() -> None:
+    record = create_repair_record(
+        sample_pack(),
+        sample_finding(),
+        "Which action is appropriate?",
+        disposition="repair_rule_candidate",
+    )
+
+    assert record.disposition == "repair_rule_candidate"
+
+    with pytest.raises(RepairError, match="Unsupported repair disposition"):
+        create_repair_record(
+            sample_pack(),
+            sample_finding(),
+            "Which action is appropriate?",
+            disposition="automatic_rewrite",
+        )
+
+
 def test_candidate_writer_refuses_to_overwrite_canonical_pack(
     tmp_path: Path,
 ) -> None:

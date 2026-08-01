@@ -1,5 +1,5 @@
 from compiler.repair import Finding
-from compiler.repair_cli import render_question
+from compiler.repair_cli import build_parser, render_question
 
 
 def test_question_display_wraps_long_content() -> None:
@@ -27,3 +27,11 @@ def test_question_display_wraps_long_content() -> None:
 
     assert max(len(line) for line in rendered.splitlines()) <= 72
     assert "Correct: A" in rendered
+
+
+def test_cli_accepts_pipeline_disposition() -> None:
+    args = build_parser().parse_args(
+        ["--disposition", "repair_rule_candidate"]
+    )
+
+    assert args.disposition == "repair_rule_candidate"

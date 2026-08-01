@@ -3,6 +3,7 @@ import textwrap
 from pathlib import Path
 
 from compiler.repair import (
+    REPAIR_DISPOSITIONS,
     Finding,
     RepairError,
     apply_repair,
@@ -114,6 +115,12 @@ def build_parser() -> argparse.ArgumentParser:
     selection.add_argument("--finding-id")
     selection.add_argument("--question-id")
     parser.add_argument("--width", type=int, default=88)
+    parser.add_argument(
+        "--disposition",
+        choices=sorted(REPAIR_DISPOSITIONS),
+        default="one_question",
+        help="Classify what this repair teaches the ingestion pipeline.",
+    )
     return parser
 
 
@@ -143,7 +150,12 @@ def main() -> None:
             return
 
         replacement = read_multiline_replacement()
-        record = create_repair_record(pack, finding, replacement)
+        record = create_repair_record(
+            pack,
+            finding,
+            replacement,
+            disposition=args.disposition,
+        )
         candidate = apply_repair(pack, record)
 
         candidate_path = args.output / "candidate.prepflow.json"
@@ -159,6 +171,7 @@ def main() -> None:
         print("Repair recorded and applied to a candidate only.")
         print(wrapped("Before", record.before, args.width))
         print(wrapped("After", record.after, args.width))
+        print(f"Pipeline classification: {record.disposition}")
         print(f"Candidate: {candidate_path}")
         print(f"Repair record: {record_path}")
         print(f"Canonical Pack unchanged: {args.pack}")

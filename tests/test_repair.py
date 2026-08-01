@@ -101,6 +101,16 @@ def test_repair_changes_candidate_without_mutating_canonical_pack() -> None:
     )
 
 
+def test_repair_collapses_pasted_wrapping_and_indentation() -> None:
+    record = create_repair_record(
+        sample_pack(),
+        sample_finding(),
+        "Which action\n           is appropriate?",
+    )
+
+    assert record.after == "Which action is appropriate?"
+
+
 def test_stale_repair_record_is_rejected() -> None:
     canonical = sample_pack()
     record = create_repair_record(

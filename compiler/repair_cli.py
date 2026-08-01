@@ -31,6 +31,35 @@ DEFAULT_LEDGER = Path(
 DEFAULT_OUTPUT = Path("output/repair-workbench/fundamentals")
 
 
+def unrecorded_findings(findings: list[Finding], records: list) -> list[Finding]:
+    recorded_ids = {item.repair_id for item in records}
+    return [
+        item for item in findings
+        if item.finding_id not in recorded_ids
+    ]
+
+
+def add_or_amend_record(records: list, record, *, amend: bool):
+    matching_indexes = [
+        index
+        for index, item in enumerate(records)
+        if item.repair_id == record.repair_id
+    ]
+    if matching_indexes and not amend:
+        raise RepairError(f"Repair is already recorded: {record.repair_id}")
+    if amend:
+        if not matching_indexes:
+            raise RepairError(
+                f"Repair is not recorded and cannot be amended: "
+                f"{record.repair_id}"
+            )
+        updated = list(records)
+        updated[matching_indexes[0]] = record
+        return updated, "amended"
+
+    return [*records, record], "recorded"
+
+
 def wrapped(label: str, value: object, width: int) -> str:
     text = str(value)
     prefix = f"{label}: "
@@ -98,7 +127,8 @@ def render_question(
 def read_multiline_replacement() -> str:
     print()
     print("Enter the complete replacement for the flagged field.")
-    print("Finish with a line containing only a period.")
+    print("Include the field's own final punctuation in the replacement.")
+    print("Then finish with a separate line containing only a period.")
 
     lines = []
     while True:
@@ -132,6 +162,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="one_question",
         help="Classify what this repair teaches the ingestion pipeline.",
     )
+    parser.add_argument(
+        "--amend-existing",
+        action="store_true",
+        help="Replace an existing repair record with a corrected decision.",
+    )
     return parser
 
 
@@ -140,6 +175,15 @@ def main() -> None:
 
     try:
         pack = load_pack(args.pack)
+        candidate_path = args.output / "candidate.prepflow.json"
+        legacy_record_path = args.output / "repair-record.json"
+        record_set_path = args.output / "repair-records.json"
+        existing_record_path = (
+            record_set_path
+            if record_set_path.exists()
+            else legacy_record_path
+        )
+        records = load_repair_records(existing_record_path)
         findings = load_findings(args.ledger)
         findings.extend(typography_repair_findings(pack))
         findings.extend(interleaving_repair_findings(pack))
@@ -148,6 +192,7 @@ def main() -> None:
                 pack,
                 severity=args.next_interleaving,
             )
+            queue = unrecorded_findings(queue, records)
             if not queue:
                 raise RepairError(
                     "No findings remain in interleaving tier: "
@@ -181,20 +226,11 @@ def main() -> None:
             replacement,
             disposition=args.disposition,
         )
-        candidate_path = args.output / "candidate.prepflow.json"
-        legacy_record_path = args.output / "repair-record.json"
-        record_set_path = args.output / "repair-records.json"
-        existing_record_path = (
-            record_set_path
-            if record_set_path.exists()
-            else legacy_record_path
+        records, action_label = add_or_amend_record(
+            records,
+            record,
+            amend=args.amend_existing,
         )
-        records = load_repair_records(existing_record_path)
-        if any(item.repair_id == record.repair_id for item in records):
-            raise RepairError(
-                f"Repair is already recorded: {record.repair_id}"
-            )
-        records.append(record)
         candidate = apply_repairs(pack, records)
 
         write_candidate_pack(
@@ -207,7 +243,9 @@ def main() -> None:
             legacy_record_path.unlink()
 
         print()
-        print("Repair recorded and applied to a candidate only.")
+        print(
+            f"Repair {action_label} and applied to a candidate only."
+        )
         print(wrapped("Before", record.before, args.width))
         print(wrapped("After", record.after, args.width))
         print(f"Pipeline classification: {record.disposition}")

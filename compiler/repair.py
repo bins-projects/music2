@@ -246,7 +246,7 @@ def create_repair_record(
     if disposition not in REPAIR_DISPOSITIONS:
         raise RepairError(f"Unsupported repair disposition: {disposition}")
 
-    replacement = replacement.strip()
+    replacement = normalize_replacement_text(replacement)
     if not replacement:
         raise RepairError("Replacement text must not be empty")
 
@@ -268,6 +268,10 @@ def create_repair_record(
         approval="approved",
         disposition=disposition,
     )
+
+
+def normalize_replacement_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def apply_repair(pack: dict, record: RepairRecord) -> dict:

@@ -46,6 +46,12 @@ def main() -> None:
     print("PrepFlow candidate rebuilt")
     print(f"Approved manual repairs: {result.manual_repairs}")
     print(
+        "Approved text-rule repairs: "
+        f"{result.approved_text_fields_changed} fields"
+    )
+    for rule_id, count in result.approved_text_rule_fields:
+        print(f"  {rule_id}: {count}")
+    print(
         "Typography normalization: "
         f"{result.typography_fields_changed} fields, "
         f"{result.opening_marks_replaced} opening marks, "

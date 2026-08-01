@@ -54,6 +54,11 @@ APPROVED_TEXT_REPAIRS = (
         pattern=re.compile(r"\band as k for\b"),
         replacement="and ask for",
     ),
+    ApprovedTextRepair(
+        rule_id="join_which_fragment",
+        pattern=re.compile(r"\bw hich\b"),
+        replacement="which",
+    ),
 )
 
 SPLIT_SUFFIX_RE = re.compile(

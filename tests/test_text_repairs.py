@@ -23,6 +23,15 @@ def test_reviewed_phrase_repairs_apply_together() -> None:
     )
 
 
+def test_reviewed_which_fragment_is_repaired() -> None:
+    result = apply_approved_text_repairs(
+        "Choose w hich route is safest."
+    )
+
+    assert result.text == "Choose which route is safest."
+    assert result.applied_rule_ids == ("join_which_fragment",)
+
+
 def test_legitimate_single_letter_phrases_remain_unchanged() -> None:
     text = "Use vitamin K for a patient with type A blood; express it as k."
 

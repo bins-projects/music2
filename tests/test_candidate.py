@@ -95,3 +95,18 @@ def test_candidate_deduplicates_multiple_blockers_for_one_field() -> None:
     blocker = result.promotion_blockers[0]
     assert blocker.finding_id.startswith("PFQA-INTERLEAVE-")
     assert "unbalanced directional quotation marks" in blocker.damage_type
+
+
+def test_candidate_applies_approved_text_rules_after_manual_repairs() -> None:
+    pack = sample_pack()
+    pack["questions"][0]["choices"][1]["text"] = (
+        "Select w hich action is safest"
+    )
+
+    result = build_candidate(pack, [])
+
+    assert result.candidate["questions"][0]["choices"][1]["text"] == (
+        "Select which action is safest"
+    )
+    assert result.approved_text_fields_changed == 1
+    assert result.approved_text_rule_fields == (("join_which_fragment", 1),)

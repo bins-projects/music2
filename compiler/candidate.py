@@ -1,4 +1,5 @@
 import json
+from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -14,13 +15,18 @@ from compiler.repair import (
     apply_repairs,
     set_text_field,
 )
-from compiler.text_repairs import normalize_extraction_typography
+from compiler.text_repairs import (
+    apply_approved_text_repairs,
+    normalize_extraction_typography,
+)
 
 
 @dataclass(frozen=True)
 class CandidateBuildResult:
     candidate: dict
     manual_repairs: int
+    approved_text_fields_changed: int
+    approved_text_rule_fields: tuple[tuple[str, int], ...]
     typography_fields_changed: int
     opening_marks_replaced: int
     closing_marks_replaced: int
@@ -32,6 +38,17 @@ def build_candidate(
     records: list[RepairRecord],
 ) -> CandidateBuildResult:
     candidate = apply_repairs(pack, records)
+    approved_fields_changed = 0
+    approved_rule_fields = Counter()
+    for question in candidate["questions"]:
+        for field, text in tuple(iter_question_text(question)):
+            repaired = apply_approved_text_repairs(text)
+            if repaired.text == text:
+                continue
+            set_text_field(question, field, repaired.text)
+            approved_fields_changed += 1
+            approved_rule_fields.update(repaired.applied_rule_ids)
+
     typography = audit_typography(candidate)
     unbalanced = [item for item in typography if not item.balanced_after]
 
@@ -82,6 +99,8 @@ def build_candidate(
     return CandidateBuildResult(
         candidate=candidate,
         manual_repairs=len(records),
+        approved_text_fields_changed=approved_fields_changed,
+        approved_text_rule_fields=tuple(sorted(approved_rule_fields.items())),
         typography_fields_changed=len(typography),
         opening_marks_replaced=opening_marks,
         closing_marks_replaced=closing_marks,
@@ -96,6 +115,10 @@ def candidate_manifest(result: CandidateBuildResult) -> dict:
         "pack_id": result.candidate["pack_id"],
         "transformations": {
             "manual_repairs": result.manual_repairs,
+            "approved_text_repairs": {
+                "fields_changed": result.approved_text_fields_changed,
+                "rule_fields": dict(result.approved_text_rule_fields),
+            },
             "typography_normalization": {
                 "fields_changed": result.typography_fields_changed,
                 "opening_marks_replaced": result.opening_marks_replaced,

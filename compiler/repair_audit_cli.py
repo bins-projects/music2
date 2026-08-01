@@ -4,13 +4,19 @@ from pathlib import Path
 
 from compiler.repair import (
     RepairError,
+    apply_repairs,
     find_question,
     get_text_field,
     load_findings,
     load_pack,
+    load_repair_records,
 )
-from compiler.repair_cli import DEFAULT_LEDGER, DEFAULT_PACK
-from compiler.pack_qa import audit_interleaving, audit_typography
+from compiler.repair_cli import DEFAULT_LEDGER, DEFAULT_OUTPUT, DEFAULT_PACK
+from compiler.pack_qa import (
+    audit_choice_structure,
+    audit_interleaving,
+    audit_typography,
+)
 from compiler.text_repairs import analyze_text_repairs
 
 
@@ -57,6 +63,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--pack", type=Path, default=DEFAULT_PACK)
     parser.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER)
+    parser.add_argument(
+        "--repairs",
+        type=Path,
+        default=DEFAULT_OUTPUT / "repair-records.json",
+    )
     parser.add_argument("--show-all", action="store_true")
     parser.add_argument(
         "--show-typography-details",
@@ -64,6 +75,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--show-interleaving-details",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--show-structure-details",
         action="store_true",
     )
     return parser
@@ -78,6 +93,11 @@ def main() -> None:
         results = audit_split_findings(pack, findings)
         typography = audit_typography(pack)
         interleaving = audit_interleaving(pack)
+        repaired_candidate = apply_repairs(
+            pack,
+            load_repair_records(args.repairs),
+        )
+        choice_structure = audit_choice_structure(repaired_candidate)
     except (OSError, RepairError) as error:
         raise SystemExit(f"Repair audit stopped: {error}") from error
 
@@ -191,6 +211,43 @@ def main() -> None:
 
     print()
     print("Detection only. No interleaved text was rewritten.")
+
+    print()
+    print("PrepFlow choice-structure dry run")
+    print(f"Questions requiring review: {len(choice_structure)}")
+    structure_counts = Counter(
+        code for item in choice_structure for code in item.issue_codes
+    )
+    for code in (
+        "missing_choice_collection",
+        "invalid_choice_label",
+        "duplicate_choice_label",
+        "missing_sequence_label",
+        "noncanonical_choice_order",
+        "correct_answer_without_choice",
+        "possible_choice_absorbed_in_stem",
+    ):
+        print(f"  {code}: {structure_counts[code]}")
+
+    visible_structure = [
+        item
+        for item in choice_structure
+        if item.absorbed_markers or args.show_structure_details
+    ]
+    if visible_structure:
+        print()
+    for item in visible_structure:
+        labels = ",".join(item.labels) or "none"
+        missing = ",".join(item.missing_labels) or "none"
+        absorbed = ",".join(item.absorbed_markers) or "none"
+        print(
+            f"{item.question_id} | labels={labels} | missing={missing} | "
+            f"absorbed_marker={absorbed}"
+        )
+        print("  " + ", ".join(item.issue_codes))
+
+    print()
+    print("Detection only. No choice structure was rewritten.")
 
 
 if __name__ == "__main__":

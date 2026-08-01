@@ -137,6 +137,7 @@ At minimum, promotion must confirm:
 - the candidate can be loaded;
 - required Pack and question fields are present;
 - question types are structurally valid;
+- choice labels are present, unique, contiguous, and correctly ordered;
 - correct-answer mappings are valid;
 - identifiers are valid and stable;
 - chapter organization is coherent;
@@ -182,6 +183,12 @@ has been absorbed into a stem, one repair must correct the stem and restore the
 choice together, then revalidate the complete question and its correct-answer
 mapping. A stale pre-change shape blocks the repair rather than risking a partial
 or misplaced edit.
+
+Choice-structure QA runs Pack-wide and blocks promotion when it detects missing,
+duplicate, or out-of-order labels; a correct answer without a corresponding
+choice; or evidence that a labeled choice was absorbed into the stem. This audit
+is detection-only. It reports patterns before any generalized parser repair is
+allowed to rewrite candidate content.
 
 ## 7. Repair Confidence
 

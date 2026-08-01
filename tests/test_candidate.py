@@ -132,3 +132,19 @@ def test_candidate_manifest_summarizes_source_agnostic_repair_lessons() -> None:
     assert manifest["transformations"]["manual_repair_lessons"] == {
         "whitespace_only": 1,
     }
+
+
+def test_candidate_blocks_malformed_choice_structure() -> None:
+    pack = sample_pack()
+    question = pack["questions"][0]
+    question["stem"] = "Which action? A. First action"
+    question["choices"] = question["choices"][1:]
+
+    result = build_candidate(pack, [])
+
+    blockers = [
+        item for item in result.promotion_blockers
+        if "choice structure" in item.damage_type
+    ]
+    assert len(blockers) == 1
+    assert blockers[0].question_id == question["id"]

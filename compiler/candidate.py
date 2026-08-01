@@ -5,6 +5,7 @@ from pathlib import Path
 
 from compiler.pack_qa import (
     audit_typography,
+    choice_structure_repair_findings,
     finding_id_for_typography,
     interleaving_repair_findings,
     iter_question_text,
@@ -97,6 +98,18 @@ def build_candidate(
         (item.question_id, item.field): item
         for item in interleaving_repair_findings(candidate)
     }
+    for item in choice_structure_repair_findings(candidate):
+        key = (item.question_id, item.field)
+        existing = blocker_by_field.get(key)
+        if existing is None:
+            blocker_by_field[key] = item
+        else:
+            blocker_by_field[key] = Finding(
+                finding_id=existing.finding_id,
+                question_id=existing.question_id,
+                field=existing.field,
+                damage_type=existing.damage_type + "; " + item.damage_type,
+            )
     for item in typography_blockers:
         key = (item.question_id, item.field)
         existing = blocker_by_field.get(key)

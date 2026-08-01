@@ -1,5 +1,6 @@
 from compiler.repair import Finding
 from compiler.pack_qa import (
+    audit_choice_structure,
     audit_interleaving,
     audit_typography,
     classify_interleaving,
@@ -120,3 +121,47 @@ def test_interleaving_severity_prioritizes_without_rewriting() -> None:
     assert classify_interleaving(
         ("fragment_density",)
     ) == "fragment_review"
+
+
+def test_choice_structure_audit_detects_choice_absorbed_into_stem() -> None:
+    pack = {
+        "questions": [
+            {
+                "id": "Q1",
+                "type": "mc",
+                "stem": "Which item? A. First choice",
+                "choices": [
+                    {"label": "B", "text": "Second choice"},
+                    {"label": "C", "text": "Third choice"},
+                    {"label": "D", "text": "Fourth choice"},
+                ],
+                "correct_answers": ["C"],
+            }
+        ]
+    }
+
+    results = audit_choice_structure(pack)
+
+    assert len(results) == 1
+    assert results[0].missing_labels == ("A",)
+    assert results[0].absorbed_markers == ("A",)
+    assert "possible_choice_absorbed_in_stem" in results[0].issue_codes
+
+
+def test_choice_structure_audit_accepts_contiguous_choices() -> None:
+    pack = {
+        "questions": [
+            {
+                "id": "Q1",
+                "type": "mc",
+                "stem": "Which item?",
+                "choices": [
+                    {"label": "A", "text": "First choice"},
+                    {"label": "B", "text": "Second choice"},
+                ],
+                "correct_answers": ["A"],
+            }
+        ]
+    }
+
+    assert audit_choice_structure(pack) == []

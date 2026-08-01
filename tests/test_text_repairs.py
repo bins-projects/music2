@@ -104,7 +104,19 @@ def test_typography_normalization_preserves_real_punctuation() -> None:
     assert result.text == text
     assert result.opening_marks_replaced == 0
     assert result.closing_marks_replaced == 0
+    assert result.apostrophes_replaced == 0
     assert result.balanced is True
+
+
+def test_contextual_left_quote_normalizes_to_apostrophe() -> None:
+    result = normalize_extraction_typography(
+        "The nurse‘s plan respects patients‘ needs and doctors‘ orders."
+    )
+
+    assert result.text == (
+        "The nurse’s plan respects patients’ needs and doctors’ orders."
+    )
+    assert result.apostrophes_replaced == 3
 
 
 def test_missing_closing_quote_remains_review_required() -> None:

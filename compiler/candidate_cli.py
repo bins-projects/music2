@@ -58,7 +58,8 @@ def main() -> None:
         "Typography normalization: "
         f"{result.typography_fields_changed} fields, "
         f"{result.opening_marks_replaced} opening marks, "
-        f"{result.closing_marks_replaced} closing marks"
+        f"{result.closing_marks_replaced} closing marks, "
+        f"{result.apostrophes_replaced} apostrophes"
     )
     print(f"Promotion blockers: {len(result.promotion_blockers)}")
     if args.show_blockers:

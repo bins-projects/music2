@@ -35,6 +35,7 @@ class TypographyNormalization:
     text: str
     opening_marks_replaced: int
     closing_marks_replaced: int
+    apostrophes_replaced: int
     opening_quotes: int
     closing_quotes: int
 
@@ -73,11 +74,17 @@ def normalize_extraction_typography(text: str) -> TypographyNormalization:
     opening_marks = text.count("―")
     closing_marks = text.count("‖")
     normalized = text.replace("―", "“").replace("‖", "”")
+    normalized, apostrophes = re.subn(
+        r"(?<=[A-Za-z])‘",
+        "’",
+        normalized,
+    )
 
     return TypographyNormalization(
         text=normalized,
         opening_marks_replaced=opening_marks,
         closing_marks_replaced=closing_marks,
+        apostrophes_replaced=apostrophes,
         opening_quotes=normalized.count("“"),
         closing_quotes=normalized.count("”"),
     )

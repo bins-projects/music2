@@ -121,6 +121,7 @@ def main() -> None:
 
     opening_count = sum(item.opening_marks for item in typography)
     closing_count = sum(item.closing_marks for item in typography)
+    apostrophe_count = sum(item.apostrophes for item in typography)
     unbalanced = [item for item in typography if not item.balanced_after]
 
     print()
@@ -128,6 +129,7 @@ def main() -> None:
     print(f"Fields affected: {len(typography)}")
     print(f"Horizontal bars to opening quotes: {opening_count}")
     print(f"Double vertical lines to closing quotes: {closing_count}")
+    print(f"Contextual left quotes to apostrophes: {apostrophe_count}")
     print(f"Unbalanced fields after normalization: {len(unbalanced)}")
 
     visible_typography = typography if args.show_typography_details else unbalanced

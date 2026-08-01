@@ -14,6 +14,7 @@ class TypographyAuditResult:
     field: str
     opening_marks: int
     closing_marks: int
+    apostrophes: int
     balanced_after: bool
 
 
@@ -62,6 +63,7 @@ def audit_typography(pack: dict) -> list[TypographyAuditResult]:
             if not (
                 normalization.opening_marks_replaced
                 or normalization.closing_marks_replaced
+                or normalization.apostrophes_replaced
             ):
                 continue
 
@@ -71,6 +73,7 @@ def audit_typography(pack: dict) -> list[TypographyAuditResult]:
                     field=field,
                     opening_marks=normalization.opening_marks_replaced,
                     closing_marks=normalization.closing_marks_replaced,
+                    apostrophes=normalization.apostrophes_replaced,
                     balanced_after=normalization.balanced,
                 )
             )

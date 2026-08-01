@@ -32,6 +32,7 @@ class CandidateBuildResult:
     typography_fields_changed: int
     opening_marks_replaced: int
     closing_marks_replaced: int
+    apostrophes_replaced: int
     promotion_blockers: tuple[Finding, ...]
 
 
@@ -60,18 +61,21 @@ def build_candidate(
 
     opening_marks = 0
     closing_marks = 0
+    apostrophes = 0
     for question in candidate["questions"]:
         for field, text in tuple(iter_question_text(question)):
             normalized = normalize_extraction_typography(text)
             if not (
                 normalized.opening_marks_replaced
                 or normalized.closing_marks_replaced
+                or normalized.apostrophes_replaced
             ):
                 continue
 
             set_text_field(question, field, normalized.text)
             opening_marks += normalized.opening_marks_replaced
             closing_marks += normalized.closing_marks_replaced
+            apostrophes += normalized.apostrophes_replaced
 
     typography_blockers = tuple(
         Finding(
@@ -111,6 +115,7 @@ def build_candidate(
         typography_fields_changed=len(typography),
         opening_marks_replaced=opening_marks,
         closing_marks_replaced=closing_marks,
+        apostrophes_replaced=apostrophes,
         promotion_blockers=tuple(blocker_by_field.values()),
     )
 
@@ -131,6 +136,7 @@ def candidate_manifest(result: CandidateBuildResult) -> dict:
                 "fields_changed": result.typography_fields_changed,
                 "opening_marks_replaced": result.opening_marks_replaced,
                 "closing_marks_replaced": result.closing_marks_replaced,
+                "apostrophes_replaced": result.apostrophes_replaced,
             },
         },
         "promotion_blockers": [

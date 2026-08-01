@@ -68,12 +68,13 @@ def test_typography_audit_reports_only_affected_fields() -> None:
             item.field,
             item.opening_marks,
             item.closing_marks,
+            item.apostrophes,
             item.balanced_after,
         )
         for item in results
     ] == [
-        ("Q1", "stem", 1, 1, True),
-        ("Q2", "stem", 1, 0, False),
+        ("Q1", "stem", 1, 1, 0, True),
+        ("Q2", "stem", 1, 0, 0, False),
     ]
 
     findings = typography_repair_findings(pack)

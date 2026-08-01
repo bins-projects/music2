@@ -7,6 +7,7 @@ import pytest
 from compiler.repair import (
     Finding,
     RepairError,
+    analyze_repair_delta,
     apply_repair,
     apply_repairs,
     create_repair_record,
@@ -109,6 +110,21 @@ def test_repair_collapses_pasted_wrapping_and_indentation() -> None:
     )
 
     assert record.after == "Which action is appropriate?"
+
+
+def test_repair_delta_classifies_conservative_cleanup_patterns() -> None:
+    assert analyze_repair_delta(
+        "Choose w hich action.", "Choose which action."
+    ).classification == "whitespace_only"
+    assert analyze_repair_delta(
+        "Clean rationale. Foreign metadata", "Clean rationale."
+    ).classification == "trailing_metadata_removed"
+    overlay = analyze_repair_delta(
+        "beyNonUdRthSoIseNproGvidTedB.inCanOassociate",
+        "beyondthoseprovidedinanassociate",
+    )
+    assert overlay.classification == "uppercase_overlay_fragment_removed"
+    assert overlay.removed_characters == 12
 
 
 def test_stale_repair_record_is_rejected() -> None:

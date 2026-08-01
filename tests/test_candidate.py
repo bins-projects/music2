@@ -110,3 +110,25 @@ def test_candidate_applies_approved_text_rules_after_manual_repairs() -> None:
     )
     assert result.approved_text_fields_changed == 1
     assert result.approved_text_rule_fields == (("join_which_fragment", 1),)
+
+
+def test_candidate_manifest_summarizes_source_agnostic_repair_lessons() -> None:
+    pack = sample_pack()
+    record = create_repair_record(
+        pack,
+        Finding(
+            "TEST-REPAIR-LESSON",
+            "PFQ-test-pack-000000001",
+            "stem",
+            "spacing artifact",
+        ),
+        "The patient states,―I understand.‖",
+    )
+
+    result = build_candidate(pack, [record])
+    manifest = candidate_manifest(result)
+
+    assert result.manual_repair_lessons == (("whitespace_only", 1),)
+    assert manifest["transformations"]["manual_repair_lessons"] == {
+        "whitespace_only": 1,
+    }

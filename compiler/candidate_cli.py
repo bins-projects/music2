@@ -45,6 +45,9 @@ def main() -> None:
 
     print("PrepFlow candidate rebuilt")
     print(f"Approved manual repairs: {result.manual_repairs}")
+    print("Manual repair lessons:")
+    for lesson, count in result.manual_repair_lessons:
+        print(f"  {lesson}: {count}")
     print(
         "Approved text-rule repairs: "
         f"{result.approved_text_fields_changed} fields"

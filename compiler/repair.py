@@ -47,6 +47,12 @@ class RepairRecord:
     disposition: str
 
 
+@dataclass(frozen=True)
+class RepairDeltaAnalysis:
+    classification: str
+    removed_characters: int
+
+
 REPAIR_RECORD_FIELDS = {
     field.name for field in RepairRecord.__dataclass_fields__.values()
 }
@@ -272,6 +278,48 @@ def create_repair_record(
 
 def normalize_replacement_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
+
+
+def analyze_repair_delta(before: str, after: str) -> RepairDeltaAnalysis:
+    compact_before = re.sub(r"\s+", "", before)
+    compact_after = re.sub(r"\s+", "", after)
+    if compact_before == compact_after:
+        return RepairDeltaAnalysis("whitespace_only", 0)
+
+    if compact_before.startswith(compact_after):
+        return RepairDeltaAnalysis(
+            "trailing_metadata_removed",
+            len(compact_before) - len(compact_after),
+        )
+
+    after_index = 0
+    removed = []
+    for character in compact_before:
+        if (
+            after_index < len(compact_after)
+            and character == compact_after[after_index]
+        ):
+            after_index += 1
+        else:
+            removed.append(character)
+
+    if after_index != len(compact_after):
+        return RepairDeltaAnalysis("manual_text_rewrite", len(removed))
+
+    overlay_like = (
+        len(removed) >= 4
+        and any(character.isupper() for character in removed)
+        and all(
+            character.isupper() or not character.isalpha()
+            for character in removed
+        )
+    )
+    classification = (
+        "uppercase_overlay_fragment_removed"
+        if overlay_like
+        else "character_deletion_candidate"
+    )
+    return RepairDeltaAnalysis(classification, len(removed))
 
 
 def apply_repair(pack: dict, record: RepairRecord) -> dict:

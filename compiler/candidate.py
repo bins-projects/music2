@@ -12,6 +12,7 @@ from compiler.pack_qa import (
 from compiler.repair import (
     Finding,
     RepairRecord,
+    analyze_repair_delta,
     apply_repairs,
     set_text_field,
 )
@@ -25,6 +26,7 @@ from compiler.text_repairs import (
 class CandidateBuildResult:
     candidate: dict
     manual_repairs: int
+    manual_repair_lessons: tuple[tuple[str, int], ...]
     approved_text_fields_changed: int
     approved_text_rule_fields: tuple[tuple[str, int], ...]
     typography_fields_changed: int
@@ -38,6 +40,10 @@ def build_candidate(
     records: list[RepairRecord],
 ) -> CandidateBuildResult:
     candidate = apply_repairs(pack, records)
+    manual_repair_lessons = Counter(
+        analyze_repair_delta(record.before, record.after).classification
+        for record in records
+    )
     approved_fields_changed = 0
     approved_rule_fields = Counter()
     for question in candidate["questions"]:
@@ -99,6 +105,7 @@ def build_candidate(
     return CandidateBuildResult(
         candidate=candidate,
         manual_repairs=len(records),
+        manual_repair_lessons=tuple(sorted(manual_repair_lessons.items())),
         approved_text_fields_changed=approved_fields_changed,
         approved_text_rule_fields=tuple(sorted(approved_rule_fields.items())),
         typography_fields_changed=len(typography),
@@ -115,6 +122,7 @@ def candidate_manifest(result: CandidateBuildResult) -> dict:
         "pack_id": result.candidate["pack_id"],
         "transformations": {
             "manual_repairs": result.manual_repairs,
+            "manual_repair_lessons": dict(result.manual_repair_lessons),
             "approved_text_repairs": {
                 "fields_changed": result.approved_text_fields_changed,
                 "rule_fields": dict(result.approved_text_rule_fields),

@@ -12,6 +12,7 @@ from compiler.pack_qa import (
 from compiler.repair import (
     Finding,
     RepairRecord,
+    StemChoiceSplitRecord,
     analyze_repair_delta,
     apply_repairs,
     set_text_field,
@@ -38,13 +39,19 @@ class CandidateBuildResult:
 
 def build_candidate(
     pack: dict,
-    records: list[RepairRecord],
+    records: list[RepairRecord | StemChoiceSplitRecord],
 ) -> CandidateBuildResult:
     candidate = apply_repairs(pack, records)
-    manual_repair_lessons = Counter(
-        analyze_repair_delta(record.before, record.after).classification
-        for record in records
-    )
+    manual_repair_lessons = Counter()
+    for record in records:
+        if isinstance(record, StemChoiceSplitRecord):
+            manual_repair_lessons["stem_choice_split"] += 1
+        else:
+            lesson = analyze_repair_delta(
+                record.before,
+                record.after,
+            ).classification
+            manual_repair_lessons[lesson] += 1
     approved_fields_changed = 0
     approved_rule_fields = Counter()
     for question in candidate["questions"]:

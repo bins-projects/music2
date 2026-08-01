@@ -11,6 +11,7 @@ from compiler.repair import (
     Finding,
     RepairError,
     RepairRecord,
+    StemChoiceSplitRecord,
     analyze_repair_delta,
     apply_repairs,
     deletion_subsequence,
@@ -83,9 +84,13 @@ def shortest_common_supersequence(left: str, right: str) -> str:
     return "".join(reversed(output))
 
 
-def learn_overlay_signature(records: list[RepairRecord]) -> tuple[str, int]:
+def learn_overlay_signature(
+    records: list[RepairRecord | StemChoiceSplitRecord],
+) -> tuple[str, int]:
     fragments = []
     for record in records:
+        if isinstance(record, StemChoiceSplitRecord):
+            continue
         analysis = analyze_repair_delta(record.before, record.after)
         if analysis.classification != "uppercase_overlay_fragment_removed":
             continue
@@ -147,7 +152,7 @@ def classify_evidence(score: int, signature_length: int) -> str:
 
 def profile_pack_artifacts(
     pack: dict,
-    records: list[RepairRecord],
+    records: list[RepairRecord | StemChoiceSplitRecord],
 ) -> ArtifactProfileResult:
     signature, training_repairs = learn_overlay_signature(records)
     scored = score_pack_artifacts(pack, records, signature=signature)
@@ -165,7 +170,7 @@ def profile_pack_artifacts(
 
 def score_pack_artifacts(
     pack: dict,
-    records: list[RepairRecord],
+    records: list[RepairRecord | StemChoiceSplitRecord],
     *,
     signature: str | None = None,
 ) -> list[ArtifactEvidenceFinding]:
@@ -204,7 +209,7 @@ def score_pack_artifacts(
 
 def artifact_evidence_findings(
     pack: dict,
-    records: list[RepairRecord],
+    records: list[RepairRecord | StemChoiceSplitRecord],
     classification: str,
 ) -> list[Finding]:
     if classification not in ARTIFACT_EVIDENCE_LEVELS:

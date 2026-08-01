@@ -120,7 +120,8 @@ Each stage has one responsibility:
 - Normalization converts supported parser output into one Pack-ready shape.
 - Validation checks structural and content invariants without inventing content.
 - QA classifies uncertainty and sends reviewable records to the workbench.
-- Repair applies explicit field-level decisions to candidate records.
+- Repair applies explicit field-level or atomic structural decisions to candidate
+  records.
 - Approval promotes a validated candidate Pack to canonical status.
 - Cleanup removes temporary source and whole-document artifacts.
 
@@ -161,7 +162,7 @@ A review shows only source-neutral question data:
 - finding type; and
 - proposed correction when one is safe to propose.
 
-A repair record may retain:
+A field-level repair record may retain:
 
 - PrepFlow question ID;
 - field or field path;
@@ -173,6 +174,14 @@ A repair record may retain:
   generalized rule.
 
 It must not retain source identity or document provenance.
+
+A structural repair record may instead retain a source-neutral operation, the
+expected pre-change question shape, and the corrected values needed to apply that
+operation. Structural changes must be atomic. For example, when a visible choice
+has been absorbed into a stem, one repair must correct the stem and restore the
+choice together, then revalidate the complete question and its correct-answer
+mapping. A stale pre-change shape blocks the repair rather than risking a partial
+or misplaced edit.
 
 ## 7. Repair Confidence
 
@@ -192,10 +201,12 @@ not silently treat probability as fact.
 
 ### Source-required repair
 
-Missing choices, absent correct answers, truncation, dosages, measurements,
-negations, priority wording, select-all-that-apply structure, and changes that may
-alter clinical meaning require the user to consult or resupply the separately
-stored material.
+Missing choices whose wording is absent, absent correct answers, truncation,
+dosages, measurements, negations, priority wording, select-all-that-apply
+structure, and changes that may alter clinical meaning require the user to consult
+or resupply the separately stored material. A choice whose complete wording is
+visibly absorbed into an adjacent field may be restored through a human-approved
+atomic structural repair.
 
 ## 8. Turning Repairs into Importer Knowledge
 
@@ -329,3 +340,7 @@ The first vertical slice will:
 
 This slice does not import a new document yet. It establishes the repair,
 validation, and candidate-safety foundation that the independent importer will use.
+
+The workbench subsequently extends this foundation with atomic structural repairs,
+including splitting a visible choice out of a damaged stem. These repairs remain
+candidate-only and use exact pre-change checks to prevent partial application.

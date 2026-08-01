@@ -48,6 +48,24 @@ class RepairRecord:
 
 
 @dataclass(frozen=True)
+class StemChoiceSplitRecord:
+    format: str
+    version: str
+    repair_id: str
+    pack_id: str
+    question_id: str
+    before_stem: str
+    after_stem: str
+    expected_choice_labels: tuple[str, ...]
+    insert_index: int
+    insert_label: str
+    insert_text: str
+    damage_type: str
+    approval: str
+    disposition: str
+
+
+@dataclass(frozen=True)
 class RepairDeltaAnalysis:
     classification: str
     removed_characters: int
@@ -56,6 +74,10 @@ class RepairDeltaAnalysis:
 REPAIR_RECORD_FIELDS = {
     field.name for field in RepairRecord.__dataclass_fields__.values()
 }
+STEM_CHOICE_SPLIT_FIELDS = {
+    field.name for field in StemChoiceSplitRecord.__dataclass_fields__.values()
+}
+RepairEntry = RepairRecord | StemChoiceSplitRecord
 
 
 def load_json(path: str | Path) -> dict:
@@ -276,6 +298,55 @@ def create_repair_record(
     )
 
 
+def create_stem_choice_split_record(
+    pack: dict,
+    finding: Finding,
+    corrected_stem: str,
+    *,
+    insert_label: str,
+    insert_text: str,
+    insert_index: int = 0,
+    disposition: str = "parser_candidate",
+) -> StemChoiceSplitRecord:
+    if disposition not in REPAIR_DISPOSITIONS:
+        raise RepairError(f"Unsupported repair disposition: {disposition}")
+    if finding.field != "stem":
+        raise RepairError("Stem-choice split finding must target the stem")
+
+    corrected_stem = normalize_replacement_text(corrected_stem)
+    insert_text = normalize_replacement_text(insert_text)
+    insert_label = insert_label.strip()
+    if not corrected_stem or not insert_text or not insert_label:
+        raise RepairError("Structural repair values must not be empty")
+
+    question = find_question(pack, finding.question_id)
+    choices = question.get("choices")
+    if not isinstance(choices, list):
+        raise RepairError("Question choices must be a list")
+    labels = tuple(str(choice.get("label") or "") for choice in choices)
+    if insert_label in labels:
+        raise RepairError(f"Choice label already exists: {insert_label}")
+    if insert_index < 0 or insert_index > len(choices):
+        raise RepairError(f"Choice insertion index is out of range: {insert_index}")
+
+    return StemChoiceSplitRecord(
+        format="prepflow_stem_choice_split_record",
+        version="1.0",
+        repair_id=finding.finding_id,
+        pack_id=pack["pack_id"],
+        question_id=finding.question_id,
+        before_stem=question["stem"],
+        after_stem=corrected_stem,
+        expected_choice_labels=labels,
+        insert_index=insert_index,
+        insert_label=insert_label,
+        insert_text=insert_text,
+        damage_type=finding.damage_type,
+        approval="approved",
+        disposition=disposition,
+    )
+
+
 def normalize_replacement_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
@@ -332,11 +403,11 @@ def analyze_repair_delta(before: str, after: str) -> RepairDeltaAnalysis:
     return RepairDeltaAnalysis(classification, len(removed))
 
 
-def apply_repair(pack: dict, record: RepairRecord) -> dict:
+def apply_repair(pack: dict, record: RepairEntry) -> dict:
     return apply_repairs(pack, [record])
 
 
-def apply_repairs(pack: dict, records: list[RepairRecord]) -> dict:
+def apply_repairs(pack: dict, records: list[RepairEntry]) -> dict:
     candidate = copy.deepcopy(pack)
     seen_ids = set()
 
@@ -345,7 +416,10 @@ def apply_repairs(pack: dict, records: list[RepairRecord]) -> dict:
             raise RepairError(f"Duplicate repair identifier: {record.repair_id}")
         seen_ids.add(record.repair_id)
 
-        apply_repair_to_candidate(candidate, record)
+        if isinstance(record, StemChoiceSplitRecord):
+            apply_stem_choice_split_to_candidate(candidate, record)
+        else:
+            apply_repair_to_candidate(candidate, record)
 
     return candidate
 
@@ -365,9 +439,52 @@ def apply_repair_to_candidate(candidate: dict, record: RepairRecord) -> None:
     validate_candidate_question(question)
 
 
-def repair_record_from_dict(value: object) -> RepairRecord:
+def apply_stem_choice_split_to_candidate(
+    candidate: dict,
+    record: StemChoiceSplitRecord,
+) -> None:
+    if record.pack_id != candidate.get("pack_id"):
+        raise RepairError("Repair record belongs to a different Pack")
+
+    question = find_question(candidate, record.question_id)
+    if question.get("stem") != record.before_stem:
+        raise RepairError("Structural repair no longer matches the current stem")
+    choices = question.get("choices")
+    if not isinstance(choices, list):
+        raise RepairError("Question choices must be a list")
+    labels = tuple(str(choice.get("label") or "") for choice in choices)
+    if labels != record.expected_choice_labels:
+        raise RepairError("Structural repair no longer matches current choices")
+
+    question["stem"] = record.after_stem
+    choices.insert(
+        record.insert_index,
+        {"label": record.insert_label, "text": record.insert_text},
+    )
+    validate_candidate_question(question)
+
+
+def repair_record_from_dict(value: object) -> RepairEntry:
     if not isinstance(value, dict):
         raise RepairError("Repair record must be an object")
+
+    if value.get("format") == "prepflow_stem_choice_split_record":
+        if set(value) != STEM_CHOICE_SPLIT_FIELDS:
+            raise RepairError("Structural repair fields do not match the schema")
+        converted = dict(value)
+        labels = converted.get("expected_choice_labels")
+        if not isinstance(labels, list):
+            raise RepairError("Structural repair choice labels must be a list")
+        converted["expected_choice_labels"] = tuple(labels)
+        record = StemChoiceSplitRecord(**converted)
+        if record.version != "1.0":
+            raise RepairError("Unsupported structural repair format")
+        if record.disposition not in REPAIR_DISPOSITIONS:
+            raise RepairError(
+                f"Unsupported repair disposition: {record.disposition}"
+            )
+        return record
+
     if set(value) != REPAIR_RECORD_FIELDS:
         raise RepairError("Repair record fields do not match the schema")
 
@@ -381,7 +498,7 @@ def repair_record_from_dict(value: object) -> RepairRecord:
     return record
 
 
-def load_repair_records(path: str | Path) -> list[RepairRecord]:
+def load_repair_records(path: str | Path) -> list[RepairEntry]:
     source = Path(path)
     if not source.exists():
         return []
@@ -428,7 +545,7 @@ def write_candidate_pack(
 
 
 def write_repair_set(
-    records: list[RepairRecord],
+    records: list[RepairEntry],
     path: str | Path,
 ) -> Path:
     if not records:

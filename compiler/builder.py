@@ -1,5 +1,5 @@
 from compiler.ids import generate_question_id
-from compiler.models import Answer, Content, Origin, Pack, Question
+from compiler.models import Answer, Content, Organization, Pack, Question
 
 
 def build_question(question: dict, index: int, pack_id: str) -> Question:
@@ -19,10 +19,10 @@ def build_question(question: dict, index: int, pack_id: str) -> Question:
     return Question(
         id=question_id,
         version=1,
-        origin=Origin(
+        organization=Organization(
             chapter=question["chapter"],
             chapter_title=question.get("chapter_title") or "",
-            source_id=str(question["question_number"]),
+            question_number=question["question_number"],
         ),
         content=Content(
             stem=question["stem"],
@@ -54,7 +54,6 @@ def build_pack(
     version: str = "1.0",
     schema_version: str = "0.1",
     created: str = "",
-    source: dict | None = None,
 ) -> Pack:
     """
     Build a canonical PrepFlow Pack from canonical Questions.
@@ -66,6 +65,5 @@ def build_pack(
         version=version,
         schema_version=schema_version,
         created=created,
-        source=source or {},
         questions=questions,
     )

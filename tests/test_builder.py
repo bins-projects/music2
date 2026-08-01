@@ -23,8 +23,8 @@ def test_build_question_preserves_chapter() -> None:
         pack_id="fundamentals",
     )
 
-    assert built.origin.chapter == 1
-    assert built.origin.source_id == "3"
+    assert built.organization.chapter == 1
+    assert built.organization.question_number == 3
 
 
 def test_build_question_generates_pack_namespaced_id() -> None:

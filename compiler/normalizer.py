@@ -15,7 +15,6 @@ def normalize_question(question: dict) -> dict:
     Canonical compiler input fields:
 
     - id
-    - source
     - chapter
     - chapter_title
     - question_number
@@ -62,7 +61,6 @@ def normalize_question(question: dict) -> dict:
 
     return {
         "id": question.get("id"),
-        "source": question.get("source"),
         "chapter": chapter,
         "chapter_title": chapter_title,
         "question_number": question_number,

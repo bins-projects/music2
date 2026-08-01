@@ -12,19 +12,12 @@ class Answer:
     value: object
 
 @dataclass
-class Origin:
-    """
-    Tracks where a Question came from before PrepFlow standardized it.
-    """
+class Organization:
+    """Stores source-neutral placement within a PrepFlow Pack."""
 
-    publisher: str = ""
-    book: str = ""
-    edition: str = ""
     chapter: object = ""
     chapter_title: str = ""
-    section: str = ""
-    page: Optional[int] = None
-    source_id: str = ""
+    question_number: object = ""
 
 
 @dataclass
@@ -71,7 +64,7 @@ class Question:
 
     id: str
     version: int
-    origin: Origin
+    organization: Organization
     content: Content
     answer: Answer
     classification: Classification = field(default_factory=Classification)
@@ -88,5 +81,4 @@ class Pack:
     version: str
     schema_version: str
     created: str
-    source: dict
     questions: list[Question] = field(default_factory=list)

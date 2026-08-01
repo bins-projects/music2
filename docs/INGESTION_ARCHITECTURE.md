@@ -189,6 +189,9 @@ duplicate, or out-of-order labels; a correct answer without a corresponding
 choice; or evidence that a labeled choice was absorbed into the stem. This audit
 is detection-only. It reports patterns before any generalized parser repair is
 allowed to rewrite candidate content.
+Each structural audit finding has a stable, source-neutral identifier that the
+structural repair workbench can open directly; it does not depend on a separate
+text-damage detector also recognizing the same question.
 
 ## 7. Repair Confidence
 

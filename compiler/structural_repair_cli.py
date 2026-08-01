@@ -1,7 +1,10 @@
 import argparse
 from pathlib import Path
 
-from compiler.pack_qa import interleaving_repair_findings
+from compiler.pack_qa import (
+    choice_structure_repair_findings,
+    interleaving_repair_findings,
+)
 from compiler.repair import (
     REPAIR_DISPOSITIONS,
     RepairError,
@@ -46,11 +49,18 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def structural_findings(pack: dict):
+    """Return both structural QA findings and legacy interleaving findings."""
+    return choice_structure_repair_findings(pack) + interleaving_repair_findings(
+        pack
+    )
+
+
 def main() -> None:
     args = build_parser().parse_args()
     try:
         pack = load_pack(args.pack)
-        findings = interleaving_repair_findings(pack)
+        findings = structural_findings(pack)
         finding = select_finding(findings, finding_id=args.finding_id)
         if finding.field != "stem":
             raise RepairError("Structural stem-choice repair requires a stem finding")

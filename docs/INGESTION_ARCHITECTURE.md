@@ -193,6 +193,13 @@ Each structural audit finding has a stable, source-neutral identifier that the
 structural repair workbench can open directly; it does not depend on a separate
 text-damage detector also recognizing the same question.
 
+Human authorization may permit a guarded batch of high-confidence structural
+repairs. Batch eligibility requires one missing leading label, one explicit
+matching marker in the stem, recoverable choice text, a valid question boundary,
+and no unresolved text-damage signals after applying a tightly grouped artifact
+signature learned only from approved temporary repairs. The batch reports and
+leaves all other findings untouched. It remains candidate-only.
+
 ## 7. Repair Confidence
 
 Repairs are separated by risk.

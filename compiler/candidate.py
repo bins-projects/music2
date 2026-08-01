@@ -5,6 +5,7 @@ from pathlib import Path
 from compiler.pack_qa import (
     audit_typography,
     finding_id_for_typography,
+    interleaving_repair_findings,
     iter_question_text,
 )
 from compiler.repair import (
@@ -49,7 +50,7 @@ def build_candidate(
             opening_marks += normalized.opening_marks_replaced
             closing_marks += normalized.closing_marks_replaced
 
-    blockers = tuple(
+    typography_blockers = tuple(
         Finding(
             finding_id=finding_id_for_typography(item),
             question_id=item.question_id,
@@ -58,6 +59,25 @@ def build_candidate(
         )
         for item in unbalanced
     )
+    blocker_by_field = {
+        (item.question_id, item.field): item
+        for item in interleaving_repair_findings(candidate)
+    }
+    for item in typography_blockers:
+        key = (item.question_id, item.field)
+        existing = blocker_by_field.get(key)
+        if existing is None:
+            blocker_by_field[key] = item
+        else:
+            blocker_by_field[key] = Finding(
+                finding_id=existing.finding_id,
+                question_id=existing.question_id,
+                field=existing.field,
+                damage_type=(
+                    existing.damage_type
+                    + "; unbalanced directional quotation marks"
+                ),
+            )
 
     return CandidateBuildResult(
         candidate=candidate,
@@ -65,7 +85,7 @@ def build_candidate(
         typography_fields_changed=len(typography),
         opening_marks_replaced=opening_marks,
         closing_marks_replaced=closing_marks,
-        promotion_blockers=blockers,
+        promotion_blockers=tuple(blocker_by_field.values()),
     )
 
 

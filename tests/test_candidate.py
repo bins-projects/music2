@@ -81,3 +81,17 @@ def test_candidate_manifest_is_source_agnostic_and_records_blockers(
 
     path = write_candidate_manifest(result, tmp_path / "manifest.json")
     assert json.loads(path.read_text(encoding="utf-8")) == manifest
+
+
+def test_candidate_deduplicates_multiple_blockers_for_one_field() -> None:
+    pack = sample_pack()
+    pack["questions"][0]["rationale"] = (
+        "Damaged abCdEf g h j fragments begin with ―an open quote."
+    )
+
+    result = build_candidate(pack, [])
+
+    assert len(result.promotion_blockers) == 1
+    blocker = result.promotion_blockers[0]
+    assert blocker.finding_id.startswith("PFQA-INTERLEAVE-")
+    assert "unbalanced directional quotation marks" in blocker.damage_type

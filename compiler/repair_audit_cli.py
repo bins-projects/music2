@@ -10,7 +10,7 @@ from compiler.repair import (
     load_pack,
 )
 from compiler.repair_cli import DEFAULT_LEDGER, DEFAULT_PACK
-from compiler.pack_qa import audit_typography
+from compiler.pack_qa import audit_interleaving, audit_typography
 from compiler.text_repairs import analyze_text_repairs
 
 
@@ -62,6 +62,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--show-typography-details",
         action="store_true",
     )
+    parser.add_argument(
+        "--show-interleaving-details",
+        action="store_true",
+    )
     return parser
 
 
@@ -73,6 +77,7 @@ def main() -> None:
         findings = load_findings(args.ledger)
         results = audit_split_findings(pack, findings)
         typography = audit_typography(pack)
+        interleaving = audit_interleaving(pack)
     except (OSError, RepairError) as error:
         raise SystemExit(f"Repair audit stopped: {error}") from error
 
@@ -137,6 +142,32 @@ def main() -> None:
 
     print()
     print("Dry run only. No typography changes were written.")
+
+    interleaving_counts = Counter(
+        code
+        for item in interleaving
+        for code in item.blocker_codes
+    )
+    print()
+    print("PrepFlow Pack-wide interleaving scan")
+    print(f"Fields requiring review: {len(interleaving)}")
+    for code in (
+        "fragment_density",
+        "mixed_case_interleaving",
+        "combined_interleaving",
+    ):
+        print(f"{code}: {interleaving_counts[code]}")
+
+    if args.show_interleaving_details and interleaving:
+        print()
+        for item in interleaving:
+            print(
+                f"{item.question_id} | {item.field} | "
+                + ", ".join(item.blocker_codes)
+            )
+
+    print()
+    print("Detection only. No interleaved text was rewritten.")
 
 
 if __name__ == "__main__":

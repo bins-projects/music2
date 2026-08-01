@@ -20,6 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--pack", type=Path, default=DEFAULT_PACK)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--show-blockers", action="store_true")
     return parser
 
 
@@ -51,11 +52,14 @@ def main() -> None:
         f"{result.closing_marks_replaced} closing marks"
     )
     print(f"Promotion blockers: {len(result.promotion_blockers)}")
-    for blocker in result.promotion_blockers:
-        print(
-            f"  {blocker.finding_id} | {blocker.question_id} | "
-            f"{blocker.field}"
-        )
+    if args.show_blockers:
+        for blocker in result.promotion_blockers:
+            print(
+                f"  {blocker.finding_id} | {blocker.question_id} | "
+                f"{blocker.field}"
+            )
+    elif result.promotion_blockers:
+        print("  Use --show-blockers to list every blocked field.")
     print(f"Candidate: {candidate_path}")
     print(f"Manifest: {manifest_path}")
     print(f"Canonical Pack unchanged: {args.pack}")

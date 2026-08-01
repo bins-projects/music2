@@ -2,7 +2,10 @@ import re
 from dataclasses import dataclass
 
 from compiler.repair import Finding
-from compiler.text_repairs import normalize_extraction_typography
+from compiler.text_repairs import (
+    interleaving_blockers,
+    normalize_extraction_typography,
+)
 
 
 @dataclass(frozen=True)
@@ -12,6 +15,13 @@ class TypographyAuditResult:
     opening_marks: int
     closing_marks: int
     balanced_after: bool
+
+
+@dataclass(frozen=True)
+class InterleavingAuditResult:
+    question_id: str
+    field: str
+    blocker_codes: tuple[str, ...]
 
 
 def iter_question_text(question: dict):
@@ -67,4 +77,42 @@ def typography_repair_findings(pack: dict) -> list[Finding]:
         )
         for result in audit_typography(pack)
         if not result.balanced_after
+    ]
+
+
+def audit_interleaving(pack: dict) -> list[InterleavingAuditResult]:
+    results = []
+    for question in pack["questions"]:
+        for field, text in iter_question_text(question):
+            blockers = interleaving_blockers(text)
+            if blockers:
+                results.append(
+                    InterleavingAuditResult(
+                        question_id=question["id"],
+                        field=field,
+                        blocker_codes=blockers,
+                    )
+                )
+    return results
+
+
+def finding_id_for_interleaving(result: InterleavingAuditResult) -> str:
+    safe_question = re.sub(r"[^A-Za-z0-9]+", "-", result.question_id)
+    safe_field = re.sub(r"[^A-Za-z0-9]+", "-", result.field)
+    return f"PFQA-INTERLEAVE-{safe_question}-{safe_field}".upper()
+
+
+def interleaving_repair_findings(pack: dict) -> list[Finding]:
+    return [
+        Finding(
+            finding_id=finding_id_for_interleaving(result),
+            question_id=result.question_id,
+            field=result.field,
+            damage_type=(
+                "probable interleaved extraction text ("
+                + ", ".join(result.blocker_codes)
+                + ")"
+            ),
+        )
+        for result in audit_interleaving(pack)
     ]

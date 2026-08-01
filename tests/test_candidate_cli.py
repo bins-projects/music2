@@ -8,3 +8,4 @@ def test_candidate_cli_defaults_to_fundamentals_workbench() -> None:
 
     assert args.pack == Path("packs/fundamentals.prepflow.json")
     assert args.output == Path("output/repair-workbench/fundamentals")
+    assert args.show_blockers is False

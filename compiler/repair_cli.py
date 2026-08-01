@@ -2,7 +2,10 @@ import argparse
 import textwrap
 from pathlib import Path
 
-from compiler.pack_qa import typography_repair_findings
+from compiler.pack_qa import (
+    interleaving_repair_findings,
+    typography_repair_findings,
+)
 from compiler.repair import (
     REPAIR_DISPOSITIONS,
     Finding,
@@ -133,6 +136,7 @@ def main() -> None:
         pack = load_pack(args.pack)
         findings = load_findings(args.ledger)
         findings.extend(typography_repair_findings(pack))
+        findings.extend(interleaving_repair_findings(pack))
         finding = select_finding(
             findings,
             finding_id=args.finding_id,

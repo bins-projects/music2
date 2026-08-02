@@ -23,6 +23,18 @@
         <div class="candidate-state"><strong>Locked</strong><span>canonical promotion</span></div>
       </section>
 
+      <section class="runbar" aria-label="Synthetic run lifecycle">
+        <div>
+          <p class="eyebrow">PRIVATE RUN</p>
+          <strong id="run-state">Not started</strong>
+          <span id="run-artifacts">No disposable source or text artifacts.</span>
+        </div>
+        <div class="run-actions">
+          <button id="start-run-button" type="button">Start synthetic run</button>
+          <button id="complete-run-button" type="button" disabled>Complete and clean run</button>
+        </div>
+      </section>
+
       <section class="workspace">
         <aside class="queue-panel">
           <div class="panel-heading">

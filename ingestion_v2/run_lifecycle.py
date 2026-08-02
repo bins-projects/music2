@@ -132,7 +132,9 @@ class RunLifecycle:
         return manifest
 
     def record_candidate(self, *, question_count: int, unresolved_findings: int) -> dict:
-        manifest = self._require_stage("review_ready")
+        manifest = self.manifest()
+        if manifest.get("stage") not in {"review_ready", "candidate_built", "compared"} or manifest.get("status") != "running":
+            raise DomainError("Run must be ready for candidate construction")
         if question_count < 0 or unresolved_findings < 0:
             raise DomainError("Candidate counts cannot be negative")
         manifest.update(
@@ -140,6 +142,25 @@ class RunLifecycle:
             candidate_question_count=question_count,
             unresolved_findings=unresolved_findings,
         )
+        manifest.pop("comparison_field_changes", None)
+        manifest.pop("id_accounting_complete", None)
+        self._write_manifest(manifest)
+        return manifest
+
+    def return_to_review(self) -> dict:
+        manifest = self.manifest()
+        if manifest.get("stage") == "review_ready" and manifest.get("status") == "running":
+            return manifest
+        if manifest.get("stage") not in {"candidate_built", "compared"} or manifest.get("status") != "running":
+            raise DomainError("Run cannot return to review from its current stage")
+        manifest.update(stage="review_ready")
+        for key in (
+            "candidate_question_count",
+            "unresolved_findings",
+            "comparison_field_changes",
+            "id_accounting_complete",
+        ):
+            manifest.pop(key, None)
         self._write_manifest(manifest)
         return manifest
 

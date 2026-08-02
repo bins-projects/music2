@@ -90,3 +90,20 @@ def test_invalid_transition_and_source_bearing_failure_message_are_rejected(tmp_
         run.record_extraction("text")
     with pytest.raises(DomainError, match="source-neutral"):
         run.fail("Failed on /home/user/private-book.pdf")
+
+
+def test_candidate_or_comparison_can_return_to_review_without_losing_source_text(tmp_path) -> None:
+    run = RunLifecycle.create(tmp_path / "runs")
+    run.stage_disposable_copy(b"copy", source_type="synthetic_text")
+    run.record_extraction("raw")
+    run.record_cleaning("clean")
+    run.record_review_ready(parsed_records=1, finding_count=1)
+    run.record_candidate(question_count=1, unresolved_findings=1)
+    run.record_comparison(field_changes=0, id_accounting_complete=True)
+
+    manifest = run.return_to_review()
+
+    assert manifest["stage"] == "review_ready"
+    assert "comparison_field_changes" not in manifest
+    assert artifact(run, "artifacts", "raw.txt").is_file()
+    assert artifact(run, "artifacts", "cleaned.txt").is_file()

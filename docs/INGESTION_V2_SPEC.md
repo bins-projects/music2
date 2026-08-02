@@ -134,6 +134,16 @@ address only three known filenames under the exact verified run boundary; it
 rejects symbolic links and non-file targets and never follows a link to an
 external original.
 
+The connected workbench now drives this lifecycle for its synthetic document.
+Before the user starts a run, the server exposes no review cases and holds no
+source-bearing run artifacts. Starting the run stages the disposable synthetic
+copy, records extraction and the current pass-through synthetic cleaning stage,
+parses it, and reaches `review_ready`; the staged copy is already deleted at that
+point. Candidate construction and comparison advance the manifest. Any later
+review change returns it to `review_ready` and invalidates those outputs. Explicit
+completion is available only after comparison and removes raw and cleaned text.
+It never enables promotion.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

@@ -71,5 +71,6 @@ window.PREPFLOW_REVIEW_DEMO = {
     persistent: false,
     promotion_ready: false
   },
-  comparison: { state: "not_run" }
+  comparison: { state: "not_run" },
+  run: { state: "unmanaged_demo" }
 };

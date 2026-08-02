@@ -13,7 +13,7 @@ WORKBENCH_DIRECTORY = Path(__file__).with_name("workbench")
 
 
 class WorkbenchHandler(SimpleHTTPRequestHandler):
-    session = SyntheticWorkbenchSession()
+    session = SyntheticWorkbenchSession(workspace_root=Path("output/v2-runs"))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(WORKBENCH_DIRECTORY), **kwargs)
@@ -50,6 +50,10 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 payload = self.session.build_isolated_candidate()
             elif self.path == "/api/comparison":
                 payload = self.session.compare_isolated_candidate()
+            elif self.path == "/api/run/start":
+                payload = self.session.start_run()
+            elif self.path == "/api/run/complete":
+                payload = self.session.complete_run()
             else:
                 self._send_json({"error": "not_found"}, status=404)
                 return

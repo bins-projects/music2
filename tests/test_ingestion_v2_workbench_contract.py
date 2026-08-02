@@ -35,10 +35,14 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
         "candidate-button",
         "comparison-button",
         "comparison-changes",
+        "start-run-button",
+        "complete-run-button",
     ):
         assert f'id="{required_id}"' in html
     for action in ("approve", "reject", "defer", "leave_blocked", "exclude_record"):
         assert action in script
+    assert '"/api/run/start"' in script
+    assert '"/api/run/complete"' in script
 
 
 def test_workbench_has_responsive_layout() -> None:

@@ -196,3 +196,46 @@ def test_explicit_exclusion_accounts_for_whole_record_and_all_its_findings() -> 
         "PFQ-synthetic-000000108"
     ]
     assert payload["candidate"]["promotion_ready"] is False
+
+
+def test_managed_session_runs_document_through_lifecycle_and_final_cleanup(tmp_path) -> None:
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+
+    before = session.view()
+    assert before["run"]["state"] == "not_started"
+    assert before["cases"] == []
+    with pytest.raises(DomainError, match="Start"):
+        session.build_isolated_candidate()
+
+    started = session.start_run()
+    assert started["run"]["state"] == "review_ready"
+    assert started["run"]["staged_copy_present"] is False
+    assert started["run"]["raw_text_present"] is True
+    assert started["run"]["cleaned_text_present"] is True
+    assert len(started["cases"]) == 3
+
+    candidate = session.build_isolated_candidate()
+    assert candidate["run"]["state"] == "candidate_built"
+    compared = session.compare_isolated_candidate()
+    assert compared["run"]["state"] == "compared"
+    completed = session.complete_run()
+
+    assert completed["run"]["state"] == "completed"
+    assert completed["run"]["raw_text_present"] is False
+    assert completed["run"]["cleaned_text_present"] is False
+    assert completed["run"]["promotion_available"] is False
+    with pytest.raises(DomainError, match="completed"):
+        session.build_isolated_candidate()
+
+
+def test_review_change_returns_managed_compared_run_to_review_stage(tmp_path) -> None:
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_run()
+    session.build_isolated_candidate()
+    session.compare_isolated_candidate()
+
+    payload = session.record_action("PFV2-FIND-PARSE-000002", "defer")
+
+    assert payload["run"]["state"] == "review_ready"
+    assert payload["candidate"]["state"] == "not_built"
+    assert payload["comparison"]["state"] == "not_run"

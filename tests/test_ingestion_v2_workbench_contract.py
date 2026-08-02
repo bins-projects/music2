@@ -42,6 +42,7 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
         "run-extraction",
         "run-identity",
         "pdf-input",
+        "materialize-identity-button",
     ):
         assert f'id="{required_id}"' in html
     for action in ("approve", "reject", "defer", "leave_blocked", "exclude_record"):
@@ -68,6 +69,8 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert "/api/identity/actions" in script
     assert "Approve selected match" in script
     assert "Ranked suggestion only" in script
+    assert "/api/identity/materialize" in script
+    assert "Prepare parsed review" in html
 
 
 def test_workbench_has_responsive_layout() -> None:

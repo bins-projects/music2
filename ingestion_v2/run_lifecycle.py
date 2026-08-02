@@ -215,6 +215,19 @@ class RunLifecycle:
         self._write_manifest(manifest)
         return manifest
 
+    def record_identity_materialized(self, *, parsed_records: int, finding_count: int) -> dict:
+        manifest = self._require_stage("identity_matched")
+        if parsed_records < 0 or finding_count < 0:
+            raise DomainError("Materialized identity counts cannot be negative")
+        manifest.update(
+            stage="review_ready",
+            parsed_records=parsed_records,
+            finding_count=finding_count,
+            identity_materialized=True,
+        )
+        self._write_manifest(manifest)
+        return manifest
+
     def record_candidate(self, *, question_count: int, unresolved_findings: int) -> dict:
         manifest = self.manifest()
         if manifest.get("stage") not in {"review_ready", "candidate_built", "compared"} or manifest.get("status") != "running":

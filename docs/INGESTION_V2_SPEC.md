@@ -225,6 +225,24 @@ matches create complete one-to-one accounting of both parsed and target records.
 Even then, this stage only authorizes identity mapping; it does not authorize a
 content repair, candidate write, Pack overwrite, or promotion.
 
+## Parsed candidate materialization
+
+After identity reaches `identity_matched`, the user may explicitly prepare the
+parsed review. The parser bridge attaches the authorized stable-ID mapping to
+the preserved parsed records and converts parser findings into ordinary v2
+blocking findings. It creates no proposals and performs no automatic repairs.
+The selected protected Pack is independently converted into immutable v2
+benchmark records; its `mc` type representation is normalized to the parser's
+source-neutral `multiple_choice` representation without altering either input.
+
+Materialization requires exact equality between the authorized parsed ID set and
+the benchmark Pack ID set. Only then does the lifecycle enter `review_ready`.
+Candidate construction remains in memory and uses the existing authorization
+engine. Comparison is deliberately run against the separately held protected
+benchmark—not against the parsed baseline—so every changed field is visible.
+Neither preparation, candidate construction, nor comparison exposes a Pack
+writer or promotion operation.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

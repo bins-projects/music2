@@ -396,6 +396,22 @@ def test_changed_pdf_stem_stops_in_identity_review_without_guessed_id(tmp_path) 
     assert reviewed["pipeline"]["identity"]["automatic_id_assignments_authorized"] is False
     assert reviewed["candidate"]["state"] == "not_built"
 
+    materialized = session.materialize_identity_review()
+    assert materialized["run"]["state"] == "review_ready"
+    assert materialized["pipeline"]["parsed_records"] == 1
+    assert materialized["candidate"]["state"] == "not_built"
+
+    built = session.build_isolated_candidate()
+    assert built["run"]["state"] == "candidate_built"
+    assert built["candidate"]["question_count"] == 1
+    compared = session.compare_isolated_candidate()
+    assert compared["run"]["state"] == "compared"
+    assert compared["comparison"]["stable_ids_exact"] is True
+    assert compared["comparison"]["field_change_count"] > 0
+    assert {change["question_id"] for change in compared["comparison"]["field_changes"]} == {
+        "PFQ-test-000000001"
+    }
+
 
 def test_identity_defer_keeps_run_blocked_and_invalid_selection_is_rejected(tmp_path) -> None:
     pdf = synthetic_pdf_bytes(

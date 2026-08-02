@@ -80,6 +80,8 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 if target_question_id is not None and not isinstance(target_question_id, str):
                     raise DomainError("target_question_id must be a string")
                 payload = self.session.record_identity_action(record_id, action, target_question_id)
+            elif self.path == "/api/identity/materialize":
+                payload = self.session.materialize_identity_review()
             else:
                 self._send_json({"error": "not_found"}, status=404)
                 return

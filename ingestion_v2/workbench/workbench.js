@@ -228,6 +228,7 @@
     const pdfInput = document.getElementById("pdf-input");
     const pdfButton = document.querySelector("label[for='pdf-input']");
     const identityButtons = document.querySelectorAll(".identity-button");
+    const materializeIdentity = document.getElementById("materialize-identity-button");
     state.textContent = run.state.replaceAll("_", " ");
     if (["not_started", "completed"].includes(run.state)) {
       artifacts.textContent = "No disposable source or text artifacts.";
@@ -266,6 +267,7 @@
     complete.disabled = run.state !== "compared";
     cleanup.disabled = ["not_started", "unmanaged_demo", "completed"].includes(run.state);
     identityButtons.forEach((button) => { button.disabled = run.state !== "identity_pending"; });
+    materializeIdentity.disabled = run.state !== "identity_matched";
   }
 
   function renderCandidate() {
@@ -279,7 +281,7 @@
     if (!candidate || candidate.state === "not_built") {
       state.textContent = "Not built";
       detail.textContent = "Builds in memory only. Unresolved findings remain visible.";
-      button.disabled = payload.session?.mode !== "synthetic_in_memory" || ["not_started", "completed"].includes(payload.run?.state);
+      button.disabled = payload.session?.mode !== "synthetic_in_memory" || !["review_ready", "candidate_built", "compared", "unmanaged_demo"].includes(payload.run?.state);
       comparisonButton.disabled = true;
       comparisonDetail.textContent = "Comparison has not run.";
       comparisonChanges.replaceChildren();
@@ -382,6 +384,7 @@
   document.getElementById("start-run-button").addEventListener("click", () => runCommand("/api/run/start"));
   document.getElementById("complete-run-button").addEventListener("click", () => runCommand("/api/run/complete"));
   document.getElementById("cleanup-run-button").addEventListener("click", () => runCommand("/api/run/cleanup"));
+  document.getElementById("materialize-identity-button").addEventListener("click", () => runCommand("/api/identity/materialize"));
   document.querySelectorAll(".identity-button").forEach((button) => {
     button.addEventListener("click", () => {
       fetch("/api/identity/existing-pack", {

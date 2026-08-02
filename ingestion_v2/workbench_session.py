@@ -27,6 +27,8 @@ from ingestion_v2.identity_review import (
     authorize_reviewed_identity,
     build_identity_review_cases,
 )
+from ingestion_v2.pack_bridge import pack_questions_to_domain
+from ingestion_v2.parser_bridge import materialize_matched_batch
 
 
 @dataclass(frozen=True)
@@ -58,6 +60,9 @@ class SyntheticWorkbenchSession:
         self._identity_report: IdentityReport | None = None
         self._identity_cases: tuple[IdentityReviewCase, ...] = ()
         self._identity_actions: dict[str, dict[str, str]] = {}
+        self._identity_mapping: dict[str, str] | None = None
+        self._identity_target_pack: dict | None = None
+        self._benchmark_questions = None
         self._last_cleanup = None
 
     def view(self) -> dict:
@@ -171,6 +176,8 @@ class SyntheticWorkbenchSession:
         self._identity_report = report
         self._identity_cases = cases
         self._identity_actions = {}
+        self._identity_target_pack = target_pack
+        self._identity_mapping = report.stable_id_by_record_id if report.complete else None
         return self.view()
 
     def record_identity_action(
@@ -216,8 +223,35 @@ class SyntheticWorkbenchSession:
             and len(self._identity_report.matches) + len(approvals) == self._identity_report.parsed_count
             and len(self._identity_report.matches) + len(approvals) == self._identity_report.target_count
         ):
-            authorize_reviewed_identity(self._identity_report, self._identity_cases, approvals)
+            self._identity_mapping = authorize_reviewed_identity(
+                self._identity_report, self._identity_cases, approvals
+            )
             self._lifecycle.record_identity_resolution(approved_matches=len(approvals))
+        return self.view()
+
+    def materialize_identity_review(self) -> dict:
+        if (
+            self._lifecycle is None
+            or self._parse_batch is None
+            or self._identity_mapping is None
+            or self._identity_target_pack is None
+        ):
+            raise DomainError("A complete authorized identity map is required")
+        if self._lifecycle.manifest()["stage"] != "identity_matched":
+            raise DomainError("Identity materialization is not available at this stage")
+        questions, findings = materialize_matched_batch(
+            self._parse_batch, self._identity_mapping
+        )
+        benchmark = pack_questions_to_domain(self._identity_target_pack)
+        if {item.question_id for item in questions} != {item.question_id for item in benchmark}:
+            raise DomainError("Materialized stable IDs do not exactly match the benchmark Pack")
+        self.questions = questions
+        self.findings = findings
+        self.proposals = ()
+        self._benchmark_questions = benchmark
+        self._lifecycle.record_identity_materialized(
+            parsed_records=len(questions), finding_count=len(findings)
+        )
         return self.view()
 
     def start_pdf_run(self, content: bytes) -> dict:
@@ -350,7 +384,8 @@ class SyntheticWorkbenchSession:
         self._ensure_active_run_if_configured()
         if self._candidate is None:
             raise DomainError("Build an isolated candidate before comparison")
-        self._comparison = compare_candidate(self._candidate, self.questions)
+        benchmark = self._benchmark_questions or self.questions
+        self._comparison = compare_candidate(self._candidate, benchmark)
         if self._lifecycle is not None:
             self._lifecycle.record_comparison(
                 field_changes=len(self._comparison.field_changes),
@@ -422,6 +457,9 @@ class SyntheticWorkbenchSession:
         self._identity_report = None
         self._identity_cases = ()
         self._identity_actions = {}
+        self._identity_mapping = None
+        self._identity_target_pack = None
+        self._benchmark_questions = None
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()
@@ -536,6 +574,9 @@ class SyntheticWorkbenchSession:
         self._identity_report = None
         self._identity_cases = ()
         self._identity_actions = {}
+        self._identity_mapping = None
+        self._identity_target_pack = None
+        self._benchmark_questions = None
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()

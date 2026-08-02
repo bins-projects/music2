@@ -27,16 +27,21 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:
         try:
             body = self._read_json()
-            finding_id = body.get("finding_id")
-            if not isinstance(finding_id, str):
-                raise DomainError("finding_id is required")
             if self.path == "/api/actions":
+                finding_id = body.get("finding_id")
+                if not isinstance(finding_id, str):
+                    raise DomainError("finding_id is required")
                 action = body.get("action")
                 if not isinstance(action, str):
                     raise DomainError("action is required")
                 payload = self.session.record_action(finding_id, action)
             elif self.path == "/api/verifications":
+                finding_id = body.get("finding_id")
+                if not isinstance(finding_id, str):
+                    raise DomainError("finding_id is required")
                 payload = self.session.record_verification(finding_id)
+            elif self.path == "/api/candidate":
+                payload = self.session.build_isolated_candidate()
             else:
                 self._send_json({"error": "not_found"}, status=404)
                 return

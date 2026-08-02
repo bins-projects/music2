@@ -91,6 +91,14 @@ review queue. Whole-document input text is not returned in the interface payload
 The demonstration currently produces three visible blockers from two parsed
 records and performs zero automatic repairs.
 
+The workbench can explicitly build an isolated candidate in memory. Candidate
+construction re-runs the Python authorization guards: approval without required
+source verification applies nothing, stale proposals fail, and only approved and
+verified proposals may change the candidate. The preserved parser records remain
+immutable. The workbench returns applied proposal IDs, unresolved finding IDs,
+and promotion-readiness reasons; comparison remains incomplete and promotion is
+still unavailable.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

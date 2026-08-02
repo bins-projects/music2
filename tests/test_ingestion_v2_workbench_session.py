@@ -86,3 +86,36 @@ def test_later_decision_replaces_current_state_but_preserves_event_history() -> 
         "decision:defer",
         "decision:approve",
     ]
+
+
+def test_candidate_before_verification_preserves_held_change_and_all_blockers() -> None:
+    session = SyntheticWorkbenchSession()
+    session.record_action("PFV2-FIND-PARSE-000002", "approve")
+
+    payload = session.build_isolated_candidate()
+
+    assert payload["candidate"]["state"] == "built_in_memory"
+    assert payload["candidate"]["question_count"] == 2
+    assert payload["candidate"]["applied_proposal_ids"] == []
+    assert len(payload["candidate"]["unresolved_finding_ids"]) == 3
+    assert payload["candidate"]["promotion_ready"] is False
+    assert "candidate_comparison_incomplete" in payload["candidate"]["blocking_reasons"]
+    assert session.questions[0].correct_answers == ("A",)
+
+
+def test_verified_approval_changes_only_isolated_candidate_and_remains_blocked() -> None:
+    session = SyntheticWorkbenchSession()
+    session.record_action("PFV2-FIND-PARSE-000002", "approve")
+    session.record_verification("PFV2-FIND-PARSE-000002")
+
+    payload = session.build_isolated_candidate()
+
+    assert payload["candidate"]["applied_proposal_ids"] == ["PFV2-PROP-0001"]
+    assert payload["candidate"]["unresolved_finding_ids"] == [
+        "PFV2-FIND-PARSE-000001",
+        "PFV2-FIND-PARSE-000003",
+    ]
+    assert payload["candidate"]["promotion_ready"] is False
+    assert session.questions[0].correct_answers == ("A",)
+    assert session._candidate.questions[0].correct_answers == ("B",)
+    assert payload["session"]["events"][-1]["event_type"] == "candidate:built_in_memory"

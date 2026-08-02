@@ -15,6 +15,7 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     assert "promote(" not in script
     assert 'fetch("/api/review"' in script
     assert 'fetch("/api/actions"' in script
+    assert 'fetch("/api/candidate"' in script
     assert "localStorage" not in script
 
 
@@ -29,6 +30,7 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
         "proposed-value",
         "verification-card",
         "actions",
+        "candidate-button",
     ):
         assert f'id="{required_id}"' in html
     for action in ("approve", "reject", "defer", "leave_blocked"):

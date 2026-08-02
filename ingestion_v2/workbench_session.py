@@ -9,6 +9,7 @@ from ingestion_v2.domain import (
     ReviewDecision,
     SourceVerification,
 )
+from ingestion_v2.engine import build_candidate, promotion_readiness
 from ingestion_v2.review import ReviewStatus, build_review_queue
 from ingestion_v2.review_view import review_queue_view
 
@@ -28,6 +29,7 @@ class SyntheticWorkbenchSession:
         self._decisions_by_proposal: dict[str, ReviewDecision] = {}
         self._verifications_by_proposal: dict[str, SourceVerification] = {}
         self._events: list[SessionEvent] = []
+        self._candidate = None
 
     def view(self) -> dict:
         queue = self._queue()
@@ -46,6 +48,7 @@ class SyntheticWorkbenchSession:
             "automatic_repairs": 0,
             "document_text_in_payload": False,
         }
+        payload["candidate"] = self._candidate_view()
         return payload
 
     def record_action(self, finding_id: str, action: str) -> dict:
@@ -70,6 +73,24 @@ class SyntheticWorkbenchSession:
                 event_id=f"PFV2-EVENT-{event_number:06d}",
                 finding_id=finding_id,
                 event_type=f"decision:{action}",
+            )
+        )
+        return self.view()
+
+    def build_isolated_candidate(self) -> dict:
+        self._candidate = build_candidate(
+            self.questions,
+            self.findings,
+            self.proposals,
+            tuple(self._decisions_by_proposal.values()),
+            tuple(self._verifications_by_proposal.values()),
+        )
+        event_number = len(self._events) + 1
+        self._events.append(
+            SessionEvent(
+                event_id=f"PFV2-EVENT-{event_number:06d}",
+                finding_id="PFV2-CANDIDATE",
+                event_type="candidate:built_in_memory",
             )
         )
         return self.view()
@@ -111,3 +132,25 @@ class SyntheticWorkbenchSession:
             if case.finding.finding_id == finding_id:
                 return case
         raise DomainError("Unknown finding ID")
+
+    def _candidate_view(self) -> dict:
+        if self._candidate is None:
+            return {
+                "state": "not_built",
+                "persistent": False,
+                "promotion_ready": False,
+            }
+        readiness = promotion_readiness(
+            self._candidate,
+            self.findings,
+            comparison_complete=False,
+        )
+        return {
+            "state": "built_in_memory",
+            "persistent": False,
+            "question_count": len(self._candidate.questions),
+            "applied_proposal_ids": list(self._candidate.applied_proposal_ids),
+            "unresolved_finding_ids": list(self._candidate.unresolved_finding_ids),
+            "promotion_ready": readiness.ready,
+            "blocking_reasons": list(readiness.blocking_reasons),
+        }

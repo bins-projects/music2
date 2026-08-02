@@ -121,7 +121,25 @@
     const verificationCard = document.getElementById("verification-card");
     verificationCard.hidden = item.status !== "awaiting_source_verification";
     renderActions(item);
+    renderCandidate();
     renderQueue();
+  }
+
+  function renderCandidate() {
+    const candidate = payload.candidate;
+    const state = document.getElementById("candidate-state");
+    const detail = document.getElementById("candidate-detail");
+    const button = document.getElementById("candidate-button");
+    if (!candidate || candidate.state === "not_built") {
+      state.textContent = "Not built";
+      detail.textContent = "Builds in memory only. Unresolved findings remain visible.";
+      button.disabled = payload.session?.mode !== "synthetic_in_memory";
+      return;
+    }
+    state.textContent = `${candidate.question_count} questions · ${candidate.applied_proposal_ids.length} approved proposal(s) applied`;
+    detail.textContent = `${candidate.unresolved_finding_ids.length} unresolved finding(s) · promotion remains ${candidate.promotion_ready ? "ready" : "blocked"}.`;
+    button.textContent = "Rebuild isolated candidate";
+    button.disabled = false;
   }
 
   document.getElementById("verify-button").addEventListener("click", () => {
@@ -147,6 +165,23 @@
     item.allowed_actions = [];
     document.getElementById("decision-help").textContent = "Synthetic verification recorded. No candidate or canonical data changed.";
     render();
+  });
+
+  document.getElementById("candidate-button").addEventListener("click", () => {
+    if (payload.session?.mode !== "synthetic_in_memory") return;
+    fetch("/api/candidate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}"
+    })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Candidate build failed.");
+        acceptEnginePayload(result);
+      })
+      .catch((error) => {
+        document.getElementById("decision-help").textContent = error.message;
+      });
   });
 
   function acceptEnginePayload(result) {

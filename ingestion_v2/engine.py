@@ -4,6 +4,8 @@ from ingestion_v2.domain import (
     Candidate,
     DomainError,
     Finding,
+    FindingDisposition,
+    DispositionAction,
     FindingSeverity,
     PromotionReadiness,
     Proposal,
@@ -21,6 +23,7 @@ def build_candidate(
     proposals: tuple[Proposal, ...] = (),
     decisions: tuple[ReviewDecision, ...] = (),
     verifications: tuple[SourceVerification, ...] = (),
+    dispositions: tuple[FindingDisposition, ...] = (),
 ) -> Candidate:
     """Apply only explicitly approved, current, sufficiently verified proposals."""
     question_map = _unique_by(questions, "question_id")
@@ -28,6 +31,14 @@ def build_candidate(
     proposal_map = _unique_by(proposals, "proposal_id")
     decision_map = _unique_by(decisions, "proposal_id")
     verification_map = _unique_by(verifications, "proposal_id")
+    disposition_map = _unique_by(dispositions, "finding_id")
+
+    for disposition in dispositions:
+        finding = finding_map.get(disposition.finding_id)
+        if finding is None:
+            raise DomainError("Disposition must reference an existing finding")
+        if finding.question_id != disposition.question_id:
+            raise DomainError("Disposition and finding question IDs must match")
 
     for proposal in proposals:
         finding = finding_map.get(proposal.finding_id)
@@ -63,16 +74,31 @@ def build_candidate(
         resolved_findings.add(proposal.finding_id)
         audit_events.append(f"{proposal_id}:applied_after_explicit_approval")
 
+    excluded_question_ids = tuple(sorted({
+        disposition.question_id
+        for disposition in dispositions
+        if disposition.action is DispositionAction.EXCLUDE_RECORD
+    }))
+    excluded_set = set(excluded_question_ids)
+    for question_id in excluded_question_ids:
+        audit_events.append(f"{question_id}:excluded_by_documented_disposition")
+
     unresolved = tuple(
         finding.finding_id
         for finding in sorted(findings, key=lambda item: item.finding_id)
         if finding.finding_id not in resolved_findings
+        and finding.question_id not in excluded_set
     )
     return Candidate(
-        questions=tuple(question_map[question.question_id] for question in questions),
+        questions=tuple(
+            question_map[question.question_id]
+            for question in questions
+            if question.question_id not in excluded_set
+        ),
         applied_proposal_ids=tuple(applied),
         unresolved_finding_ids=unresolved,
         audit_events=tuple(audit_events),
+        excluded_question_ids=excluded_question_ids,
     )
 
 

@@ -7,6 +7,8 @@ from enum import Enum
 from ingestion_v2.domain import (
     DomainError,
     Finding,
+    FindingDisposition,
+    DispositionAction,
     Proposal,
     QuestionRecord,
     ReviewAction,
@@ -22,6 +24,8 @@ class ReviewStatus(str, Enum):
     REJECTED = "rejected"
     AWAITING_SOURCE_VERIFICATION = "awaiting_source_verification"
     APPROVED = "approved"
+    RETAINED_BLOCKER = "retained_blocker"
+    EXCLUDED_RECORD = "excluded_record"
 
 
 @dataclass(frozen=True)
@@ -31,6 +35,7 @@ class ReviewCase:
     proposal: Proposal | None
     decision: ReviewDecision | None
     verification: SourceVerification | None
+    disposition: FindingDisposition | None
     status: ReviewStatus
     allowed_actions: tuple[str, ...]
 
@@ -48,14 +53,17 @@ def build_review_queue(
     proposals: tuple[Proposal, ...] = (),
     decisions: tuple[ReviewDecision, ...] = (),
     verifications: tuple[SourceVerification, ...] = (),
+    dispositions: tuple[FindingDisposition, ...] = (),
 ) -> ReviewQueue:
     """Project immutable engine records into a deterministic UI review queue."""
     question_map = _unique_by(questions, "question_id")
     proposal_by_finding = _unique_by(proposals, "finding_id")
     decision_by_proposal = _unique_by(decisions, "proposal_id")
     verification_by_proposal = _unique_by(verifications, "proposal_id")
+    disposition_by_finding = _unique_by(dispositions, "finding_id")
     finding_ids = {finding.finding_id for finding in findings}
     proposal_ids = {proposal.proposal_id for proposal in proposals}
+    finding_by_id = {finding.finding_id: finding for finding in findings}
 
     if any(proposal.finding_id not in finding_ids for proposal in proposals):
         raise DomainError("Review proposal references an unknown finding")
@@ -63,6 +71,18 @@ def build_review_queue(
         raise DomainError("Review decision references an unknown proposal")
     if any(item.proposal_id not in proposal_ids for item in verifications):
         raise DomainError("Source verification references an unknown proposal")
+    for disposition in dispositions:
+        finding = finding_by_id.get(disposition.finding_id)
+        if finding is None:
+            raise DomainError("Review disposition references an unknown finding")
+        if finding.question_id != disposition.question_id:
+            raise DomainError("Review disposition and finding targets must match")
+
+    excluded_questions = {
+        item.question_id
+        for item in dispositions
+        if item.action is DispositionAction.EXCLUDE_RECORD
+    }
 
     cases = []
     for finding in sorted(
@@ -81,7 +101,16 @@ def build_review_queue(
         verification = (
             verification_by_proposal.get(proposal.proposal_id) if proposal else None
         )
-        status, actions = _review_state(proposal, decision, verification)
+        disposition = disposition_by_finding.get(finding.finding_id)
+        if finding.question_id in excluded_questions:
+            status, actions = ReviewStatus.EXCLUDED_RECORD, ("restore_record",)
+        elif disposition and disposition.action is DispositionAction.RETAIN_BLOCKER:
+            status, actions = ReviewStatus.RETAINED_BLOCKER, (
+                "exclude_record",
+                "create_proposal",
+            )
+        else:
+            status, actions = _review_state(proposal, decision, verification)
         cases.append(
             ReviewCase(
                 finding=finding,
@@ -89,6 +118,7 @@ def build_review_queue(
                 proposal=proposal,
                 decision=decision,
                 verification=verification,
+                disposition=disposition,
                 status=status,
                 allowed_actions=actions,
             )
@@ -100,7 +130,7 @@ def build_review_queue(
         status_counts=tuple(sorted(counts.items())),
         blocking_case_count=sum(
             case.finding.severity.value == "blocking"
-            and case.status is not ReviewStatus.APPROVED
+            and case.status not in {ReviewStatus.APPROVED, ReviewStatus.EXCLUDED_RECORD}
             for case in cases
         ),
     )
@@ -112,7 +142,11 @@ def _review_state(
     verification: SourceVerification | None,
 ) -> tuple[ReviewStatus, tuple[str, ...]]:
     if proposal is None:
-        return ReviewStatus.NEEDS_PROPOSAL, ("leave_blocked", "create_proposal")
+        return ReviewStatus.NEEDS_PROPOSAL, (
+            "leave_blocked",
+            "exclude_record",
+            "create_proposal",
+        )
     if decision is None:
         return ReviewStatus.AWAITING_DECISION, (
             "approve",

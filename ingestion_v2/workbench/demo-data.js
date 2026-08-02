@@ -54,7 +54,7 @@ window.PREPFLOW_REVIEW_DEMO = {
       preserved_value: "Synthetic damaged stem with a second question-shaped fragment.",
       proposal: null,
       status: "needs_proposal",
-      allowed_actions: ["leave_blocked", "create_proposal"],
+      allowed_actions: ["leave_blocked", "exclude_record", "create_proposal"],
       source_verification_recorded: false
     }
   ],

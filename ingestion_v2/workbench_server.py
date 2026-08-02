@@ -40,6 +40,12 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 if not isinstance(finding_id, str):
                     raise DomainError("finding_id is required")
                 payload = self.session.record_verification(finding_id)
+            elif self.path == "/api/dispositions":
+                finding_id = body.get("finding_id")
+                action = body.get("action")
+                if not isinstance(finding_id, str) or not isinstance(action, str):
+                    raise DomainError("finding_id and action are required")
+                payload = self.session.record_disposition(finding_id, action)
             elif self.path == "/api/candidate":
                 payload = self.session.build_isolated_candidate()
             elif self.path == "/api/comparison":

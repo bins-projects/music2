@@ -41,6 +41,15 @@ def review_queue_view(queue: ReviewQueue) -> dict:
                 "source_verification_recorded": bool(
                     case.verification and case.verification.verified
                 ),
+                "disposition": (
+                    {
+                        "disposition_id": case.disposition.disposition_id,
+                        "action": case.disposition.action.value,
+                        "reviewer_note": case.disposition.reviewer_note,
+                    }
+                    if case.disposition
+                    else None
+                ),
             }
             for case in queue.cases
         ],

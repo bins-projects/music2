@@ -11,6 +11,7 @@
     defer: "Decide later",
     edit_as_new_proposal: "Edit proposal",
     leave_blocked: "Leave blocked",
+    exclude_record: "Exclude record",
     create_proposal: "Draft proposal"
   };
 
@@ -20,7 +21,9 @@
     deferred: "Deferred",
     rejected: "Rejected",
     awaiting_source_verification: "Verification required",
-    approved: "Approved for candidate"
+    approved: "Approved for candidate",
+    retained_blocker: "Confirmed blocker",
+    excluded_record: "Excluded by decision"
   };
 
   function formatValue(value) {
@@ -69,7 +72,8 @@
   async function takeAction(item, action) {
     if (payload.session?.mode === "synthetic_in_memory") {
       try {
-        const response = await fetch("/api/actions", {
+        const dispositionAction = action === "leave_blocked" || action === "exclude_record";
+        const response = await fetch(dispositionAction ? "/api/dispositions" : "/api/actions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ finding_id: item.finding_id, action })
@@ -104,7 +108,7 @@
 
   function render() {
     const item = cases[selectedIndex];
-    const blocking = cases.filter((entry) => entry.severity === "blocking" && entry.status !== "approved").length;
+    const blocking = cases.filter((entry) => entry.severity === "blocking" && !["approved", "excluded_record"].includes(entry.status)).length;
     document.getElementById("case-count").textContent = cases.length;
     document.getElementById("blocking-count").textContent = blocking;
     document.getElementById("verified-count").textContent = cases.filter((entry) => entry.source_verification_recorded).length;
@@ -143,12 +147,13 @@
       return;
     }
     state.textContent = `${candidate.question_count} questions · ${candidate.applied_proposal_ids.length} approved proposal(s) applied`;
-    detail.textContent = `${candidate.unresolved_finding_ids.length} unresolved finding(s) · promotion remains ${candidate.promotion_ready ? "ready" : "blocked"}.`;
+    detail.textContent = `${candidate.unresolved_finding_ids.length} unresolved finding(s) · ${candidate.excluded_question_ids.length} documented exclusion(s) · promotion remains ${candidate.promotion_ready ? "ready" : "blocked"}.`;
     button.textContent = "Rebuild isolated candidate";
     button.disabled = false;
     comparisonButton.disabled = payload.session?.mode !== "synthetic_in_memory";
     if (payload.comparison?.state === "complete") {
-      comparisonDetail.textContent = `Comparison complete · stable IDs exact · ${payload.comparison.field_change_count} changed field(s).`;
+      const identityStatus = payload.comparison.stable_ids_exact ? "stable IDs exact" : "all ID differences documented";
+      comparisonDetail.textContent = `Comparison complete · ${identityStatus} · ${payload.comparison.field_change_count} changed field(s).`;
       comparisonChanges.innerHTML = payload.comparison.field_changes.map((change) => (
         `<span><b>${escapeHtml(change.question_id.replace("PFQ-synthetic-", "Question "))} · ${escapeHtml(change.field)}</b> ${formatValue(change.benchmark_value)} → ${formatValue(change.candidate_value)}</span>`
       )).join("");

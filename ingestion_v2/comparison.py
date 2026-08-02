@@ -30,6 +30,8 @@ class ComparisonReport:
     benchmark_question_count: int
     candidate_question_count: int
     stable_ids_exact: bool
+    id_accounting_complete: bool
+    documented_excluded_question_ids: tuple[str, ...]
     field_changes: tuple[FieldChange, ...]
     complete: bool
 
@@ -41,8 +43,9 @@ def compare_candidate(
     """Compare one isolated candidate with an immutable, stable-ID benchmark."""
     candidate_map = _question_map(candidate.questions, "candidate")
     benchmark_map = _question_map(benchmark_questions, "benchmark")
-    if set(candidate_map) != set(benchmark_map):
-        missing = len(set(benchmark_map) - set(candidate_map))
+    accounted_candidate_ids = set(candidate_map) | set(candidate.excluded_question_ids)
+    if accounted_candidate_ids != set(benchmark_map):
+        missing = len(set(benchmark_map) - accounted_candidate_ids)
         added = len(set(candidate_map) - set(benchmark_map))
         raise DomainError(
             f"Comparison stopped: stable ID sets differ (missing={missing}, added={added})"
@@ -67,7 +70,9 @@ def compare_candidate(
     return ComparisonReport(
         benchmark_question_count=len(benchmark_map),
         candidate_question_count=len(candidate_map),
-        stable_ids_exact=True,
+        stable_ids_exact=not candidate.excluded_question_ids,
+        id_accounting_complete=True,
+        documented_excluded_question_ids=tuple(sorted(candidate.excluded_question_ids)),
         field_changes=tuple(changes),
         complete=True,
     )
@@ -79,6 +84,8 @@ def comparison_view(report: ComparisonReport) -> dict:
         "benchmark_question_count": report.benchmark_question_count,
         "candidate_question_count": report.candidate_question_count,
         "stable_ids_exact": report.stable_ids_exact,
+        "id_accounting_complete": report.id_accounting_complete,
+        "documented_excluded_question_ids": list(report.documented_excluded_question_ids),
         "field_change_count": len(report.field_changes),
         "field_changes": [
             {

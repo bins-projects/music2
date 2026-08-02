@@ -160,3 +160,39 @@ def test_review_change_invalidates_candidate_and_its_comparison() -> None:
 def test_comparison_requires_a_built_candidate() -> None:
     with pytest.raises(DomainError, match="before comparison"):
         SyntheticWorkbenchSession().compare_isolated_candidate()
+
+
+def test_retain_blocker_records_disposition_without_resolving_finding() -> None:
+    session = SyntheticWorkbenchSession()
+
+    payload = session.record_disposition("PFV2-FIND-PARSE-000003", "leave_blocked")
+    payload = session.build_isolated_candidate()
+
+    assert case(payload, "PFV2-FIND-PARSE-000003")["status"] == "retained_blocker"
+    assert "PFV2-FIND-PARSE-000003" in payload["candidate"]["unresolved_finding_ids"]
+    assert payload["session"]["events"][0]["event_type"] == "disposition:retain_blocker"
+
+
+def test_explicit_exclusion_accounts_for_whole_record_and_all_its_findings() -> None:
+    session = SyntheticWorkbenchSession()
+
+    payload = session.record_disposition("PFV2-FIND-PARSE-000001", "exclude_record")
+    assert case(payload, "PFV2-FIND-PARSE-000001")["status"] == "excluded_record"
+    assert case(payload, "PFV2-FIND-PARSE-000002")["status"] == "excluded_record"
+
+    session.build_isolated_candidate()
+    payload = session.compare_isolated_candidate()
+
+    assert payload["candidate"]["question_count"] == 1
+    assert payload["candidate"]["excluded_question_ids"] == [
+        "PFQ-synthetic-000000108"
+    ]
+    assert payload["candidate"]["unresolved_finding_ids"] == [
+        "PFV2-FIND-PARSE-000003"
+    ]
+    assert payload["comparison"]["stable_ids_exact"] is False
+    assert payload["comparison"]["id_accounting_complete"] is True
+    assert payload["comparison"]["documented_excluded_question_ids"] == [
+        "PFQ-synthetic-000000108"
+    ]
+    assert payload["candidate"]["promotion_ready"] is False

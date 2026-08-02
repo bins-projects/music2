@@ -4,6 +4,8 @@ from ingestion_v2.domain import (
     DomainError,
     Finding,
     FindingSeverity,
+    FindingDisposition,
+    DispositionAction,
     Proposal,
     QuestionRecord,
     ReviewAction,
@@ -167,6 +169,30 @@ def test_incomplete_damaged_record_can_be_preserved_for_blocking_review() -> Non
 
     assert damaged.stem == ""
     assert damaged.question_type == ""
+
+
+def test_documented_record_exclusion_is_atomic_and_auditable() -> None:
+    original = question()
+    disposition = FindingDisposition(
+        disposition_id="PFV2-DISP-0001",
+        finding_id="PFV2-FIND-0001",
+        question_id=original.question_id,
+        action=DispositionAction.EXCLUDE_RECORD,
+        reviewer_note="Synthetic record is unusable and explicitly excluded.",
+    )
+
+    candidate = build_candidate(
+        (original,),
+        (finding(),),
+        dispositions=(disposition,),
+    )
+
+    assert candidate.questions == ()
+    assert candidate.excluded_question_ids == (original.question_id,)
+    assert candidate.unresolved_finding_ids == ()
+    assert candidate.audit_events == (
+        f"{original.question_id}:excluded_by_documented_disposition",
+    )
     with pytest.raises(DomainError, match="source-neutral"):
         Finding(
             finding_id="PFV2-FIND-0001",

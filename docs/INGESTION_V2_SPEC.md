@@ -105,6 +105,16 @@ review decision, verification, or candidate rebuild invalidates the prior report
 Only a comparison for the current candidate can satisfy the comparison gate;
 unresolved blocking findings continue to prevent readiness independently.
 
+## Findings without a safe correction
+
+A reviewer may explicitly retain a blocker or exclude an unusable record. A
+retained blocker records the human disposition but remains unresolved and blocks
+readiness. Exclusion is a question-level atomic operation: the candidate omits
+the whole record, records its stable ID and audit event, and never presents the
+result as an exact ID match. Comparison succeeds only when every missing ID is
+accounted for by a documented exclusion; unrelated findings remain unresolved.
+Neither disposition invents replacement content.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

@@ -63,7 +63,11 @@ def test_queue_exposes_finding_without_inventing_a_proposal() -> None:
     assert case.question.stem == "Synthetic stem 1"
     assert case.proposal is None
     assert case.status is ReviewStatus.NEEDS_PROPOSAL
-    assert case.allowed_actions == ("leave_blocked", "create_proposal")
+    assert case.allowed_actions == (
+        "leave_blocked",
+        "exclude_record",
+        "create_proposal",
+    )
     assert queue.blocking_case_count == 1
 
 

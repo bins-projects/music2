@@ -25,6 +25,11 @@ class ReviewAction(str, Enum):
     DEFER = "defer"
 
 
+class DispositionAction(str, Enum):
+    RETAIN_BLOCKER = "retain_blocker"
+    EXCLUDE_RECORD = "exclude_record"
+
+
 @dataclass(frozen=True)
 class QuestionRecord:
     question_id: str
@@ -110,16 +115,36 @@ class SourceVerification:
 
 
 @dataclass(frozen=True)
+class FindingDisposition:
+    disposition_id: str
+    finding_id: str
+    question_id: str
+    action: DispositionAction
+    reviewer_note: str
+
+    def __post_init__(self) -> None:
+        _validate_reference(self.disposition_id, "PFV2-DISP-")
+        _validate_reference(self.finding_id, "PFV2-FIND-")
+        if not QUESTION_ID_RE.fullmatch(self.question_id):
+            raise DomainError("Disposition requires a stable PrepFlow question ID")
+        if not self.reviewer_note:
+            raise DomainError("Disposition requires a reviewer note")
+
+
+@dataclass(frozen=True)
 class Candidate:
     questions: tuple[QuestionRecord, ...]
     applied_proposal_ids: tuple[str, ...] = ()
     unresolved_finding_ids: tuple[str, ...] = ()
     audit_events: tuple[str, ...] = field(default_factory=tuple)
+    excluded_question_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         ids = tuple(question.question_id for question in self.questions)
         if len(ids) != len(set(ids)):
             raise DomainError("Candidate question IDs must be unique")
+        if set(ids) & set(self.excluded_question_ids):
+            raise DomainError("A candidate cannot contain an excluded question")
 
 
 @dataclass(frozen=True)

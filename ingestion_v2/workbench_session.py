@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from ingestion_v2.demo import synthetic_review_records
 from ingestion_v2.domain import (
     DomainError,
+    DispositionAction,
+    FindingDisposition,
     ReviewAction,
     ReviewDecision,
     SourceVerification,
@@ -30,6 +32,7 @@ class SyntheticWorkbenchSession:
         self._decisions_by_proposal: dict[str, ReviewDecision] = {}
         self._verifications_by_proposal: dict[str, SourceVerification] = {}
         self._events: list[SessionEvent] = []
+        self._dispositions_by_finding: dict[str, FindingDisposition] = {}
         self._candidate = None
         self._comparison = None
 
@@ -94,6 +97,7 @@ class SyntheticWorkbenchSession:
             self.proposals,
             tuple(self._decisions_by_proposal.values()),
             tuple(self._verifications_by_proposal.values()),
+            tuple(self._dispositions_by_finding.values()),
         )
         self._comparison = None
         event_number = len(self._events) + 1
@@ -102,6 +106,34 @@ class SyntheticWorkbenchSession:
                 event_id=f"PFV2-EVENT-{event_number:06d}",
                 finding_id="PFV2-CANDIDATE",
                 event_type="candidate:built_in_memory",
+            )
+        )
+        return self.view()
+
+    def record_disposition(self, finding_id: str, action: str) -> dict:
+        case = self._case(finding_id)
+        action_map = {
+            "leave_blocked": DispositionAction.RETAIN_BLOCKER,
+            "exclude_record": DispositionAction.EXCLUDE_RECORD,
+        }
+        if action not in action_map or action not in case.allowed_actions:
+            raise DomainError(f"Disposition is not allowed for current review state: {action}")
+        event_number = len(self._events) + 1
+        disposition = FindingDisposition(
+            disposition_id=f"PFV2-DISP-SESSION-{event_number:06d}",
+            finding_id=finding_id,
+            question_id=case.finding.question_id,
+            action=action_map[action],
+            reviewer_note="Recorded in synthetic in-memory workbench session.",
+        )
+        self._dispositions_by_finding[finding_id] = disposition
+        self._candidate = None
+        self._comparison = None
+        self._events.append(
+            SessionEvent(
+                event_id=f"PFV2-EVENT-{event_number:06d}",
+                finding_id=finding_id,
+                event_type=f"disposition:{action_map[action].value}",
             )
         )
         return self.view()
@@ -152,6 +184,7 @@ class SyntheticWorkbenchSession:
             self.proposals,
             tuple(self._decisions_by_proposal.values()),
             tuple(self._verifications_by_proposal.values()),
+            tuple(self._dispositions_by_finding.values()),
         )
 
     def _case(self, finding_id: str):
@@ -178,6 +211,7 @@ class SyntheticWorkbenchSession:
             "question_count": len(self._candidate.questions),
             "applied_proposal_ids": list(self._candidate.applied_proposal_ids),
             "unresolved_finding_ids": list(self._candidate.unresolved_finding_ids),
+            "excluded_question_ids": list(self._candidate.excluded_question_ids),
             "promotion_ready": readiness.ready,
             "blocking_reasons": list(readiness.blocking_reasons),
         }

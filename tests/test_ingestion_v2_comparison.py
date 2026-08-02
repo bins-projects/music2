@@ -43,3 +43,20 @@ def test_unchanged_candidate_completes_with_zero_differences() -> None:
     assert report.complete is True
     assert report.stable_ids_exact is True
     assert report.field_changes == ()
+
+
+def test_documented_exclusion_is_accounted_but_not_called_exact() -> None:
+    benchmark = (question(1), question(2))
+    candidate = Candidate(
+        questions=(question(1),),
+        excluded_question_ids=("PFQ-synthetic-000000002",),
+    )
+
+    report = compare_candidate(candidate, benchmark)
+
+    assert report.complete is True
+    assert report.stable_ids_exact is False
+    assert report.id_accounting_complete is True
+    assert report.documented_excluded_question_ids == (
+        "PFQ-synthetic-000000002",
+    )

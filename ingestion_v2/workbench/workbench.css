@@ -134,6 +134,17 @@ main { padding: 24px clamp(18px, 4vw, 64px) 48px; }
 .candidate-panel button:disabled { color: #738083; border-color: #344448; background: #1a2629; cursor: not-allowed; }
 .audit-strip { display: flex; flex-wrap: wrap; gap: 18px; padding: 12px 26px; color: #829497; border-top: 1px solid var(--line); font: 10px ui-monospace, monospace; text-transform: uppercase; letter-spacing: .05em; }
 .audit-strip span::before { content: "✓"; margin-right: 6px; color: var(--green); }
+dialog { width: min(680px, calc(100vw - 32px)); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; background: #101a1c; box-shadow: 0 24px 80px #000; }
+dialog::backdrop { background: rgba(2, 8, 9, .78); }
+dialog form { display: grid; gap: 16px; }
+dialog h2 { font-size: 22px; }
+.dialog-help, .dialog-error { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.dialog-error { color: var(--red); }
+dialog label { display: grid; gap: 7px; color: #cdd7d9; font-size: 12px; font-weight: 700; }
+dialog textarea { width: 100%; resize: vertical; padding: 11px; color: var(--ink); border: 1px solid #405257; border-radius: 8px; background: #0b1416; font: 13px/1.5 ui-monospace, monospace; }
+dialog .check-row { display: flex; align-items: center; gap: 9px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 9px; }
+.dialog-actions button { padding: 10px 13px; color: var(--ink); border: 1px solid #405257; border-radius: 8px; background: #1b292c; cursor: pointer; }
 
 @media (max-width: 850px) {
   .workspace, .comparison-grid { grid-template-columns: 1fr; }

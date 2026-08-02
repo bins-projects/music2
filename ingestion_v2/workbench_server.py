@@ -82,6 +82,18 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 payload = self.session.record_identity_action(record_id, action, target_question_id)
             elif self.path == "/api/identity/materialize":
                 payload = self.session.materialize_identity_review()
+            elif self.path == "/api/proposals":
+                finding_id = body.get("finding_id")
+                explanation = body.get("explanation")
+                verification = body.get("requires_source_verification")
+                if not isinstance(finding_id, str) or not isinstance(explanation, str):
+                    raise DomainError("finding_id and explanation are required")
+                payload = self.session.draft_user_proposal(
+                    finding_id,
+                    body.get("proposed_after"),
+                    explanation,
+                    requires_source_verification=verification,
+                )
             else:
                 self._send_json({"error": "not_found"}, status=404)
                 return

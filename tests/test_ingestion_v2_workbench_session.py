@@ -115,6 +115,74 @@ def test_server_adapter_rejects_bypassed_or_unsupported_actions() -> None:
         session.record_verification("PFV2-FIND-PARSE-000002")
 
 
+def test_user_authored_proposal_requires_separate_approval_and_verification() -> None:
+    session = SyntheticWorkbenchSession()
+    original = case(session.view(), "PFV2-FIND-PARSE-000001")["preserved_value"]
+
+    drafted = session.draft_user_proposal(
+        "PFV2-FIND-PARSE-000001",
+        [["A", "First option"], ["B", "Second option"], ["C", "Third option"]],
+        "The temporary source shows the missing first option.",
+        requires_source_verification=True,
+    )
+
+    drafted_case = case(drafted, "PFV2-FIND-PARSE-000001")
+    assert drafted_case["status"] == "awaiting_decision"
+    assert drafted_case["preserved_value"] == original
+    assert drafted_case["proposal"]["proposed_value"][0] == ("A", "First option")
+    assert drafted_case["proposal"]["requires_source_verification"] is True
+    unapproved = session.build_isolated_candidate()
+    assert unapproved["candidate"]["applied_proposal_ids"] == []
+
+    approved = session.record_action("PFV2-FIND-PARSE-000001", "approve")
+    assert case(approved, "PFV2-FIND-PARSE-000001")["status"] == "awaiting_source_verification"
+    verified = session.record_verification("PFV2-FIND-PARSE-000001")
+    rebuilt = session.build_isolated_candidate()
+    assert case(verified, "PFV2-FIND-PARSE-000001")["status"] == "approved"
+    assert len(rebuilt["candidate"]["applied_proposal_ids"]) == 1
+
+
+def test_user_proposal_rejects_unchanged_or_unexplained_values() -> None:
+    session = SyntheticWorkbenchSession()
+    preserved = case(session.view(), "PFV2-FIND-PARSE-000001")["preserved_value"]
+
+    with pytest.raises(DomainError, match="explanation"):
+        session.draft_user_proposal(
+            "PFV2-FIND-PARSE-000001", preserved, "", requires_source_verification=False
+        )
+    with pytest.raises(DomainError, match="change"):
+        session.draft_user_proposal(
+            "PFV2-FIND-PARSE-000001",
+            preserved,
+            "No actual change.",
+            requires_source_verification=False,
+        )
+
+
+def test_editing_user_proposal_replaces_prior_draft_without_authorizing_it() -> None:
+    session = SyntheticWorkbenchSession()
+    first = session.draft_user_proposal(
+        "PFV2-FIND-PARSE-000001",
+        [["A", "First"], ["B", "Second option"], ["C", "Third option"]],
+        "First draft.",
+        requires_source_verification=False,
+    )
+    first_id = case(first, "PFV2-FIND-PARSE-000001")["proposal"]["proposal_id"]
+
+    second = session.draft_user_proposal(
+        "PFV2-FIND-PARSE-000001",
+        [["A", "Revised first"], ["B", "Second option"], ["C", "Third option"]],
+        "Revised draft with clearer source transcription.",
+        requires_source_verification=True,
+    )
+    second_case = case(second, "PFV2-FIND-PARSE-000001")
+
+    assert second_case["proposal"]["proposal_id"] != first_id
+    assert second_case["status"] == "awaiting_decision"
+    assert len([item for item in session.proposals if item.finding_id == "PFV2-FIND-PARSE-000001"]) == 1
+    assert session.build_isolated_candidate()["candidate"]["applied_proposal_ids"] == []
+
+
 def test_later_decision_replaces_current_state_but_preserves_event_history() -> None:
     session = SyntheticWorkbenchSession()
 

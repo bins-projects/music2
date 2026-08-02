@@ -12,6 +12,8 @@ from ingestion_v2.domain import (
     ReviewAction,
     ReviewDecision,
     SourceVerification,
+    Proposal,
+    replace_question_field,
 )
 from ingestion_v2.engine import build_candidate, promotion_readiness
 from ingestion_v2.comparison import compare_candidate, comparison_view
@@ -340,6 +342,63 @@ class SyntheticWorkbenchSession:
                 event_id=f"PFV2-EVENT-{event_number:06d}",
                 finding_id=finding_id,
                 event_type=f"decision:{action}",
+            )
+        )
+        return self.view()
+
+    def draft_user_proposal(
+        self,
+        finding_id: str,
+        proposed_after,
+        explanation: str,
+        *,
+        requires_source_verification: bool,
+    ) -> dict:
+        self._ensure_active_run_if_configured()
+        case = self._case(finding_id)
+        allowed = {"create_proposal", "create_new_proposal", "edit_as_new_proposal"}
+        if not allowed.intersection(case.allowed_actions):
+            raise DomainError("A new proposal is not allowed for the current review state")
+        if not isinstance(explanation, str) or not explanation.strip():
+            raise DomainError("A user-authored proposal requires an explanation")
+        if not isinstance(requires_source_verification, bool):
+            raise DomainError("Source-verification selection must be boolean")
+        current = getattr(case.question, case.finding.field)
+        # Normalize list-shaped JSON and validate it through the immutable domain
+        # record before storing the proposal.
+        validated = replace_question_field(case.question, case.finding.field, proposed_after)
+        proposed_value = getattr(validated, case.finding.field)
+        if proposed_value == current:
+            raise DomainError("A proposal must change the preserved value")
+        event_number = len(self._events) + 1
+        proposal = Proposal(
+            proposal_id=f"PFV2-PROP-USER-{event_number:06d}",
+            finding_id=case.finding.finding_id,
+            question_id=case.finding.question_id,
+            field=case.finding.field,
+            expected_before=current,
+            proposed_after=proposed_value,
+            explanation=explanation.strip(),
+            requires_source_verification=requires_source_verification,
+        )
+        old_proposal_ids = {
+            item.proposal_id for item in self.proposals if item.finding_id == finding_id
+        }
+        self.proposals = tuple(
+            item for item in self.proposals if item.finding_id != finding_id
+        ) + (proposal,)
+        for proposal_id in old_proposal_ids:
+            self._decisions_by_proposal.pop(proposal_id, None)
+            self._verifications_by_proposal.pop(proposal_id, None)
+        self._dispositions_by_finding.pop(finding_id, None)
+        self._candidate = None
+        self._comparison = None
+        self._return_lifecycle_to_review()
+        self._events.append(
+            SessionEvent(
+                event_id=f"PFV2-EVENT-{event_number:06d}",
+                finding_id=finding_id,
+                event_type="proposal:user_authored",
             )
         )
         return self.view()

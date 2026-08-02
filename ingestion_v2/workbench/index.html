@@ -128,6 +128,22 @@
       </section>
     </main>
 
+    <dialog id="proposal-dialog">
+      <form id="proposal-form" method="dialog">
+        <p class="eyebrow">USER-AUTHORED PROPOSAL</p>
+        <h2>Draft a reviewable correction</h2>
+        <p class="dialog-help">For choices or answers, edit the JSON array. Saving this draft does not approve or apply it.</p>
+        <label>Proposed value<textarea id="proposal-value" rows="9" required></textarea></label>
+        <label>Why this correction is justified<textarea id="proposal-reason" rows="4" required></textarea></label>
+        <label class="check-row"><input id="proposal-verification" type="checkbox"> Require source verification after approval</label>
+        <p id="proposal-error" class="dialog-error"></p>
+        <div class="dialog-actions">
+          <button id="proposal-cancel" type="button">Cancel</button>
+          <button class="primary" type="submit">Save proposal</button>
+        </div>
+      </form>
+    </dialog>
+
     <script src="demo-data.js"></script>
     <script src="workbench.js"></script>
   </body>

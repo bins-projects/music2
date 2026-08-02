@@ -12,7 +12,8 @@
     edit_as_new_proposal: "Edit proposal",
     leave_blocked: "Leave blocked",
     exclude_record: "Exclude record",
-    create_proposal: "Draft proposal"
+    create_proposal: "Draft proposal",
+    create_new_proposal: "Draft new proposal"
   };
 
   const statusLabels = {
@@ -64,10 +65,61 @@
       button.type = "button";
       button.textContent = labels[action] || action;
       button.className = action === "approve" ? "primary" : action === "reject" ? "danger" : "secondary";
-      button.addEventListener("click", () => takeAction(item, action));
+      button.addEventListener("click", () => {
+        if (["create_proposal", "create_new_proposal", "edit_as_new_proposal"].includes(action)) {
+          openProposalEditor(item);
+        } else {
+          takeAction(item, action);
+        }
+      });
       actions.append(button);
     });
   }
+
+  function openProposalEditor(item) {
+    const dialog = document.getElementById("proposal-dialog");
+    dialog.dataset.findingId = item.finding_id;
+    document.getElementById("proposal-value").value = JSON.stringify(
+      item.proposal?.proposed_value ?? item.preserved_value,
+      null,
+      2
+    );
+    document.getElementById("proposal-reason").value = item.proposal?.explanation || "";
+    document.getElementById("proposal-verification").checked = Boolean(item.proposal?.requires_source_verification);
+    document.getElementById("proposal-error").textContent = "";
+    dialog.showModal();
+  }
+
+  document.getElementById("proposal-cancel").addEventListener("click", () => {
+    document.getElementById("proposal-dialog").close();
+  });
+
+  document.getElementById("proposal-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const dialog = document.getElementById("proposal-dialog");
+    const errorNode = document.getElementById("proposal-error");
+    try {
+      const proposedAfter = JSON.parse(document.getElementById("proposal-value").value);
+      const response = await fetch("/api/proposals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          finding_id: dialog.dataset.findingId,
+          proposed_after: proposedAfter,
+          explanation: document.getElementById("proposal-reason").value,
+          requires_source_verification: document.getElementById("proposal-verification").checked
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Proposal was rejected.");
+      dialog.close();
+      acceptEnginePayload(result);
+    } catch (error) {
+      errorNode.textContent = error instanceof SyntaxError
+        ? "Proposed value must be valid JSON. Text values need quotation marks."
+        : error.message;
+    }
+  });
 
   async function takeAction(item, action) {
     if (payload.session?.mode === "synthetic_in_memory") {

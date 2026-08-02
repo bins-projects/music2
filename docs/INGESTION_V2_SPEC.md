@@ -279,6 +279,24 @@ evidence, including protected vitamin prose, produces no proposal. No source
 verification requirement is asserted for this exact text-only move, but the
 ordinary explicit review decision remains mandatory.
 
+## User-authored proposal boundary
+
+Findings without a deterministic correction can be opened in a private proposal
+editor. The editor begins with the preserved value, represents scalar and
+collection fields as JSON, requires a non-empty justification, and lets the user
+mark the draft as requiring later source verification. Domain validation checks
+the proposed value against an immutable copy of the question before the proposal
+is accepted.
+
+Saving records a new v2 proposal and audit event only. It neither approves the
+proposal nor rebuilds the candidate. Approval is a separate review decision;
+when source verification was requested, approval still leaves the proposal
+blocked until a separate verification event is recorded. Editing creates a new
+proposal, replaces the prior draft for that finding, and clears decisions or
+verifications tied to the superseded proposal. Empty explanations, unchanged
+values, invalid field shapes, and actions unavailable in the current review
+state are rejected.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

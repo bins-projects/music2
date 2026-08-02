@@ -28,7 +28,10 @@ def test_success_uses_copy_deletes_staging_and_preserves_original(
         observed["bytes"] = path.read_bytes()
         return "Extracted source-neutral text"
 
-    monkeypatch.setattr("compiler.intake_workspace.read_pdf", fake_read)
+    monkeypatch.setattr(
+        "compiler.intake_workspace.read_pdf_pages",
+        lambda path: (fake_read(path),),
+    )
 
     result = extract_pdf_in_isolated_run(
         source,
@@ -59,7 +62,10 @@ def test_failed_extraction_preserves_original_and_confines_diagnostics(
     def fail(_path: Path) -> str:
         raise ValueError("source-identifying failure details")
 
-    monkeypatch.setattr("compiler.intake_workspace.read_pdf", fail)
+    monkeypatch.setattr(
+        "compiler.intake_workspace.read_pdf_pages",
+        lambda path: (fail(path),),
+    )
 
     with pytest.raises(IntakeWorkspaceError, match="isolated run"):
         extract_pdf_in_isolated_run(source, workspace_root=tmp_path / "runs")
@@ -104,12 +110,12 @@ def test_generalized_cleaning_updates_isolated_run_without_legacy_rules(
     source = tmp_path / "original.pdf"
     source.write_bytes(b"original")
     monkeypatch.setattr(
-        "compiler.intake_workspace.read_pdf",
-        lambda _path: (
+        "compiler.intake_workspace.read_pdf_pages",
+        lambda _path: ((
             "Chapter 01: Test  \n\n\n"
             "1. Question  \n"
             "Document shared on https://www.docsity.com/example\n"
-        ),
+        ),),
     )
     extraction = extract_pdf_in_isolated_run(source, workspace_root=tmp_path / "runs")
 
@@ -141,15 +147,15 @@ def test_isolated_parser_excludes_broad_missing_a_recovery(
     source = tmp_path / "original.pdf"
     source.write_bytes(b"original")
     monkeypatch.setattr(
-        "compiler.intake_workspace.read_pdf",
-        lambda _path: """Chapter 1: Test
+        "compiler.intake_workspace.read_pdf_pages",
+        lambda _path: ("""Chapter 1: Test
 MULTIPLE CHOICE
 1. Which response is correct? First response
 b. Second response
 c. Third response
 ANS: A
 Rationale text.
-""",
+""",),
     )
     extraction = extract_pdf_in_isolated_run(source, workspace_root=tmp_path / "runs")
     clean_isolated_run(extraction.run_directory)
@@ -171,8 +177,8 @@ def test_isolated_validation_is_source_neutral_and_does_not_build_pack(
     source = tmp_path / "original.pdf"
     source.write_bytes(b"original")
     monkeypatch.setattr(
-        "compiler.intake_workspace.read_pdf",
-        lambda _path: """Chapter 1: Test
+        "compiler.intake_workspace.read_pdf_pages",
+        lambda _path: ("""Chapter 1: Test
 MULTIPLE CHOICE
 1. First question?
 a. First
@@ -184,7 +190,7 @@ DIF: Test
 a. First
 b. Second
 Rationale.
-""",
+""",),
     )
     extraction = extract_pdf_in_isolated_run(source, workspace_root=tmp_path / "runs")
     clean_isolated_run(extraction.run_directory)

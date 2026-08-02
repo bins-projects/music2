@@ -3,8 +3,8 @@ from pathlib import Path
 from pypdf import PdfReader
 
 
-def read_pdf(path: Path) -> str:
-    """Extract text from a text-based PDF without cleaning or parsing it."""
+def read_pdf_pages(path: Path) -> tuple[str, ...]:
+    """Extract text pages without cleaning, parsing, or source metadata."""
     if not path.exists():
         raise FileNotFoundError(f"Source file not found: {path}")
 
@@ -26,4 +26,9 @@ def read_pdf(path: Path) -> str:
             "The PDF may be scanned and require OCR."
         )
 
-    return "\n".join(pages)
+    return tuple(pages)
+
+
+def read_pdf(path: Path) -> str:
+    """Extract text from a text-based PDF without cleaning or parsing it."""
+    return "\n".join(read_pdf_pages(path))

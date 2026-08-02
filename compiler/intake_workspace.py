@@ -5,7 +5,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from compiler.pdf_reader import read_pdf
+from compiler.pdf_reader import read_pdf_pages
 from compiler.cleaner import clean_text_generalized
 from compiler.detector import detect_structure
 from compiler.source_parser import parse_source_questions
@@ -167,7 +167,8 @@ def extract_pdf_in_isolated_run(
         manifest.update(stage="extraction", staged_source_present=True)
         _write_manifest(run_directory, manifest)
 
-        raw_text = read_pdf(staged_source)
+        pages = read_pdf_pages(staged_source)
+        raw_text = "\n\f\n".join(pages)
         raw_artifact = run_directory / "artifacts" / "01_raw.txt"
         raw_artifact.write_text(raw_text, encoding="utf-8")
         manifest.update(raw_artifact_present=True)
@@ -179,6 +180,7 @@ def extract_pdf_in_isolated_run(
             status="success",
             staged_source_present=False,
             extracted_characters=len(raw_text),
+            extracted_pages=len(pages),
         )
         _write_manifest(run_directory, manifest)
     except Exception as error:

@@ -364,12 +364,37 @@ legacy cleaning. All five missing known keys are absent in both new parses. The
 legacy cleaner was not placed on the default route, and the complete 223-test
 suite passes.
 
-Next, inventory the legacy transformations responsible for the 426 exact matches
-and design source-neutral guarded equivalents for repeated extraction noise.
-Protect each generalized rule with positive, negative, and Pack-drift tests. Keep
-the 45 partially changed and 30 persistent fields in review, and do not
-automatically apply any repair. The mock candidate must never promote or overwrite
-canonical data automatically.
+A second unchanged-pipeline baseline is recorded in
+`docs/MEDSURG_MOCK_IMPORT_COMPARISON_2026-08-02.md`. Medical-Surgical parses and
+aligns exactly 1,443 records to 1,443 existing IDs, with no parsed-only,
+target-only, or boundary records. The isolated result has 680 differing fields and
+41 added blockers. Diagnostic-only legacy cleaning makes all 680 fields match the
+existing Pack and removes all 41 additions, leaving the same seven blockers as the
+existing Pack. This independently confirms cleaning-stage extraction noise as a
+high-impact source-neutral generalization target.
+
+The cross-source transformation inventory is recorded in
+`docs/CROSS_SOURCE_CLEANING_INVENTORY_2026-08-02.md`. Fundamentals contains
+hundreds of repeated document-share, test-bank-title, and domain overlays;
+Medical-Surgical contains hundreds of repeated download, legal, marketplace, and
+inline overlays. The literals differ but the structural role is shared: repeated
+page-level source noise. No literal brand, title, publisher, edition, or filename
+rule is authorized for the default cleaner.
+
+Page-aware temporary extraction and a detection-only repetition profiler are now
+implemented. On fresh runs it reports six Fundamentals line candidates and five
+Medical-Surgical line candidates. Structural guards protect three Fundamentals
+and two Medical-Surgical candidates as educational shapes, leaving three
+removal-eligible whole-line candidates per source plus one Medical-Surgical suffix
+candidate. No text was removed or fingerprint persisted. The complete 227-test
+suite passes.
+
+Next, add a dry-run-only transformation preview for the six eligible whole-line
+candidates and one suffix candidate. Re-run parsing, field comparison, and QA in
+memory for both sources and authorize removal only if valid educational content is
+unchanged and drift/blockers improve without new findings. Keep Fundamentals’ 45
+partially changed and 30 persistent fields in review, and do not automatically
+apply any repair. Neither mock candidate may promote or overwrite canonical data.
 
 Question 108 has an unresolved, tracked source-verification hold on its
 candidate-only A-to-C answer change. Canonical promotion remains blocked until

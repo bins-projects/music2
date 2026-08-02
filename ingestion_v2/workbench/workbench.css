@@ -101,6 +101,7 @@ main { padding: 24px clamp(18px, 4vw, 64px) 48px; }
 .amber { background: var(--amber); }
 .blue { background: var(--blue); }
 .record-value { min-height: 128px; padding: 18px; color: #f5f7f5; font: 15px/1.6 ui-monospace, monospace; overflow-wrap: anywhere; }
+.record-value select { width: 100%; padding: 11px; color: var(--ink); border: 1px solid #405257; border-radius: 8px; background: #101b1d; font: 12px/1.4 ui-monospace, monospace; }
 .choice-row { display: grid; grid-template-columns: 24px 1fr; gap: 8px; margin-bottom: 8px; }
 .choice-row b { color: var(--cyan); }
 .card-note { min-height: 56px; padding: 13px 15px; color: var(--muted); border-top: 1px solid var(--line); font-size: 12px; line-height: 1.45; }

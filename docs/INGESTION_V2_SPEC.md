@@ -210,6 +210,21 @@ Otherwise the run stops at `identity_review`. A complete report stops at
 `identity_matched`; candidate construction and canonical promotion remain
 unavailable in this slice.
 
+Identity review may rank up to three unclaimed targets from the same chapter by
+normalized stem similarity. Rankings are proposals, never identity authority.
+The private local interface displays the parsed stem, target stem, stable target
+ID, and score so the user can approve a selected match, reject the suggestions,
+or defer. Review content stays in the in-memory session payload and is never
+written into the source-neutral run manifest.
+
+An approval is accepted only for a suggestion actually displayed for that
+temporary parsed record. The engine prevents duplicate use of a stable target
+ID. Reject and defer retain the identity blocker. The lifecycle reaches
+`identity_matched` only when exact automatic matches plus explicitly approved
+matches create complete one-to-one accounting of both parsed and target records.
+Even then, this stage only authorizes identity mapping; it does not authorize a
+content repair, candidate write, Pack overwrite, or promotion.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

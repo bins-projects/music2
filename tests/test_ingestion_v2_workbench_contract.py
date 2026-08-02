@@ -65,6 +65,9 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert "/api/identity/existing-pack" in script
     assert "IDENTITY_PACKS" in server
     assert "Unknown protected Pack selection" in server
+    assert "/api/identity/actions" in script
+    assert "Approve selected match" in script
+    assert "Ranked suggestion only" in script
 
 
 def test_workbench_has_responsive_layout() -> None:

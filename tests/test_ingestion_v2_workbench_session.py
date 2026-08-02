@@ -387,6 +387,46 @@ def test_changed_pdf_stem_stops_in_identity_review_without_guessed_id(tmp_path) 
     assert payload["pipeline"]["identity"]["findings"][0]["candidate_question_ids"] == []
     assert payload["pipeline"]["identity"]["automatic_id_assignments_authorized"] is False
 
+    reviewed = session.record_identity_action(
+        "PFV2-REC-000001", "approve", "PFQ-test-000000001"
+    )
+
+    assert reviewed["run"]["state"] == "identity_matched"
+    assert reviewed["pipeline"]["identity"]["reviewed_id_assignments_authorized"] is True
+    assert reviewed["pipeline"]["identity"]["automatic_id_assignments_authorized"] is False
+    assert reviewed["candidate"]["state"] == "not_built"
+
+
+def test_identity_defer_keeps_run_blocked_and_invalid_selection_is_rejected(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(
+        [
+            "Chapter 1: Synthetic PDF",
+            "MULTIPLE CHOICE",
+            "1. Changed stem?",
+            "a. First",
+            "b. Second",
+            "ANS: A",
+            "Rationale.",
+        ]
+    )
+    target = {
+        "format": "prepflow_pack",
+        "pack_id": "test",
+        "questions": [{"id": "PFQ-test-000000001", "chapter": 1, "stem": "Original stem?"}],
+    }
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    session.match_existing_pack(target)
+
+    deferred = session.record_identity_action("PFV2-REC-000001", "defer")
+
+    assert deferred["run"]["state"] == "identity_review"
+    assert deferred["pipeline"]["identity"]["review_cases"][0]["status"] == "defer"
+    with pytest.raises(DomainError, match="displayed identity suggestion"):
+        session.record_identity_action(
+            "PFV2-REC-000001", "approve", "PFQ-test-999999999"
+        )
+
 
 def test_pdf_run_rejects_empty_selection_before_creating_workspace(tmp_path) -> None:
     session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")

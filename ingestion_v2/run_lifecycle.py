@@ -201,6 +201,20 @@ class RunLifecycle:
         self._write_manifest(manifest)
         return manifest
 
+    def record_identity_resolution(self, *, approved_matches: int) -> dict:
+        manifest = self._require_stage("identity_review")
+        if approved_matches < 1:
+            raise DomainError("Resolved identity review requires approved matches")
+        manifest.update(
+            stage="identity_matched",
+            identity_complete=True,
+            identity_review_approved_matches=approved_matches,
+            identity_finding_count=0,
+            identity_target_only_records=0,
+        )
+        self._write_manifest(manifest)
+        return manifest
+
     def record_candidate(self, *, question_count: int, unresolved_findings: int) -> dict:
         manifest = self.manifest()
         if manifest.get("stage") not in {"review_ready", "candidate_built", "compared"} or manifest.get("status") != "running":

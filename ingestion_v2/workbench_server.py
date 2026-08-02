@@ -71,6 +71,15 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 if pack_id not in IDENTITY_PACKS:
                     raise DomainError("Unknown protected Pack selection")
                 payload = self.session.match_existing_pack(load_pack(IDENTITY_PACKS[pack_id]))
+            elif self.path == "/api/identity/actions":
+                record_id = body.get("record_id")
+                action = body.get("action")
+                target_question_id = body.get("target_question_id")
+                if not isinstance(record_id, str) or not isinstance(action, str):
+                    raise DomainError("record_id and action are required")
+                if target_question_id is not None and not isinstance(target_question_id, str):
+                    raise DomainError("target_question_id must be a string")
+                payload = self.session.record_identity_action(record_id, action, target_question_id)
             else:
                 self._send_json({"error": "not_found"}, status=404)
                 return

@@ -22,6 +22,11 @@ from ingestion_v2.cleaning import GuardedPageAwareCleaner
 from ingestion_v2.extraction import extract_disposable_copy
 from ingestion_v2.parser import ExistingParserAdapter
 from ingestion_v2.identity import IdentityReport, match_existing_pack_identity
+from ingestion_v2.identity_review import (
+    IdentityReviewCase,
+    authorize_reviewed_identity,
+    build_identity_review_cases,
+)
 
 
 @dataclass(frozen=True)
@@ -51,6 +56,8 @@ class SyntheticWorkbenchSession:
         self._extraction_result = None
         self._parse_batch = None
         self._identity_report: IdentityReport | None = None
+        self._identity_cases: tuple[IdentityReviewCase, ...] = ()
+        self._identity_actions: dict[str, dict[str, str]] = {}
         self._last_cleanup = None
 
     def view(self) -> dict:
@@ -99,11 +106,7 @@ class SyntheticWorkbenchSession:
                 self._lifecycle
                 and self._lifecycle.manifest()["stage"] == "identity_pending"
             ),
-            "identity": (
-                self._identity_report.view()
-                if self._identity_report is not None
-                else {"state": "not_run"}
-            ),
+            "identity": self._identity_view(),
         }
         payload["candidate"] = self._candidate_view()
         payload["comparison"] = (
@@ -157,6 +160,7 @@ class SyntheticWorkbenchSession:
         if self._lifecycle.manifest()["stage"] != "identity_pending":
             raise DomainError("Existing-Pack identity can run only at the identity gate")
         report = match_existing_pack_identity(self._parse_batch, target_pack)
+        cases = build_identity_review_cases(self._parse_batch, target_pack, report)
         self._lifecycle.record_identity_assessment(
             target_pack_id=report.target_pack_id,
             matched_records=len(report.matches),
@@ -165,6 +169,55 @@ class SyntheticWorkbenchSession:
             complete=report.complete,
         )
         self._identity_report = report
+        self._identity_cases = cases
+        self._identity_actions = {}
+        return self.view()
+
+    def record_identity_action(
+        self,
+        record_id: str,
+        action: str,
+        target_question_id: str | None = None,
+    ) -> dict:
+        if self._identity_report is None or self._lifecycle is None:
+            raise DomainError("Run existing-Pack identity matching before review")
+        if self._lifecycle.manifest()["stage"] != "identity_review":
+            raise DomainError("Identity review is not active")
+        case = next((item for item in self._identity_cases if item.record_id == record_id), None)
+        if case is None:
+            raise DomainError("Unknown identity review record")
+        if action not in {"approve", "reject", "defer"}:
+            raise DomainError("Unknown identity review action")
+        if action == "approve":
+            allowed = {item.target_question_id for item in case.suggestions}
+            if target_question_id not in allowed:
+                raise DomainError("Approval requires a displayed identity suggestion")
+            already_used = {
+                value["target_question_id"]
+                for key, value in self._identity_actions.items()
+                if key != record_id and value["action"] == "approve"
+            } | {item.target_question_id for item in self._identity_report.matches}
+            if target_question_id in already_used:
+                raise DomainError("A stable question ID cannot be assigned twice")
+            self._identity_actions[record_id] = {
+                "action": action,
+                "target_question_id": target_question_id,
+            }
+        else:
+            self._identity_actions[record_id] = {"action": action, "target_question_id": ""}
+
+        approvals = {
+            key: value["target_question_id"]
+            for key, value in self._identity_actions.items()
+            if value["action"] == "approve"
+        }
+        if (
+            len(approvals) == len(self._identity_cases)
+            and len(self._identity_report.matches) + len(approvals) == self._identity_report.parsed_count
+            and len(self._identity_report.matches) + len(approvals) == self._identity_report.target_count
+        ):
+            authorize_reviewed_identity(self._identity_report, self._identity_cases, approvals)
+            self._lifecycle.record_identity_resolution(approved_matches=len(approvals))
         return self.view()
 
     def start_pdf_run(self, content: bytes) -> dict:
@@ -367,6 +420,8 @@ class SyntheticWorkbenchSession:
         self._extraction_result = None
         self._parse_batch = None
         self._identity_report = None
+        self._identity_cases = ()
+        self._identity_actions = {}
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()
@@ -412,6 +467,31 @@ class SyntheticWorkbenchSession:
             "blocking_reasons": list(readiness.blocking_reasons),
         }
 
+    def _identity_view(self) -> dict:
+        if self._identity_report is None:
+            return {"state": "not_run"}
+        view = self._identity_report.view()
+        resolved = self._lifecycle is not None and self._lifecycle.manifest()["stage"] == "identity_matched"
+        view["state"] = "complete" if resolved else view["state"]
+        view["review_cases"] = [
+            {
+                "record_id": case.record_id,
+                "chapter": case.chapter,
+                "finding_code": case.finding_code,
+                "parsed_stem": case.parsed_stem,
+                "status": self._identity_actions.get(case.record_id, {}).get("action", "pending"),
+                "selected_target_question_id": self._identity_actions.get(case.record_id, {}).get("target_question_id") or None,
+                "suggestions": [item.__dict__ for item in case.suggestions],
+            }
+            for case in self._identity_cases
+        ]
+        view["review_approved_count"] = sum(
+            item.get("action") == "approve" for item in self._identity_actions.values()
+        )
+        view["automatic_id_assignments_authorized"] = self._identity_report.complete
+        view["reviewed_id_assignments_authorized"] = bool(resolved and self._identity_cases)
+        return view
+
     def _ensure_active_run_if_configured(self) -> None:
         if self._workspace_root is not None and self._lifecycle is None:
             raise DomainError("Start the synthetic run first")
@@ -454,6 +534,8 @@ class SyntheticWorkbenchSession:
         self._extraction_result = None
         self._parse_batch = None
         self._identity_report = None
+        self._identity_cases = ()
+        self._identity_actions = {}
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()

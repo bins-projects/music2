@@ -108,6 +108,8 @@
 
   function render() {
     const item = cases[selectedIndex];
+    const identityCases = payload.pipeline?.identity?.review_cases || [];
+    const identityCase = identityCases.find((entry) => entry.status === "pending" || entry.status === "defer") || identityCases[0];
     const blocking = cases.filter((entry) => entry.severity === "blocking" && !["approved", "excluded_record"].includes(entry.status)).length;
     document.getElementById("case-count").textContent = cases.length;
     document.getElementById("blocking-count").textContent = blocking;
@@ -119,6 +121,10 @@
       const identityPending = payload.run?.state === "identity_pending";
       const identityReview = ["identity_review", "identity_matched"].includes(payload.run?.state);
       const failed = payload.run?.state === "failed";
+      if (payload.run?.state === "identity_review" && identityCase) {
+        renderIdentityCase(identityCase);
+        return;
+      }
       document.getElementById("queue-position").textContent = "0 / 0";
       document.getElementById("question-meta").textContent = failed ? "PDF INTAKE FAILED" : identityReview ? "IDENTITY ASSESSMENT COMPLETE" : identityPending ? "PDF FRONT-HALF COMPLETE" : "START A RUN";
       document.getElementById("damage-title").textContent = failed ? "Controlled cleanup required" : identityReview ? "Stable IDs remain guarded" : identityPending ? "Stable identity decision required" : "No review cases loaded";
@@ -151,6 +157,62 @@
     verificationCard.hidden = item.status !== "awaiting_source_verification";
     renderActions(item);
     renderQueue();
+  }
+
+  function renderIdentityCase(item) {
+    document.getElementById("queue-position").textContent = `${item.record_id} · ${item.status}`;
+    document.getElementById("question-meta").textContent = `${item.record_id} · Chapter ${item.chapter ?? "unknown"}`;
+    document.getElementById("damage-title").textContent = "Confirm stable question identity";
+    const pill = document.getElementById("status-pill");
+    pill.textContent = item.status === "pending" ? "Review required" : item.status;
+    pill.dataset.status = item.status;
+    document.getElementById("finding-explanation").textContent = "PrepFlow found possible existing-Pack matches, but similarity is evidence only. You must authorize the identity explicitly.";
+    document.getElementById("preserved-value").textContent = item.parsed_stem;
+    const proposed = document.getElementById("proposed-value");
+    proposed.replaceChildren();
+    const select = document.createElement("select");
+    select.id = "identity-suggestion-select";
+    item.suggestions.forEach((suggestion) => {
+      const option = document.createElement("option");
+      option.value = suggestion.target_question_id;
+      option.textContent = `${suggestion.target_question_id} · ${Math.round(suggestion.similarity * 100)}% · ${suggestion.target_stem}`;
+      option.selected = suggestion.target_question_id === item.selected_target_question_id;
+      select.append(option);
+    });
+    proposed.append(select);
+    document.getElementById("proposal-explanation").textContent = "Ranked suggestion only. No stable ID is attached until you approve it.";
+    document.getElementById("verification-card").hidden = true;
+    const actions = document.getElementById("actions");
+    actions.replaceChildren();
+    [["approve", "Approve selected match", "primary"], ["defer", "Decide later", "secondary"], ["reject", "Reject suggestions", "danger"]].forEach(([action, label, style]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.className = style;
+      button.disabled = action === "approve" && !item.suggestions.length;
+      button.addEventListener("click", () => takeIdentityAction(item, action, select.value));
+      actions.append(button);
+    });
+    renderQueue();
+  }
+
+  async function takeIdentityAction(item, action, targetQuestionId) {
+    try {
+      const response = await fetch("/api/identity/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          record_id: item.record_id,
+          action,
+          target_question_id: action === "approve" ? targetQuestionId : null
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Identity decision was rejected.");
+      acceptEnginePayload(result);
+    } catch (error) {
+      document.getElementById("decision-help").textContent = error.message;
+    }
   }
 
   function renderRun() {

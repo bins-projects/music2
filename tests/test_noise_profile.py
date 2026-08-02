@@ -3,6 +3,7 @@ import json
 from compiler.noise_profile import (
     preview_remove_profiled_noise,
     profile_repeated_page_noise,
+    remove_profiled_noise,
 )
 
 
@@ -93,3 +94,12 @@ def test_preview_removes_only_eligible_lines_and_suffixes_in_memory() -> None:
     assert preview.stripped_suffixes == 10
     assert preview.protected_candidates == 1
     assert source.count("ANS: A") == preview.text.count("ANS: A")
+
+
+def test_persistable_and_preview_removal_use_the_same_guarded_algorithm() -> None:
+    source = "\n\f\n".join(
+        f"Repeated notice\nANS: A\nUnique content {index}"
+        for index in range(10)
+    )
+
+    assert remove_profiled_noise(source) == preview_remove_profiled_noise(source)

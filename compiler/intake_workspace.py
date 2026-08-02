@@ -236,7 +236,7 @@ def clean_isolated_run(run_directory: str | Path) -> IntakeCleaningResult:
     detection = detect_structure(cleaned_text)
     status.update(
         stage="cleaning_complete",
-        generalized_cleaning="source_neutral_whitespace_v1",
+        generalized_cleaning="source_neutral_guarded_page_noise_v2",
         cleaned_artifact_present=True,
         raw_characters=len(raw_text),
         cleaned_characters=len(cleaned_text),

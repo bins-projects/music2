@@ -34,6 +34,26 @@ Chapter 01: First
     assert "1. Real question" in cleaned
 
 
+def test_generalized_cleaner_removes_repeated_page_noise_but_protects_structure() -> None:
+    pages = []
+    for index in range(10):
+        pages.append(
+            "\n".join(
+                [
+                    "Repeated source notice",
+                    "ANS: A",
+                    f"Educational content {index} Repeated source notice",
+                ]
+            )
+        )
+
+    cleaned = clean_text_generalized("\n\f\n".join(pages))
+
+    assert "Repeated source notice" not in cleaned
+    assert cleaned.count("ANS: A") == 10
+    assert cleaned.count("Educational content") == 10
+
+
 def test_removes_docsity_line():
     text = (
         "Question\n"

@@ -126,8 +126,8 @@ def profile_repeated_page_noise(
     }
 
 
-def preview_remove_profiled_noise(text: str) -> NoiseRemovalPreview:
-    """Preview guarded removals in memory without authorizing persistence."""
+def remove_profiled_noise(text: str) -> NoiseRemovalPreview:
+    """Apply guarded repeated-noise removal and return an auditable summary."""
     profile = profile_repeated_page_noise(text)
     pages = text.split("\f")
     originals = {}
@@ -193,3 +193,8 @@ def preview_remove_profiled_noise(text: str) -> NoiseRemovalPreview:
             for item in profile["line_candidates"]
         ),
     )
+
+
+def preview_remove_profiled_noise(text: str) -> NoiseRemovalPreview:
+    """Run the guarded removal algorithm for non-persisted evaluation."""
+    return remove_profiled_noise(text)

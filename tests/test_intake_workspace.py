@@ -129,7 +129,7 @@ def test_generalized_cleaning_updates_isolated_run_without_legacy_rules(
     assert result.question_count == 1
     status = json.loads((result.run_directory / "run-status.json").read_text())
     assert status["stage"] == "cleaning_complete"
-    assert status["generalized_cleaning"] == "source_neutral_whitespace_v1"
+    assert status["generalized_cleaning"] == "source_neutral_guarded_page_noise_v2"
 
 
 def test_cleaning_rejects_unready_or_external_shape(tmp_path: Path) -> None:

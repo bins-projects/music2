@@ -1,5 +1,7 @@
 import re
 
+from compiler.noise_profile import remove_profiled_noise
+
 
 JUNK_PATTERNS = [
     r"(?i)^document shared on.*$",
@@ -25,6 +27,7 @@ CHAPTER_HEADING_RE = re.compile(
 def clean_text_generalized(text: str) -> str:
     """Apply only source-neutral, meaning-preserving text cleanup."""
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = remove_profiled_noise(normalized).text
     lines = []
     pages = normalized.split("\f")
     for page_index, page in enumerate(pages):

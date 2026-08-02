@@ -364,6 +364,13 @@ legacy cleaning. All five missing known keys are absent in both new parses. The
 legacy cleaner was not placed on the default route, and the complete 223-test
 suite passes.
 
+The in-memory removal preview preserved all question counts and alignments. It
+reduced Fundamentals benchmark drift from 520 to 127 fields while leaving its 331
+blockers unchanged. It reduced Medical-Surgical drift from 680 to 175 fields and
+blockers from 48 to 9; all seven known blocker keys remain visible and added keys
+fell from 41 to two. The preview removed no persisted text and did not alter either
+candidate or Pack.
+
 A second unchanged-pipeline baseline is recorded in
 `docs/MEDSURG_MOCK_IMPORT_COMPARISON_2026-08-02.md`. Medical-Surgical parses and
 aligns exactly 1,443 records to 1,443 existing IDs, with no parsed-only,
@@ -389,12 +396,13 @@ removal-eligible whole-line candidates per source plus one Medical-Surgical suff
 candidate. No text was removed or fingerprint persisted. The complete 227-test
 suite passes.
 
-Next, add a dry-run-only transformation preview for the six eligible whole-line
-candidates and one suffix candidate. Re-run parsing, field comparison, and QA in
-memory for both sources and authorize removal only if valid educational content is
-unchanged and drift/blockers improve without new findings. Keep Fundamentals’ 45
-partially changed and 30 persistent fields in review, and do not automatically
-apply any repair. Neither mock candidate may promote or overwrite canonical data.
+Next, attribute the remaining 127 Fundamentals and 175 Medical-Surgical field
+differences and the two remaining Medical-Surgical added blocker keys. If no valid
+educational loss or new finding is found, promote only the guarded repeated-line
+and suffix operation into generalized cleaning, then rerun both complete isolated
+pipelines. Keep Fundamentals’ structural findings in review and do not
+automatically apply any repair. Neither mock candidate may promote or overwrite
+canonical data.
 
 Question 108 has an unresolved, tracked source-verification hold on its
 candidate-only A-to-C answer change. Canonical promotion remains blocked until

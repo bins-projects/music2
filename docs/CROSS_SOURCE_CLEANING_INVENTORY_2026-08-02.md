@@ -67,3 +67,31 @@ flags—no candidate text or fingerprint.
 No text was removed. The next gate is a dry-run comparison of the six eligible
 whole-line candidates and one suffix candidate against both protected Pack
 benchmarks before any generalized removal operation is authorized.
+
+## In-memory removal preview
+
+The guarded preview removed nothing from persisted artifacts and preserved all
+record counts, stable-ID alignments, parsed-only counts, target-only counts, and
+known blocker visibility.
+
+| Measure | Fundamentals before | Fundamentals after | Medical-Surgical before | Medical-Surgical after |
+|---|---:|---:|---:|---:|
+| parsed records | 1,047 | 1,047 | 1,443 | 1,443 |
+| matched target IDs | 1,040 | 1,040 | 1,443 | 1,443 |
+| target-only records | 0 | 0 | 0 | 0 |
+| benchmark field differences | 520 | 127 | 680 | 175 |
+| QA blockers | 331 | 331 | 48 | 9 |
+| added blocker keys | 59 | 59 | 41 | 2 |
+| missing known blocker keys | 5 | 5 | 0 | 0 |
+
+The Fundamentals preview removed 1,106 repeated whole-line occurrences while
+protecting three educational candidates. Medical-Surgical removed 1,568 repeated
+whole-line occurrences and stripped 331 suffix overlays while protecting two
+educational candidates.
+
+This strongly validates the cleaning concept, but does not authorize persistence
+yet. Fundamentals’ unchanged blockers show that cleaning improves field fidelity
+without repairing its structural parser damage. Medical-Surgical retains every
+known blocker and reduces additions from 41 to two. The remaining 127 and 175
+field differences and the two Medical-Surgical additions require attribution
+before the preview becomes a default cleaning operation.

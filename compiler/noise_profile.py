@@ -1,6 +1,7 @@
 import math
 import re
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 
 
 URL_RE = re.compile(r"(?:https?://|www\.|\b[a-z0-9-]+\.(?:com|org|net)\b)", re.IGNORECASE)
@@ -11,6 +12,14 @@ EDUCATIONAL_STRUCTURE_RE = re.compile(
     re.IGNORECASE,
 )
 PAGE_NUMBER_RE = re.compile(r"^\d{1,4}$")
+
+
+@dataclass(frozen=True)
+class NoiseRemovalPreview:
+    text: str
+    removed_whole_lines: int
+    stripped_suffixes: int
+    protected_candidates: int
 
 
 def _normalize(line: str) -> str:
@@ -115,3 +124,72 @@ def profile_repeated_page_noise(
         "detection_only": True,
         "text_removed": False,
     }
+
+
+def preview_remove_profiled_noise(text: str) -> NoiseRemovalPreview:
+    """Preview guarded removals in memory without authorizing persistence."""
+    profile = profile_repeated_page_noise(text)
+    pages = text.split("\f")
+    originals = {}
+    line_pages = defaultdict(set)
+    edge_pages = defaultdict(set)
+    for page_index, page in enumerate(pages):
+        lines = [line.strip() for line in page.splitlines() if line.strip()]
+        edge_indexes = set(range(min(6, len(lines))))
+        edge_indexes.update(range(max(0, len(lines) - 6), len(lines)))
+        for line_index, line in enumerate(lines):
+            normalized = _normalize(line)
+            originals.setdefault(normalized, line)
+            line_pages[normalized].add(page_index)
+            if line_index in edge_indexes:
+                edge_pages[normalized].add(page_index)
+    threshold = profile["minimum_pages"]
+    candidate_values = []
+    for normalized in sorted(line_pages):
+        pages_seen = len(line_pages[normalized])
+        edge_seen = len(edge_pages[normalized])
+        has_url = bool(URL_RE.search(originals[normalized]))
+        if edge_seen >= threshold or (has_url and pages_seen >= threshold):
+            candidate_values.append(normalized)
+    if len(candidate_values) != len(profile["line_candidates"]):
+        raise ValueError("Noise candidate discovery changed during preview")
+
+    eligible = {
+        candidate_values[index]
+        for index, candidate in enumerate(profile["line_candidates"])
+        if candidate["automatic_removal_eligible"]
+    }
+    suffix_values = {
+        candidate_values[int(item["learned_from_line_candidate"].rsplit("-", 1)[1]) - 1]
+        for item in profile["suffix_candidates"]
+        if candidate_values[int(item["learned_from_line_candidate"].rsplit("-", 1)[1]) - 1]
+        in eligible
+    }
+    removed = 0
+    stripped = 0
+    output_pages = []
+    for page in pages:
+        output_lines = []
+        for line in page.splitlines():
+            normalized = _normalize(line)
+            if normalized in eligible:
+                removed += 1
+                continue
+            replacement = line
+            for suffix in suffix_values:
+                if normalized.endswith(" " + suffix):
+                    suffix_length = len(originals[suffix])
+                    replacement = replacement[: -suffix_length].rstrip()
+                    normalized = _normalize(replacement)
+                    stripped += 1
+            output_lines.append(replacement)
+        output_pages.append("\n".join(output_lines))
+    return NoiseRemovalPreview(
+        text="\n\f\n".join(output_pages),
+        removed_whole_lines=removed,
+        stripped_suffixes=stripped,
+        protected_candidates=sum(
+            not item["automatic_removal_eligible"]
+            for item in profile["line_candidates"]
+        ),
+    )

@@ -1,6 +1,9 @@
 import json
 
-from compiler.noise_profile import profile_repeated_page_noise
+from compiler.noise_profile import (
+    preview_remove_profiled_noise,
+    profile_repeated_page_noise,
+)
 
 
 def test_profiler_detects_repeated_edge_line_and_suffix_without_text() -> None:
@@ -66,3 +69,27 @@ def test_profiler_marks_repeated_answer_structure_ineligible_for_removal() -> No
     assert candidate["educational_structure_shape"] is True
     assert candidate["automatic_removal_eligible"] is False
     assert candidate["classification"] == "protected_repeated_educational_structure"
+
+
+def test_preview_removes_only_eligible_lines_and_suffixes_in_memory() -> None:
+    pages = []
+    for index in range(10):
+        pages.append(
+            "\n".join(
+                [
+                    "Repeated source notice",
+                    "ANS: A",
+                    f"Educational content {index} Repeated source notice",
+                ]
+            )
+        )
+    source = "\n\f\n".join(pages)
+
+    preview = preview_remove_profiled_noise(source)
+
+    assert "Repeated source notice\n" not in preview.text
+    assert "Repeated source notice" not in preview.text
+    assert preview.removed_whole_lines == 10
+    assert preview.stripped_suffixes == 10
+    assert preview.protected_candidates == 1
+    assert source.count("ANS: A") == preview.text.count("ANS: A")

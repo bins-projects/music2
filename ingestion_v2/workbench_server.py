@@ -7,9 +7,15 @@ from pathlib import Path
 
 from ingestion_v2.domain import DomainError
 from ingestion_v2.workbench_session import SyntheticWorkbenchSession
+from compiler.repair import load_pack
 
 
 WORKBENCH_DIRECTORY = Path(__file__).with_name("workbench")
+PROJECT_DIRECTORY = Path(__file__).resolve().parent.parent
+IDENTITY_PACKS = {
+    "fundamentals": PROJECT_DIRECTORY / "packs" / "fundamentals.prepflow.json",
+    "medical_surgical": PROJECT_DIRECTORY / "packs" / "medical_surgical.prepflow.json",
+}
 
 
 class WorkbenchHandler(SimpleHTTPRequestHandler):
@@ -60,6 +66,11 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 payload = self.session.complete_run()
             elif self.path == "/api/run/cleanup":
                 payload = self.session.cleanup_run()
+            elif self.path == "/api/identity/existing-pack":
+                pack_id = body.get("pack_id")
+                if pack_id not in IDENTITY_PACKS:
+                    raise DomainError("Unknown protected Pack selection")
+                payload = self.session.match_existing_pack(load_pack(IDENTITY_PACKS[pack_id]))
             else:
                 self._send_json({"error": "not_found"}, status=404)
                 return

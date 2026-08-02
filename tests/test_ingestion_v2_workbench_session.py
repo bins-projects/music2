@@ -59,6 +59,7 @@ def test_connected_session_starts_in_memory_and_non_promoting() -> None:
         "extraction": None,
         "cleaning": None,
         "identity_pending": False,
+        "identity": {"state": "not_run"},
     }
     assert len(payload["cases"]) == 3
     assert {item["damage_type"] for item in payload["cases"]} == {
@@ -315,6 +316,76 @@ def test_real_pdf_bytes_run_front_half_and_stop_at_identity_gate(tmp_path) -> No
     manifest_text = (session._lifecycle.run_directory / "run.json").read_text()
     assert "Synthetic PDF" not in manifest_text
     assert ".pdf" not in manifest_text
+
+
+def test_pdf_identity_assessment_matches_only_unique_exact_existing_pack_stems(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(
+        [
+            "Chapter 1: Synthetic PDF",
+            "MULTIPLE CHOICE",
+            "1. Which option is expected?",
+            "a. First option",
+            "b. Second option",
+            "ANS: B",
+            "The second option is expected.",
+            "DIF: Synthetic",
+        ]
+    )
+    target = {
+        "format": "prepflow_pack",
+        "version": "1.0",
+        "pack_id": "test",
+        "questions": [
+            {
+                "id": "PFQ-test-000000001",
+                "chapter": 1,
+                "type": "mc",
+                "stem": "Which option is expected?",
+            }
+        ],
+    }
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+
+    payload = session.match_existing_pack(target)
+
+    assert payload["run"]["state"] == "identity_matched"
+    assert payload["pipeline"]["identity"]["matched_count"] == 1
+    assert payload["pipeline"]["identity"]["finding_count"] == 0
+    assert payload["pipeline"]["identity"]["automatic_id_assignments_authorized"] is True
+    assert payload["candidate"]["state"] == "not_built"
+    assert payload["run"]["promotion_available"] is False
+
+
+def test_changed_pdf_stem_stops_in_identity_review_without_guessed_id(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(
+        [
+            "Chapter 1: Synthetic PDF",
+            "MULTIPLE CHOICE",
+            "1. Changed stem?",
+            "a. First option",
+            "b. Second option",
+            "ANS: B",
+            "Rationale.",
+        ]
+    )
+    target = {
+        "format": "prepflow_pack",
+        "version": "1.0",
+        "pack_id": "test",
+        "questions": [
+            {"id": "PFQ-test-000000001", "chapter": 1, "type": "mc", "stem": "Original stem?"}
+        ],
+    }
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+
+    payload = session.match_existing_pack(target)
+
+    assert payload["run"]["state"] == "identity_review"
+    assert payload["pipeline"]["identity"]["matches"] == []
+    assert payload["pipeline"]["identity"]["findings"][0]["candidate_question_ids"] == []
+    assert payload["pipeline"]["identity"]["automatic_id_assignments_authorized"] is False
 
 
 def test_pdf_run_rejects_empty_selection_before_creating_workspace(tmp_path) -> None:

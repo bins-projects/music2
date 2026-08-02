@@ -117,13 +117,16 @@
     renderCandidate();
     if (!item) {
       const identityPending = payload.run?.state === "identity_pending";
+      const identityReview = ["identity_review", "identity_matched"].includes(payload.run?.state);
       const failed = payload.run?.state === "failed";
       document.getElementById("queue-position").textContent = "0 / 0";
-      document.getElementById("question-meta").textContent = failed ? "PDF INTAKE FAILED" : identityPending ? "PDF FRONT-HALF COMPLETE" : "START A RUN";
-      document.getElementById("damage-title").textContent = failed ? "Controlled cleanup required" : identityPending ? "Stable identity decision required" : "No review cases loaded";
+      document.getElementById("question-meta").textContent = failed ? "PDF INTAKE FAILED" : identityReview ? "IDENTITY ASSESSMENT COMPLETE" : identityPending ? "PDF FRONT-HALF COMPLETE" : "START A RUN";
+      document.getElementById("damage-title").textContent = failed ? "Controlled cleanup required" : identityReview ? "Stable IDs remain guarded" : identityPending ? "Stable identity decision required" : "No review cases loaded";
       document.getElementById("status-pill").textContent = "Waiting";
       document.getElementById("finding-explanation").textContent = failed
         ? `The run stopped safely with code ${payload.run.failure_code}. Use Cancel and clean run before retrying.`
+        : identityReview
+        ? `${payload.pipeline.identity.matched_count} unique exact match(es); ${payload.pipeline.identity.finding_count} parsed record(s) and ${payload.pipeline.identity.target_only_count} Pack record(s) still require identity review. No uncertain IDs were assigned.`
         : identityPending
         ? `${payload.run.parsed_records} record(s) parsed with ${payload.run.parser_findings} parser finding(s). Choose new Pack or existing-Pack re-import before assigning stable IDs.`
         : "Start the private synthetic run to process its disposable document copy.";
@@ -156,16 +159,19 @@
     const artifacts = document.getElementById("run-artifacts");
     const extraction = document.getElementById("run-extraction");
     const cleaning = document.getElementById("run-cleaning");
+    const identity = document.getElementById("run-identity");
     const start = document.getElementById("start-run-button");
     const complete = document.getElementById("complete-run-button");
     const cleanup = document.getElementById("cleanup-run-button");
     const pdfInput = document.getElementById("pdf-input");
     const pdfButton = document.querySelector("label[for='pdf-input']");
+    const identityButtons = document.querySelectorAll(".identity-button");
     state.textContent = run.state.replaceAll("_", " ");
     if (["not_started", "completed"].includes(run.state)) {
       artifacts.textContent = "No disposable source or text artifacts.";
       extraction.textContent = "Extractor has not run.";
       cleaning.textContent = "Cleaner has not run.";
+      identity.textContent = "Identity matcher has not run.";
       start.disabled = false;
       pdfInput.disabled = false;
       pdfButton.classList.remove("disabled");
@@ -173,6 +179,7 @@
       artifacts.textContent = "Standalone display only; open through the local engine to run stages.";
       extraction.textContent = "Connected extraction metrics unavailable.";
       cleaning.textContent = "Connected cleaning metrics unavailable.";
+      identity.textContent = "Identity matcher unavailable.";
       start.disabled = true;
       pdfInput.disabled = true;
       pdfButton.classList.add("disabled");
@@ -186,12 +193,17 @@
       cleaning.textContent = metrics
         ? `${metrics.cleaner} · ${metrics.removed_repeated_lines} repeated lines removed · ${metrics.stripped_repeated_suffixes} suffixes removed · ${metrics.protected_repeated_structures} structures protected`
         : "Cleaner has not run.";
+      const identityReport = payload.pipeline?.identity;
+      identity.textContent = identityReport && identityReport.state !== "not_run"
+        ? `${identityReport.matched_count} exact ID match(es) · ${identityReport.finding_count} review finding(s) · ${identityReport.target_only_count} Pack-only record(s)`
+        : "Identity matcher has not run.";
       start.disabled = true;
       pdfInput.disabled = true;
       pdfButton.classList.add("disabled");
     }
     complete.disabled = run.state !== "compared";
     cleanup.disabled = ["not_started", "unmanaged_demo", "completed"].includes(run.state);
+    identityButtons.forEach((button) => { button.disabled = run.state !== "identity_pending"; });
   }
 
   function renderCandidate() {
@@ -308,6 +320,23 @@
   document.getElementById("start-run-button").addEventListener("click", () => runCommand("/api/run/start"));
   document.getElementById("complete-run-button").addEventListener("click", () => runCommand("/api/run/complete"));
   document.getElementById("cleanup-run-button").addEventListener("click", () => runCommand("/api/run/cleanup"));
+  document.querySelectorAll(".identity-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      fetch("/api/identity/existing-pack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pack_id: button.dataset.packId })
+      })
+        .then(async (response) => {
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Identity matching stopped.");
+          acceptEnginePayload(result);
+        })
+        .catch((error) => {
+          document.getElementById("decision-help").textContent = error.message;
+        });
+    });
+  });
 
   document.getElementById("pdf-input").addEventListener("change", async (event) => {
     const file = event.target.files[0];

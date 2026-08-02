@@ -30,6 +30,7 @@
           <span id="run-artifacts">No disposable source or text artifacts.</span>
           <span id="run-extraction">Extractor has not run.</span>
           <span id="run-cleaning">Cleaner has not run.</span>
+          <span id="run-identity">Identity matcher has not run.</span>
         </div>
         <div class="run-actions">
           <button id="start-run-button" type="button">Start synthetic run</button>
@@ -37,6 +38,8 @@
           <input id="pdf-input" type="file" accept="application/pdf,.pdf" hidden>
           <button id="complete-run-button" type="button" disabled>Complete and clean run</button>
           <button id="cleanup-run-button" type="button" disabled>Cancel and clean run</button>
+          <button class="identity-button" data-pack-id="fundamentals" type="button" disabled>Match Fundamentals IDs</button>
+          <button class="identity-button" data-pack-id="medical_surgical" type="button" disabled>Match Med-Surg IDs</button>
         </div>
       </section>
 

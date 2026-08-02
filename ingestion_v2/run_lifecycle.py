@@ -176,6 +176,31 @@ class RunLifecycle:
         self._write_manifest(manifest)
         return manifest
 
+    def record_identity_assessment(
+        self,
+        *,
+        target_pack_id: str,
+        matched_records: int,
+        identity_findings: int,
+        target_only_records: int,
+        complete: bool,
+    ) -> dict:
+        manifest = self._require_stage("identity_pending")
+        if not target_pack_id or any(
+            value < 0 for value in (matched_records, identity_findings, target_only_records)
+        ):
+            raise DomainError("Identity assessment metadata is invalid")
+        manifest.update(
+            stage="identity_matched" if complete else "identity_review",
+            identity_target_pack_id=target_pack_id,
+            identity_matched_records=matched_records,
+            identity_finding_count=identity_findings,
+            identity_target_only_records=target_only_records,
+            identity_complete=bool(complete),
+        )
+        self._write_manifest(manifest)
+        return manifest
+
     def record_candidate(self, *, question_count: int, unresolved_findings: int) -> dict:
         manifest = self.manifest()
         if manifest.get("stage") not in {"review_ready", "candidate_built", "compared"} or manifest.get("status") != "running":

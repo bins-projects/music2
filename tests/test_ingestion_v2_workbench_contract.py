@@ -40,6 +40,7 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
         "cleanup-run-button",
         "run-cleaning",
         "run-extraction",
+        "run-identity",
         "pdf-input",
     ):
         assert f'id="{required_id}"' in html
@@ -52,6 +53,18 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
     assert 'headers: { "Content-Type": "application/pdf" }' in script
     assert "FormData" not in script
     assert ".name" not in script
+
+
+def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
+    html = (WORKBENCH / "index.html").read_text(encoding="utf-8")
+    script = (WORKBENCH / "workbench.js").read_text(encoding="utf-8")
+    server = Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
+
+    assert 'data-pack-id="fundamentals"' in html
+    assert 'data-pack-id="medical_surgical"' in html
+    assert "/api/identity/existing-pack" in script
+    assert "IDENTITY_PACKS" in server
+    assert "Unknown protected Pack selection" in server
 
 
 def test_workbench_has_responsive_layout() -> None:

@@ -192,6 +192,24 @@ reported with a source-neutral failure code and likewise requires explicit
 controlled cleanup. A completed run's manifest remains as an audit record while
 a later intake receives a new isolated run directory.
 
+## Existing-Pack identity matching
+
+At `identity_pending`, the local workbench may assess parsed records against one
+of its explicitly allowlisted protected Packs. The v2 matcher reuses the proven
+source-neutral typography normalization boundary, but is intentionally stricter
+than the legacy ordered matcher: it automatically links only a unique normalized
+exact stem in the same chapter. It never treats position, source question number,
+or equal-length changed regions as sufficient identity evidence.
+
+Changed or absent stems produce `changed_or_unmatched_identity`; duplicate exact
+stems produce `ambiguous_exact_identity`. Reports contain temporary record IDs,
+stable Pack IDs, classifications, and counts, but no source or question text.
+Stable-ID authorization is available only when every parsed record and every
+target Pack record is accounted for exactly once with no identity findings.
+Otherwise the run stops at `identity_review`. A complete report stops at
+`identity_matched`; candidate construction and canonical promotion remain
+unavailable in this slice.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

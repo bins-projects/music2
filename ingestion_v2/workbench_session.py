@@ -21,6 +21,7 @@ from ingestion_v2.run_lifecycle import RunLifecycle
 from ingestion_v2.cleaning import GuardedPageAwareCleaner
 from ingestion_v2.extraction import extract_disposable_copy
 from ingestion_v2.parser import ExistingParserAdapter
+from ingestion_v2.identity import IdentityReport, match_existing_pack_identity
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,7 @@ class SyntheticWorkbenchSession:
         self._cleaning_result = None
         self._extraction_result = None
         self._parse_batch = None
+        self._identity_report: IdentityReport | None = None
         self._last_cleanup = None
 
     def view(self) -> dict:
@@ -97,6 +99,11 @@ class SyntheticWorkbenchSession:
                 self._lifecycle
                 and self._lifecycle.manifest()["stage"] == "identity_pending"
             ),
+            "identity": (
+                self._identity_report.view()
+                if self._identity_report is not None
+                else {"state": "not_run"}
+            ),
         }
         payload["candidate"] = self._candidate_view()
         payload["comparison"] = (
@@ -142,6 +149,22 @@ class SyntheticWorkbenchSession:
             lifecycle.fail("synthetic_run_start_failure")
             raise
         self._lifecycle = lifecycle
+        return self.view()
+
+    def match_existing_pack(self, target_pack: dict) -> dict:
+        if self._lifecycle is None or self._parse_batch is None:
+            raise DomainError("Start and parse a PDF before matching an existing Pack")
+        if self._lifecycle.manifest()["stage"] != "identity_pending":
+            raise DomainError("Existing-Pack identity can run only at the identity gate")
+        report = match_existing_pack_identity(self._parse_batch, target_pack)
+        self._lifecycle.record_identity_assessment(
+            target_pack_id=report.target_pack_id,
+            matched_records=len(report.matches),
+            identity_findings=len(report.findings),
+            target_only_records=len(report.target_only_question_ids),
+            complete=report.complete,
+        )
+        self._identity_report = report
         return self.view()
 
     def start_pdf_run(self, content: bytes) -> dict:
@@ -343,6 +366,7 @@ class SyntheticWorkbenchSession:
         self._cleaning_result = None
         self._extraction_result = None
         self._parse_batch = None
+        self._identity_report = None
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()
@@ -429,6 +453,7 @@ class SyntheticWorkbenchSession:
         self._cleaning_result = None
         self._extraction_result = None
         self._parse_batch = None
+        self._identity_report = None
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()

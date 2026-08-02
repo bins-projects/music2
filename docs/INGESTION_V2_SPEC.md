@@ -261,6 +261,24 @@ prose such as “vitamin b. Complex”—remain findings without proposals. Pars
 QA findings are combined in the same review queue before candidate construction;
 the preserved parsed question remains unchanged.
 
+## Deterministic proposal boundary
+
+The first v2 proposal adapter handles only the guarded exact embedded-middle-
+choice shape. It reuses the existing structural planner as evidence, then emits
+a new v2 `Proposal` tied to the corresponding v2 QA finding. The proposal moves
+one existing text segment into its detected missing label, preserves wording,
+and requires the answer key to remain byte-for-byte equivalent. The legacy plan
+itself is not applied or persisted.
+
+Drafting does not resolve the finding and reports zero automatic applications.
+Rejected, deferred, and undecided proposals leave the parsed record unchanged.
+An explicit approval allows the existing v2 candidate engine to apply the
+proposal in memory only after confirming `expected_before` still matches the
+preserved choices. A stale value stops application. Ambiguous embedded-choice
+evidence, including protected vitamin prose, produces no proposal. No source
+verification requirement is asserted for this exact text-only move, but the
+ordinary explicit review decision remains mandatory.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

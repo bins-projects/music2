@@ -42,6 +42,7 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
         "run-extraction",
         "run-identity",
         "run-qa",
+        "run-proposals",
         "pdf-input",
         "materialize-identity-button",
     ):

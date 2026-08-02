@@ -30,6 +30,7 @@ from ingestion_v2.identity_review import (
 from ingestion_v2.pack_bridge import pack_questions_to_domain
 from ingestion_v2.parser_bridge import materialize_matched_batch
 from ingestion_v2.qa_adapter import QaResult, detect_candidate_damage
+from ingestion_v2.proposal_adapter import draft_deterministic_proposals
 
 
 @dataclass(frozen=True)
@@ -124,6 +125,11 @@ class SyntheticWorkbenchSession:
                 if self._qa_result is not None
                 else {"state": "not_run"}
             ),
+            "proposal_generation": {
+                "state": "complete" if self._qa_result is not None else "not_run",
+                "proposal_count": len(self.proposals) if self._qa_result is not None else 0,
+                "automatic_applications": 0,
+            },
         }
         payload["candidate"] = self._candidate_view()
         payload["comparison"] = (
@@ -260,7 +266,7 @@ class SyntheticWorkbenchSession:
             raise DomainError("Materialized stable IDs do not exactly match the benchmark Pack")
         self.questions = questions
         self.findings = findings + qa_result.findings
-        self.proposals = ()
+        self.proposals = draft_deterministic_proposals(questions, self.findings)
         self._benchmark_questions = benchmark
         self._qa_result = qa_result
         self._lifecycle.record_identity_materialized(

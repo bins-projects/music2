@@ -22,7 +22,7 @@ class QaResult:
 
 def detect_candidate_damage(questions: tuple[QuestionRecord, ...]) -> QaResult:
     """Run proven detectors and emit findings only; never apply a repair."""
-    pack = _detection_pack(questions)
+    pack = questions_to_detection_pack(questions)
     raw: list[tuple[str, str, str, str]] = []
 
     typography = [item for item in audit_typography(pack) if not item.balanced_after]
@@ -112,7 +112,7 @@ def detect_candidate_damage(questions: tuple[QuestionRecord, ...]) -> QaResult:
     return QaResult(findings=findings, detector_counts=counts)
 
 
-def _detection_pack(questions: tuple[QuestionRecord, ...]) -> dict:
+def questions_to_detection_pack(questions: tuple[QuestionRecord, ...]) -> dict:
     return {
         "format": "prepflow_pack",
         "version": "1.0",

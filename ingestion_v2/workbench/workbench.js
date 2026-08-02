@@ -223,6 +223,7 @@
     const cleaning = document.getElementById("run-cleaning");
     const identity = document.getElementById("run-identity");
     const qa = document.getElementById("run-qa");
+    const proposals = document.getElementById("run-proposals");
     const start = document.getElementById("start-run-button");
     const complete = document.getElementById("complete-run-button");
     const cleanup = document.getElementById("cleanup-run-button");
@@ -237,6 +238,7 @@
       cleaning.textContent = "Cleaner has not run.";
       identity.textContent = "Identity matcher has not run.";
       qa.textContent = "QA detectors have not run.";
+      proposals.textContent = "Proposal generator has not run.";
       start.disabled = false;
       pdfInput.disabled = false;
       pdfButton.classList.remove("disabled");
@@ -246,6 +248,7 @@
       cleaning.textContent = "Connected cleaning metrics unavailable.";
       identity.textContent = "Identity matcher unavailable.";
       qa.textContent = "QA detectors unavailable.";
+      proposals.textContent = "Proposal generator unavailable.";
       start.disabled = true;
       pdfInput.disabled = true;
       pdfButton.classList.add("disabled");
@@ -267,6 +270,10 @@
       qa.textContent = qaReport && qaReport.state !== "not_run"
         ? `${qaReport.finding_count} QA finding(s) · ${qaReport.automatic_repairs} automatic repair(s) · ${qaReport.proposals_created} proposal(s)`
         : "QA detectors have not run.";
+      const proposalReport = payload.pipeline?.proposal_generation;
+      proposals.textContent = proposalReport?.state === "complete"
+        ? `${proposalReport.proposal_count} review proposal(s) · ${proposalReport.automatic_applications} automatic application(s)`
+        : "Proposal generator has not run.";
       start.disabled = true;
       pdfInput.disabled = true;
       pdfButton.classList.add("disabled");

@@ -61,6 +61,11 @@ def test_connected_session_starts_in_memory_and_non_promoting() -> None:
         "identity_pending": False,
         "identity": {"state": "not_run"},
         "qa": {"state": "not_run"},
+        "proposal_generation": {
+            "state": "not_run",
+            "proposal_count": 0,
+            "automatic_applications": 0,
+        },
     }
     assert len(payload["cases"]) == 3
     assert {item["damage_type"] for item in payload["cases"]} == {
@@ -489,6 +494,63 @@ def test_materialized_pdf_runs_qa_detectors_without_repairs_or_proposals(tmp_pat
     qa_cases = [item for item in payload["cases"] if item["finding_id"].startswith("PFV2-FIND-QA-")]
     assert any(item["field"] == "choices" for item in qa_cases)
     assert all(item["proposal"] is None for item in qa_cases)
+
+
+def test_materialized_embedded_choice_is_proposed_but_not_applied(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(
+        [
+            "Chapter 1: Synthetic PDF",
+            "MULTIPLE CHOICE",
+            "1. Which action is appropriate?",
+            "a. First action b. Second action",
+            "c. Third action",
+            "d. Fourth action",
+            "ANS: D",
+            "The fourth action is appropriate.",
+        ]
+    )
+    target = {
+        "format": "prepflow_pack",
+        "pack_id": "test",
+        "questions": [
+            {
+                "id": "PFQ-test-000000001",
+                "chapter": 1,
+                "type": "mc",
+                "stem": "Which action is appropriate?",
+                "choices": [
+                    {"label": "A", "text": "First action"},
+                    {"label": "B", "text": "Second action"},
+                    {"label": "C", "text": "Third action"},
+                    {"label": "D", "text": "Fourth action"},
+                ],
+                "correct_answers": ["D"],
+                "rationale": "The fourth action is appropriate.",
+            }
+        ],
+    }
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    session.match_existing_pack(target)
+
+    payload = session.materialize_identity_review()
+
+    assert payload["pipeline"]["proposal_generation"] == {
+        "state": "complete",
+        "proposal_count": 1,
+        "automatic_applications": 0,
+    }
+    case = next(item for item in payload["cases"] if item["damage_type"] == "embedded_choice_recovery_candidate")
+    assert case["proposal"] is not None
+    assert case["status"] == "awaiting_decision"
+    built = session.build_isolated_candidate()
+    assert built["candidate"]["applied_proposal_ids"] == []
+    assert case["finding_id"] in built["candidate"]["unresolved_finding_ids"]
+
+    approved = session.record_action(case["finding_id"], "approve")
+    rebuilt = session.build_isolated_candidate()
+    assert approved["candidate"]["state"] == "not_built"
+    assert rebuilt["candidate"]["applied_proposal_ids"] == [case["proposal"]["proposal_id"]]
 
 
 def test_pdf_run_rejects_empty_selection_before_creating_workspace(tmp_path) -> None:

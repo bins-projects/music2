@@ -224,14 +224,23 @@
     proposed.replaceChildren();
     const select = document.createElement("select");
     select.id = "identity-suggestion-select";
+    const preview = document.createElement("div");
+    preview.id = "identity-target-preview";
+    preview.className = "identity-target-preview";
     item.suggestions.forEach((suggestion) => {
       const option = document.createElement("option");
       option.value = suggestion.target_question_id;
-      option.textContent = `${suggestion.target_question_id} · ${Math.round(suggestion.similarity * 100)}% · ${suggestion.target_stem}`;
+      option.textContent = `${suggestion.target_question_id} · ${Math.round(suggestion.similarity * 100)}% match`;
       option.selected = suggestion.target_question_id === item.selected_target_question_id;
       select.append(option);
     });
-    proposed.append(select);
+    const showSelectedSuggestion = () => {
+      const selected = item.suggestions.find((suggestion) => suggestion.target_question_id === select.value);
+      preview.textContent = selected?.target_stem || "No suggested existing-Pack question is available.";
+    };
+    select.addEventListener("change", showSelectedSuggestion);
+    proposed.append(select, preview);
+    showSelectedSuggestion();
     document.getElementById("proposal-explanation").textContent = "Ranked suggestion only. No stable ID is attached until you approve it.";
     document.getElementById("verification-card").hidden = true;
     const actions = document.getElementById("actions");

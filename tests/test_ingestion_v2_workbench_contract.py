@@ -71,6 +71,8 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert "/api/identity/actions" in script
     assert "Approve selected match" in script
     assert "Ranked suggestion only" in script
+    assert "identity-target-preview" in script
+    assert "selected?.target_stem" in script
     assert "/api/identity/materialize" in script
     assert "Prepare parsed review" in html
     assert 'id="proposal-dialog"' in html

@@ -1,367 +1,86 @@
-# PREPFLOW RESTART PACKET
+# PrepFlow Restart Packet
 
-## Purpose
+## Mandatory first action
 
-This is the primary handoff for every new PrepFlow development session.
-
-> **Mandatory first action:** Read this file before proposing a command or changing a PrepFlow file.
-
-For visual or release work, also read:
+Read the milestone-specific handoff before proposing a command or changing a file:
 
 ```text
-docs/ART_SYSTEM.md
+docs/INGESTION_WORKBENCH_HANDOFF.md
+```
+
+For ingestion, repair, Pack cleanup, source intake, compiler, QA, or public/private
+repository-boundary work, also read:
+
+```text
+docs/INGESTION_ARCHITECTURE.md
 docs/RELEASE_PRESERVATION_POLICY.md
-docs/RELEASE_2026-07-24_BOOK_MILESTONE.md
-docs/VISUAL_REDESIGN_CONTINUITY_2026-07-23.md
 ```
 
-`VISUAL_REDESIGN_CONTINUITY_2026-07-23.md` is historical context for the previous city-and-nurses homepage. It is not the active implementation target.
+The ingestion-workbench handoff contains the active branch, exact checkpoint,
+repair and blocker counts, recovery locations, completed work, remaining question
+list, next task, and safe restart commands.
 
----
-
-# 1. Current Topology
+## Current active milestone
 
 ```text
-Local repository: ~/projects/prepflow
-Active branch: docs/continuity-rebuild
-Private development repository: bins-projects/prepflow-dev
-Public mirror repository: bins-projects/PrepFlow
-Public mirror development branch: docs/continuity-rebuild
-Last explicitly verified synchronized development commit: 37ff1d609e5f91523cf30a41ecc5b651c050e98f
+milestone:     Fundamentals cleanup and source-agnostic ingestion workbench
+repository:    bins-projects/prepflow-dev
+branch:        feat/ingestion-workbench
+code checkpoint: 7b21b961c8f56d61f76871c0cb839663b18e029c
+tests:         159 passed
+repair state:  15 approved candidate-only repairs
+blockers:      303
+canonical:     unchanged
 ```
 
-Daily work continues on `docs/continuity-rebuild`, not on public `master` and not on a frozen release branch.
+The next review targets are Fundamentals questions 108 and 111. They appear to
+share leaked `D Evaluation` content, but no generalized repair rule exists yet.
+Inspect each question and its neighbors before deciding whether one guarded rule
+is justified.
 
-Current public production:
+## Repository boundary
+
+Use these names consistently:
 
 ```text
-Repository: bins-projects/PrepFlow
-Branch: master
-Observed public master before the hospital release: c58da62
-Public site: https://bins-projects.github.io/PrepFlow/web/
+dev/private factory: bins-projects/prepflow-dev
+public product:       bins-projects/PrepFlow
 ```
 
-The public site currently uses the older three-book homepage until the hospital-homepage release is merged and deployed.
+Private ingestion work must not be pushed to public. Public `master` remains the
+deployed product and was not modified by the active workbench milestone.
 
-Previous frozen release:
+## Authority order
 
-```text
-Release source snapshot: 648bcfbf218b11b7786bdb4cd42f5a596e7b4f58
-Release branch: release/2026-07-24-book-milestone
-Original public merge commit: 8e8e85b1e9b9604d257b6db52e9bb802fcb91fce
-```
-
-Do not move, reuse, rewrite, or continue ordinary development on that frozen release branch.
-
----
-
-# 2. Authority Order
-
-Use this order:
-
-1. The project owner's explicit approval or correction.
-2. The rendered local application for visual and interaction truth.
-3. The local repository and working tree.
-4. This restart packet.
+1. The project owner's explicit direction.
+2. The current local repository and ignored workbench state.
+3. `docs/INGESTION_WORKBENCH_HANDOFF.md`.
+4. `docs/INGESTION_ARCHITECTURE.md`.
 5. `docs/RELEASE_PRESERVATION_POLICY.md`.
-6. `docs/ART_SYSTEM.md`.
-7. The private development branch.
-8. The public-mirror development branch.
-9. Public `master` for deployed production.
-10. Dated documents for historical context.
-
-Never overwrite newer local work merely because GitHub contains an older committed copy.
-
----
-
-# 3. Product State
-
-PrepFlow is a browser-centered nursing study application built around validated question Packs.
-
-Active browser product:
-
-```text
-web/
-```
-
-Official Packs:
-
-```text
-packs/fundamentals.prepflow.json
-packs/pharmacy.prepflow.json
-packs/medical_surgical.prepflow.json
-```
-
-User-facing names:
-
-```text
-Fundamentals
-Pharm
-Medical-Surgical
-```
-
-Read exact question counts from the current Pack files rather than stale documentation.
-
-Removed Tkinter, PyInstaller, terminal-study, and separate desktop-study pathways must not be restored merely because they exist in history.
-
----
-
-# 4. Current Hospital Homepage Milestone
-
-The active local homepage is the PrepFlow Teaching Hospital exterior composition.
-
-Authoritative runtime files:
-
-```text
-web/index.html
-web/app.js
-web/hospital-home.css
-web/quiz-builder-screen.css
-web/resume-rules.js
-web/images/home-hospital/prepflow-home-background-final.png
-```
-
-Key implementation commits:
-
-```text
-9975ddc feat: add hospital homepage quiz builder flow
-e44d710 refine hospital homepage controls and branding
-```
-
-The milestone provides:
-
-- a locked 16:9 hospital exterior scene;
-- architectural quiz and reference signs built into the composite background;
-- a live left-sign launcher for new and saved quiz states;
-- a live right-sign Drug Library control;
-- a dedicated quiz-builder screen;
-- the three approved subject books inside the builder;
-- chapter selection with Back and Done navigation;
-- quiz settings and Start Quiz inside the builder;
-- saved-session text showing `Block X of Y`;
-- Continue Quiz and Build a New Quiz actions;
-- shared text-only command pulsing;
-- temporary live PrepFlow title and tagline;
-- working quiz, rationale, save, resume, block-summary, and return-home behavior.
-
-Temporary homepage branding:
-
-```text
-PrepFlow
-Prepare. Practice. Progress.
-```
-
-The architectural signs belong to the static composite. Live labels, actions, progress, hit areas, and changing state remain browser-owned HTML, CSS, and JavaScript.
-
-The three subject books remain separate transparent clickable assets inside the quiz-builder screen.
-
----
-
-# 5. Nurse Status
-
-No nurse separation, nurse sprite production, nurse animation, or hospital-interior nurse scene has been implemented in this milestone.
-
-The previous city-and-nurses homepage is historical reference material only. Do not resume nurse-separation work merely because an older document proposed it.
-
----
-
-# 6. Known Cleanup Debt
-
-`web/hospital-home.css` is functionally and visually approved but contains a large layered override stack accumulated during iterative alignment and styling.
-
-Verified integrity before release preparation:
-
-- 1,860 lines;
-- balanced opening and closing braces;
-- balanced comment openings and closings;
-- no terminal-paste artifacts found;
-- 72 automated tests passed;
-- the real local browser workflow was visually and functionally approved.
-
-A pre-cleanup safety copy exists outside the repository:
-
-```text
-External pre-cleanup backup stored outside the repository.
-```
-
-Cleanup is integral, but it must be a separate protected milestone. Do not casually rewrite the working cascade before release.
-
-A cleanup milestone must:
-
-1. begin from the external backup;
-2. preserve approved appearance and behavior;
-3. verify all active states and hit areas;
-4. test in the real browser;
-5. run automated tests;
-6. inspect the focused diff;
-7. commit cleanup separately from feature work.
-
----
-
-# 7. Hospital Artwork Classification
-
-The temporary layered-workflow transcript, duplicate background copies, review-art duplicates, and unused separate sign experiments were inspected and deliberately removed.
-
-The authoritative tracked runtime composite is:
-
-```text
-web/images/home-hospital/prepflow-home-background-final.png
-```
-
-The working tree was verified clean after this classification. Do not restore the removed duplicate assets or obsolete workflow transcript without a specific historical need.
-
-Never use `git add .` during release preparation.
-
----
-
-# 8. Local Browser Workflow
-
-Start the server from the repository root:
-
-```bash
-cd ~/projects/prepflow && python3 -m http.server 8004
-```
-
-Open:
-
-```text
-http://localhost:8004/web/
-```
-
-The server must run from `~/projects/prepflow`, not `~/projects/prepflow/web`, because the sibling `packs/` directory must also be served.
-
-Hard refresh:
-
-```text
-Ctrl+Shift+R
-```
-
-Diagnostic origin when needed:
-
-```bash
-cd ~/projects/prepflow && python3 -m http.server 8005
-```
-
-```text
-http://localhost:8005/web/
-```
-
----
-
-# 9. Working Discipline
-
-Standard loop:
-
-```text
-Read continuity
-→ inspect local status
-→ observe the real local application
-→ make one focused change
-→ test
-→ inspect output and diff
-→ document durable decisions
-→ commit
-→ push intended remotes
-→ verify hashes
-→ repeat
-```
-
-Permanent rules:
-
-- one focused change at a time;
-- when the user says `next`, provide the next executable step;
-- do not ask for code already available through GitHub or the local project;
-- do not perform speculative redesigns;
-- do not claim tests, pushes, previews, merges, or approvals that were not verified;
-- keep backup assets, screenshots, transfer archives, and temporary proofs out of production commits;
-- protect privacy before public sharing or release;
-- preserve exact approved source art;
-- update continuity whenever a durable rule, release boundary, or active milestone changes;
-- push every remote intended to remain synchronized and explicitly compare hashes;
-- do not assume a plain `git push` updates both remotes;
-- use the GitHub connector for substantial documentation changes rather than long terminal paste blocks.
-
----
-
-# 10. Release Preservation and Rollback
-
-The complete policy is:
-
-```text
-docs/RELEASE_PRESERVATION_POLICY.md
-```
-
-For every major approved public update:
-
-1. complete and test the milestone locally;
-2. commit and push the development branch to both intended remotes;
-3. verify local, private, and public-mirror development hashes;
-4. create a uniquely named fixed release branch from the exact approved commit;
-5. create an immutable release tag;
-6. open a pull request from that release branch into public `master`;
-7. inspect the exact release scope;
-8. merge without rewriting prior release branches or tags;
-9. verify GitHub Pages;
-10. preserve the previous release until the new deployment is confirmed;
-11. record the new release boundary.
-
-Never force-push public `master`, a frozen release branch, or a release tag.
-
----
-
-# 10A. Current Local Quiz Builder Open-Book Milestone
-
-The approved nursing-station interior and responsive coordinate lock are
-preserved in synchronized development commit
-`53d18865c8276a3cca2fd464d7e593acd1da2042`.
-
-The local working tree now contains the completed shared open-book chapter
-interface for Fundamentals, Pharm, and Medical-Surgical.
-
-Implemented behavior includes:
-
-- shared open and close animation;
-- one responsive five-row scrolling chapter viewport;
-- per-book chapter and question summaries;
-- compact selected chapter-number feedback;
-- persistent cross-book selection state;
-- combined builder totals;
-- approved hover, selected, keyboard-focus, and Back-control behavior.
-
-Exact implementation details, runtime assets, cleanup decisions, verification,
-and deferred work are recorded in:
-
-```text
-docs/QUIZ_BUILDER_OPEN_BOOK_CHECKPOINT_2026-07-28.md
-```
-
-This state remains local until documentation review, privacy and artifact
-inspection, explicit staging, commit, synchronized pushes, and hash
-verification are complete.
-
-Do not overwrite the local working tree with the older remote state.
-
-# 11. Immediate Finishing Sequence
-
-1. inspect the open-book documentation and final focused diff;
-2. run the privacy and artifact scan;
-3. stage only the intended files without using `git add .`;
-4. commit the shared Quiz Builder open-book milestone;
-5. push `docs/continuity-rebuild` to both `origin` and `public`;
-6. fetch both remotes and verify all three development hashes are equal.
-
-Do not push this milestone directly to `master`.
-
-Do not begin another Quiz Builder redesign until this open-book milestone has
-been preserved as a verified synchronized development checkpoint.
-
-Do not resume the obsolete nurse-separation milestone.
-
-Keep broad Quiz Builder CSS cleanup and `web/hospital-home.css` consolidation
-as separate protected cleanup milestones.
-
----
-
-# 12. Fresh-Chat Opening Instruction
-
-> Continue PrepFlow from my local repository at `~/projects/prepflow` on branch `docs/continuity-rebuild`. Read the full current `docs/RESTART_PACKET.md`, `docs/RELEASE_PRESERVATION_POLICY.md`, and `docs/ART_SYSTEM.md` before giving me a command. Inspect `git status --short --branch` first and inspect the rendered local application before visual changes. The current development state contains the approved PrepFlow Teaching Hospital homepage, dedicated quiz-builder workflow, saved-session `Block X of Y` state, Drug Library sign control, shared command pulsing, and temporary live PrepFlow title/tagline. The previous city-and-nurses milestone is historical; do not begin nurse separation. The local working tree also contains the newer approved Quiz Builder interior; read `docs/QUIZ_BUILDER_INTERIOR_CHECKPOINT_2026-07-27.md` and do not overwrite it with the older remote state. `web/hospital-home.css` is visually approved but layered and must eventually be consolidated through a separate backed-up, browser-verified cleanup milestone. Preserve frozen releases according to `docs/RELEASE_PRESERVATION_POLICY.md`. Give one executable step at a time, use the GitHub connector for substantial documentation rewrites, and never use `git add .` during release preparation.
+6. The private branch on GitHub.
+7. Dated historical documents.
+
+Never overwrite newer local ignored candidate work merely because GitHub contains
+only the committed pipeline code.
+
+## Working discipline
+
+- Give one executable step at a time.
+- Inspect status before changing files.
+- Dry-run batch repairs before `--apply`.
+- Apply repairs to candidates only.
+- Run the full tests after implementation changes.
+- Snapshot the ignored workbench after coherent approved repair groups.
+- Commit and push generalized tools, tests, and continuity documentation to the
+  private workbench branch.
+- Keep source documents, raw extraction, candidate Packs, repair ledgers, internal
+  reports, and private factory code out of the public product.
+- Update the milestone handoff before ending a substantial session.
+
+## New-chat opening message
+
+The project owner can start a new chat with:
+
+> Read `docs/RESTART_PACKET.md` and the handoff it names from
+> `bins-projects/prepflow-dev` branch `feat/ingestion-workbench`. Then tell me where
+> we are and discuss the next step with me before proposing a command.

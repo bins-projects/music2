@@ -1,159 +1,160 @@
-# PREPFLOW RELEASE PRESERVATION AND ROLLBACK POLICY
+# PrepFlow Release Preservation and Repository Boundary Policy
 
 ## Purpose
 
-PrepFlow must always preserve the last known-good public release while a new milestone is developed, tested, documented, and released.
+PrepFlow must preserve the last known-good public product while private ingestion,
+repair, content, and interface work is developed and validated.
 
-A major local revision must never replace the only recoverable working version.
-
-## Protected States
-
-PrepFlow uses three distinct protected states.
-
-### 1. Local development
-
-Active work is performed in the local PrepFlow working copy.
-
-The normal development branch is:
+## Repository roles
 
 ```text
-docs/continuity-rebuild
+bins-projects/prepflow-dev = private development factory
+bins-projects/PrepFlow     = public product
 ```
 
-This state may contain unfinished or uncommitted work. It is not automatically safe for release.
+The repositories are not development mirrors.
 
-### 2. Verified development checkpoint
+The private factory may contain importer/compiler code, repair tooling, internal
+QA, candidate-building tools, source-neutral tests, internal documentation, and
+approved canonical Packs.
 
-After a coherent local milestone is approved:
+The public product should contain only approved canonical Packs, the browser
+runtime, required runtime data, approved interface assets, public-facing
+documentation, and the minimum code required for the application to operate.
+
+Never push a private ingestion-workbench branch to the public repository.
+
+## Protected states
+
+### 1. Active private development
+
+Work occurs on a focused branch in `prepflow-dev`. The branch may evolve through
+small verified commits. Ignored candidate or repair artifacts must be protected by
+external snapshots because they are intentionally absent from Git history.
+
+### 2. Verified private checkpoint
+
+After a coherent milestone:
 
 1. run applicable automated tests;
-2. verify the real browser workflow;
-3. run the privacy and artifact scan;
-4. inspect the working tree and focused diff;
-5. commit the milestone;
-6. push the development branch to the private development repository;
-7. push the matching development branch to the public mirror;
-8. fetch both remotes;
-9. verify that local, private, and public-mirror development hashes match.
+2. verify any relevant browser workflow;
+3. inspect the focused diff;
+4. run privacy and artifact checks;
+5. commit the intended code and documentation;
+6. push the private branch;
+7. verify the remote branch tip; and
+8. snapshot any ignored candidate state needed for recovery.
 
-The private and public-mirror development branches should normally represent the same verified development commit.
+### 3. Curated public release
 
-### 3. Frozen public release
+A public release must be assembled from an explicit allowlist. Do not mirror or
+merge the entire private factory branch into public `master`.
 
-A public release must be created from the exact approved development commit.
+Release staging must reject:
 
-For every substantial public update:
+- importer and compiler implementation not required at runtime;
+- repair workbench code;
+- internal QA ledgers and findings;
+- candidate Packs and repair records;
+- temporary input, extraction, and cleaned-document artifacts;
+- internal ingestion reports;
+- source-identifying metadata; and
+- unrelated development files.
 
-1. create a uniquely named release branch from the approved commit;
-2. never continue ordinary development on that release branch;
-3. preserve the previous release branch and tag;
-4. open a pull request from the new fixed release branch into public `master`;
-5. review the exact release scope;
-6. merge the pull request;
-7. verify the deployed GitHub Pages application;
-8. tag the release when appropriate;
-9. record the release source commit, release branch, merge commit, and deployment verification in continuity documentation.
+Before publishing:
 
-Example release branch:
+1. identify the last known-good public commit;
+2. stage only allowlisted public files;
+3. compare the staged product with both the approved private checkpoint and the
+   current public product;
+4. run runtime tests and browser verification;
+5. inspect privacy and artifact results;
+6. review the exact public diff;
+7. update public `master` through a reviewable, non-force workflow; and
+8. verify the deployed public site before considering the release complete.
+
+## Public branch policy
+
+Public should have one long-lived branch:
 
 ```text
-release/2026-07-26-hospital-homepage
+master
 ```
 
-Example release tag:
+Do not recreate public development, preview, build, hotfix, review, or historical
+release branches merely because they exist in a backup bundle. Create a temporary
+public release branch only when the curated release workflow needs one, and remove
+it after the release is verified and its commit remains recoverable.
 
-```text
-v0.9.0
-```
+Release tags are optional. Recoverability depends on verified commits and external
+bundles, not on preserving a large tag collection.
 
-## Privacy and Artifact Gate
+## Privacy and artifact gate
 
-Privacy review is an upstream development requirement, not a final release-only task.
+Before private commits and again before public staging:
 
-Before every commit and again before creating a release branch:
+1. scan intended changes for personal names, personal email addresses, usernames,
+   device names, absolute home paths, credentials, and source provenance;
+2. use role-based language and repository-relative or generic paths;
+3. exclude imported sources, full raw extraction, full cleaned-document text,
+   screenshots, transfer archives, temporary proofs, and unrelated artifacts;
+4. verify persisted Packs and repair records contain no forbidden provenance; and
+5. inspect the exact staged or proposed diff.
 
-1. scan the focused diff and tracked files for personal names, personal email addresses, usernames, device names, absolute home-directory paths, and external backup locations;
-2. replace personal names with role-based language such as `the user` or `the project owner`;
-3. describe external backups without recording their personal filesystem paths;
-4. verify that temporary files, source documents, screenshots, exports, credentials, and unrelated artifacts are not being committed;
-5. inspect the exact staged diff before committing.
-
-Do not place personal names, personal email addresses, usernames, device names, absolute home-directory paths, or exact external-backup paths in tracked project files. Use repository-relative paths, generic local-workspace language, and role-based references instead.
-
-Required workflow:
+Required flow:
 
 ```text
 edit → test → privacy scan → inspect diff → commit → push
 ```
 
-## Rollback Rule
+## Rollback and emergency recovery
 
-The previous public version must remain recoverable after every new release.
+The previous public version must remain recoverable until the new deployment is
+verified.
 
-If a new public release fails, rollback may use:
+Recovery may use:
 
-- the previous frozen release branch;
-- the previous release tag;
-- the previous public merge commit;
-- a new rollback branch created from the last known-good release source commit;
-- individual file restoration from a verified earlier commit.
+- the prior public commit;
+- a temporary rollback branch created from that commit;
+- a verified Git bundle;
+- preserved emergency refs; or
+- focused restoration of files from known-good history.
 
-Do not rebuild the application from scratch when a known-good release exists in Git history.
+Do not rebuild a known-good release from scratch.
 
-## Prohibited Actions
+## Prohibited actions
 
 Do not:
 
 - force-push public `master`;
-- force-push a frozen release branch;
-- move or rewrite a release tag;
-- use a release branch for ordinary development;
-- delete the previous release merely because a newer release exists;
-- publish directly from an uncommitted working tree;
-- treat the private development repository as a separate product version that intentionally drifts from the public-mirror development branch.
+- publish directly from ignored candidate output;
+- merge an entire private factory branch into public;
+- expose source documents, provenance, repair ledgers, or internal QA publicly;
+- delete the only verified recovery copy of a unique commit;
+- overwrite the canonical Pack during candidate repair; or
+- assume a successful private push changed the public product.
 
-## Cleanup and Release Safety
+## Current boundary checkpoint
 
-Cleanup is part of the development process, not optional polish.
-
-Exploratory implementation may accumulate during visual or behavioral iteration, but approved work should eventually be consolidated into a clear authoritative implementation.
-
-Before structural cleanup:
-
-1. create an external backup;
-2. preserve the verified checkpoint in Git;
-3. define the exact behavior and appearance that must remain unchanged;
-4. make cleanup a focused milestone;
-5. rerun automated tests;
-6. verify the real browser result;
-7. run the privacy and artifact scan;
-8. inspect the final diff before committing.
-
-When immediate cleanup would create unacceptable risk to a working release candidate, the current verified implementation may be preserved and released only after:
-
-- structural integrity checks pass;
-- known debt is documented explicitly;
-- cleanup is recorded as a protected next milestone rather than forgotten.
-
-## Current Hospital-Homepage Checkpoint
-
-The current verified hospital-homepage development checkpoint is:
+At the August 2, 2026 ingestion-workbench checkpoint:
 
 ```text
-6d1ce05705811177fe9aaa27df93d0c6982d67ee
+private master:          e522a586003a6534e7b7dd502bbd3447fde42d96
+public master:           e522a586003a6534e7b7dd502bbd3447fde42d96
+active private branch:   feat/ingestion-workbench
+code checkpoint:         7b21b961c8f56d61f76871c0cb839663b18e029c
+public deployment:       unchanged by the workbench milestone
 ```
 
-It is present on:
+The documentation commit containing this policy and the workbench handoff is
+expected to be the active private branch tip and to descend from the code
+checkpoint above.
 
-```text
-bins-projects/prepflow-dev:docs/continuity-rebuild
-bins-projects/PrepFlow:docs/continuity-rebuild
-```
+The public branch cleanup is complete. Removal of legacy compiler/parser material
+already present on public `master`, plus implementation of allowlisted release
+staging, remains future work.
 
-The local, private, and public-mirror development hashes were explicitly verified equal after push.
+## Change control
 
-The previous public release must remain preserved until the hospital-homepage release is independently verified on GitHub Pages.
-
-## Change Control
-
-Update this policy when the release topology, rollback method, branch naming convention, privacy gate, or preservation rules change.
+Update this policy when repository roles, branch policy, public staging,
+recoverability, privacy rules, or the release workflow materially change.

@@ -8,6 +8,10 @@ It governs source handling, temporary artifacts, candidate Packs, question repai
 validation, approval, and the boundary between the private development repository
 and the public product repository.
 
+Current implementation progress, recovery state, and the exact next task are
+recorded in `docs/INGESTION_WORKBENCH_HANDOFF.md`. This architecture remains
+authoritative for system rules; the handoff is authoritative for current state.
+
 ## 1. Core Identity
 
 PrepFlow is a source-agnostic content refinery.

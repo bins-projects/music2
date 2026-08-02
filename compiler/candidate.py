@@ -11,6 +11,7 @@ from compiler.pack_qa import (
     iter_question_text,
 )
 from compiler.repair import (
+    ChoiceStructureRepairRecord,
     DuplicateChoiceBlockRecord,
     Finding,
     RepairRecord,
@@ -42,7 +43,10 @@ class CandidateBuildResult:
 def build_candidate(
     pack: dict,
     records: list[
-        RepairRecord | StemChoiceSplitRecord | DuplicateChoiceBlockRecord
+        RepairRecord
+        | StemChoiceSplitRecord
+        | DuplicateChoiceBlockRecord
+        | ChoiceStructureRepairRecord
     ],
 ) -> CandidateBuildResult:
     candidate = apply_repairs(pack, records)
@@ -52,6 +56,8 @@ def build_candidate(
             manual_repair_lessons["stem_choice_split"] += 1
         elif isinstance(record, DuplicateChoiceBlockRecord):
             manual_repair_lessons["exact_duplicate_choice_block_removed"] += 1
+        elif isinstance(record, ChoiceStructureRepairRecord):
+            manual_repair_lessons["approved_choice_structure_correction"] += 1
         else:
             lesson = analyze_repair_delta(
                 record.before,

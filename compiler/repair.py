@@ -80,6 +80,22 @@ class DuplicateChoiceBlockRecord:
 
 
 @dataclass(frozen=True)
+class ChoiceStructureRepairRecord:
+    format: str
+    version: str
+    repair_id: str
+    pack_id: str
+    question_id: str
+    expected_choices: tuple[tuple[str, str], ...]
+    replacement_choices: tuple[tuple[str, str], ...]
+    expected_correct_answers: tuple[str, ...]
+    replacement_correct_answers: tuple[str, ...]
+    damage_type: str
+    approval: str
+    disposition: str
+
+
+@dataclass(frozen=True)
 class RepairDeltaAnalysis:
     classification: str
     removed_characters: int
@@ -94,7 +110,15 @@ STEM_CHOICE_SPLIT_FIELDS = {
 DUPLICATE_CHOICE_BLOCK_FIELDS = {
     field.name for field in DuplicateChoiceBlockRecord.__dataclass_fields__.values()
 }
-RepairEntry = RepairRecord | StemChoiceSplitRecord | DuplicateChoiceBlockRecord
+CHOICE_STRUCTURE_REPAIR_FIELDS = {
+    field.name for field in ChoiceStructureRepairRecord.__dataclass_fields__.values()
+}
+RepairEntry = (
+    RepairRecord
+    | StemChoiceSplitRecord
+    | DuplicateChoiceBlockRecord
+    | ChoiceStructureRepairRecord
+)
 
 
 def load_json(path: str | Path) -> dict:
@@ -440,6 +464,59 @@ def create_duplicate_choice_block_record(
     )
 
 
+def create_choice_structure_repair_record(
+    pack: dict,
+    *,
+    question_id: str,
+    repair_id: str,
+    replacement_choices: tuple[tuple[str, str], ...],
+    replacement_correct_answers: tuple[str, ...],
+    damage_type: str,
+    disposition: str = "one_question",
+) -> ChoiceStructureRepairRecord:
+    if disposition not in REPAIR_DISPOSITIONS:
+        raise RepairError(f"Unsupported repair disposition: {disposition}")
+
+    question = find_question(pack, question_id)
+    expected_choices = choice_pairs(question)
+    expected_answers = question.get("correct_answers")
+    if not isinstance(expected_answers, list) or not expected_answers:
+        raise RepairError("Question must have at least one correct answer")
+    if not replacement_choices:
+        raise RepairError("Structural repair must retain at least one choice")
+    if not replacement_correct_answers:
+        raise RepairError("Structural repair must retain a correct answer")
+    if (
+        expected_choices == replacement_choices
+        and tuple(str(item) for item in expected_answers)
+        == replacement_correct_answers
+    ):
+        raise RepairError("Structural replacement is unchanged")
+
+    proposed = copy.deepcopy(question)
+    proposed["choices"] = [
+        {"label": label, "text": text}
+        for label, text in replacement_choices
+    ]
+    proposed["correct_answers"] = list(replacement_correct_answers)
+    validate_candidate_question(proposed)
+
+    return ChoiceStructureRepairRecord(
+        format="prepflow_choice_structure_repair_record",
+        version="1.0",
+        repair_id=repair_id,
+        pack_id=pack["pack_id"],
+        question_id=question_id,
+        expected_choices=expected_choices,
+        replacement_choices=replacement_choices,
+        expected_correct_answers=tuple(str(item) for item in expected_answers),
+        replacement_correct_answers=replacement_correct_answers,
+        damage_type=damage_type,
+        approval="approved",
+        disposition=disposition,
+    )
+
+
 def normalize_replacement_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
@@ -513,6 +590,8 @@ def apply_repairs(pack: dict, records: list[RepairEntry]) -> dict:
             apply_stem_choice_split_to_candidate(candidate, record)
         elif isinstance(record, DuplicateChoiceBlockRecord):
             apply_duplicate_choice_block_to_candidate(candidate, record)
+        elif isinstance(record, ChoiceStructureRepairRecord):
+            apply_choice_structure_repair_to_candidate(candidate, record)
         else:
             apply_repair_to_candidate(candidate, record)
 
@@ -583,6 +662,36 @@ def apply_duplicate_choice_block_to_candidate(
     validate_candidate_question(question)
 
 
+def apply_choice_structure_repair_to_candidate(
+    candidate: dict,
+    record: ChoiceStructureRepairRecord,
+) -> None:
+    if record.pack_id != candidate.get("pack_id"):
+        raise RepairError("Repair record belongs to a different Pack")
+
+    question = find_question(candidate, record.question_id)
+    if choice_pairs(question) != record.expected_choices:
+        raise RepairError(
+            "Choice-structure repair no longer matches current choices"
+        )
+    current_answers = question.get("correct_answers")
+    if (
+        not isinstance(current_answers, list)
+        or tuple(str(item) for item in current_answers)
+        != record.expected_correct_answers
+    ):
+        raise RepairError(
+            "Choice-structure repair no longer matches current answers"
+        )
+
+    question["choices"] = [
+        {"label": label, "text": text}
+        for label, text in record.replacement_choices
+    ]
+    question["correct_answers"] = list(record.replacement_correct_answers)
+    validate_candidate_question(question)
+
+
 def choice_pair_tuple(value: object, *, field: str) -> tuple[tuple[str, str], ...]:
     if not isinstance(value, list):
         raise RepairError(f"Duplicate-choice {field} must be a list")
@@ -640,6 +749,44 @@ def repair_record_from_dict(value: object) -> RepairEntry:
             )
         if record.expected_choices != record.retained_choices * 2:
             raise RepairError("Duplicate-choice repair is not an exact repeated block")
+        return record
+
+    if value.get("format") == "prepflow_choice_structure_repair_record":
+        if set(value) != CHOICE_STRUCTURE_REPAIR_FIELDS:
+            raise RepairError(
+                "Choice-structure repair fields do not match the schema"
+            )
+        converted = dict(value)
+        converted["expected_choices"] = choice_pair_tuple(
+            converted.get("expected_choices"),
+            field="expected choices",
+        )
+        converted["replacement_choices"] = choice_pair_tuple(
+            converted.get("replacement_choices"),
+            field="replacement choices",
+        )
+        for field in (
+            "expected_correct_answers",
+            "replacement_correct_answers",
+        ):
+            answers = converted.get(field)
+            if (
+                not isinstance(answers, list)
+                or not answers
+                or not all(isinstance(item, str) for item in answers)
+            ):
+                raise RepairError(
+                    f"Choice-structure {field.replace('_', ' ')} must be a "
+                    "non-empty text list"
+                )
+            converted[field] = tuple(answers)
+        record = ChoiceStructureRepairRecord(**converted)
+        if record.version != "1.0":
+            raise RepairError("Unsupported choice-structure repair format")
+        if record.disposition not in REPAIR_DISPOSITIONS:
+            raise RepairError(
+                f"Unsupported repair disposition: {record.disposition}"
+            )
         return record
 
     if set(value) != REPAIR_RECORD_FIELDS:

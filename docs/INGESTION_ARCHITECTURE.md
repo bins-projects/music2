@@ -217,6 +217,30 @@ reject stale application, validate the repaired question, and remain
 candidate-only. This operation is not an automatic semantic repair and does not
 authorize a generalized rule.
 
+An explicitly approved full-question correction may preserve the complete
+expected stem, choices, answer map, and rationale together with their complete
+replacement shape. This operation is appropriate when one reviewed extraction
+defect spans several fields and separate field records would permit a partial
+application. It must reject any stale expected field, validate the complete
+replacement question, remain candidate-only, and contain no source provenance.
+
+A missing internal choice may be proposed mechanically only when exactly one
+internal label is absent, the surviving labels remain canonical, and the exact
+lowercase marker plus complete missing text occur once inside the immediately
+preceding choice. The proposal moves existing text only and preserves the answer
+map. Multiple markers, prose-like uppercase markers, noncanonical order, or stale
+input require review.
+
+Merged-question evidence is detection-only. A high-confidence blocker may combine
+a restarted choice sequence, incompatible question-type/answer cardinality, and a
+second question prompt inside the rationale. It must not split, discard, renumber,
+or invent either question without source review.
+
+Text-damage detection must distinguish proven extraction fragments from valid
+domain notation. Exact recognized clinical units such as `mEq/L` are protected
+from mixed-case and singleton-fragment heuristics; malformed or interleaved unit
+text remains reviewable.
+
 ## 7. Repair Confidence
 
 Repairs are separated by risk.
@@ -358,9 +382,9 @@ Implementation of the ingestion workbench must include tests proving that:
 - persisted Packs and repair records contain no forbidden provenance fields; and
 - public release staging rejects private ingestion files and temporary artifacts.
 
-## 14. First Implementation Slice
+## 14. Implementation Slices
 
-The first vertical slice will:
+The completed repair-workbench vertical slice can:
 
 1. load the existing Fundamentals QA ledger;
 2. select one flagged question by PrepFlow ID;
@@ -378,3 +402,10 @@ validation, and candidate-safety foundation that the independent importer will u
 The workbench subsequently extends this foundation with atomic structural repairs,
 including splitting a visible choice out of a damaged stem. These repairs remain
 candidate-only and use exact pre-change checks to prevent partial application.
+
+The next vertical slice is the local intake front door. It will create an ignored
+incoming area and contained per-run workspace, accept one explicitly chosen source
+through one guided command, reuse existing format adapters, build a candidate,
+produce a source-neutral baseline comparison, and prove that cleanup never reaches
+outside PrepFlow-owned temporary space. A browser upload surface may follow only
+after this local lifecycle is tested.

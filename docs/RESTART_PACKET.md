@@ -26,18 +26,21 @@ list, next task, and safe restart commands.
 milestone:     Fundamentals cleanup and source-agnostic ingestion workbench
 repository:    bins-projects/prepflow-dev
 branch:        feat/ingestion-workbench
-code checkpoint: f91b054f8aef9bcb66b4a7e4340935c8690cf4c3
-tests:         165 passed
-repair state:  17 approved candidate-only repairs
-blockers:      301
+code checkpoint: fd2320005a221adedf1f2b83d8af4581d03850c8
+tests:         190 passed
+repair state:  24 approved candidate-only repairs
+blockers:      277
 canonical:     unchanged
 ```
 
-Fundamentals questions 108 and 111 are complete as explicitly approved,
-candidate-only atomic choice-structure corrections. The next review target is
-question 113, whose rationale appears absorbed into choice B while choices C and
-D are displaced or out of order. Inspect the complete question before proposing a
-correction.
+The structural review group is complete except for question 937. Question 937 is
+blocked because one record appears to contain two merged source questions; do not
+discard or invent either question without the separately stored original.
+
+The next engineering task is the reusable intake front door: an ignored local
+incoming area and one guided command that stages a temporary source copy, runs the
+ingestion pipeline, produces a candidate and comparison, and enforces cleanup.
+Source documents must never be committed or uploaded to GitHub.
 
 ## Repository boundary
 

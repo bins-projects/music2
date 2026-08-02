@@ -41,7 +41,7 @@ dev/private factory: bins-projects/prepflow-dev
 public product:       bins-projects/PrepFlow
 local repository:     ~/projects/prepflow
 active branch:        feat/ingestion-workbench
-code checkpoint:      f91b054f8aef9bcb66b4a7e4340935c8690cf4c3
+code checkpoint:      fd2320005a221adedf1f2b83d8af4581d03850c8
 private master:       e522a586003a6534e7b7dd502bbd3447fde42d96
 public master:        e522a586003a6534e7b7dd502bbd3447fde42d96
 ```
@@ -89,7 +89,7 @@ The work is protected at several levels.
 ### Git history
 
 The active private branch contains all ingestion-workbench implementation through
-commit `f91b054` (`Add approved atomic choice-structure repairs`).
+commit `fd23200` (`Consolidate guarded structural recovery`).
 
 ### Complete Git bundle
 
@@ -113,6 +113,7 @@ The ignored Fundamentals workbench has these external snapshots:
 ../prepflow-backups/workbench-2026-08-01-15-repairs
 ../prepflow-backups/workbench-2026-08-02-16-repairs
 ../prepflow-backups/workbench-2026-08-02-17-repairs
+../prepflow-backups/workbench-2026-08-02-24-repairs
 ```
 
 Each snapshot contains:
@@ -124,7 +125,7 @@ fundamentals/repair-records.json
 SHA256SUMS
 ```
 
-The 17-repair snapshot is the current recovery point. Its three recorded files
+The 24-repair snapshot is the current recovery point. Its three recorded files
 passed SHA-256 verification when the snapshot was created.
 
 ### Preserved former branch tips
@@ -169,16 +170,17 @@ approval, complete validation, comparison, and no unexplained drift.
 The latest verified state is:
 
 ```text
-approved candidate-only repairs: 17
-promotion blockers:               301
-automated tests:                  165 passed
+approved candidate-only repairs: 24
+promotion blockers:               277
+automated tests:                  190 passed
 canonical Pack:                   unchanged
 ```
 
-The 17 repair lessons are:
+The 24 repair lessons are:
 
 ```text
-approved_choice_structure_correction: 2
+approved_choice_structure_correction: 3
+approved_question_correction:          6
 exact_duplicate_choice_block_removed: 1
 manual_text_rewrite:                   1
 stem_choice_split:                     6
@@ -196,7 +198,7 @@ join_which_fragment: 1 field
 Typography normalization at the checkpoint reported:
 
 ```text
-fields normalized:          1378
+fields normalized:          1379
 opening marks replaced:      588
 closing marks replaced:      587
 apostrophes replaced:       1192
@@ -220,6 +222,13 @@ The private branch now includes:
 - guarded batching of high-confidence leading choices absorbed into stems;
 - guarded removal of an exact duplicated choice block;
 - explicitly approved atomic choice removal and answer-map correction;
+- explicitly approved, stale-guarded full-question batch corrections;
+- guarded recovery of one missing middle choice when its exact lowercase marker
+  and complete text are embedded in the immediately preceding choice;
+- a merged-question promotion blocker requiring a restarted choice sequence,
+  incompatible answer cardinality, and a second question prompt;
+- protection for valid clinical units such as `mEq/L` so they are not mistaken
+  for extraction interleaving;
 - stale-shape rejection and full-question validation; and
 - source-neutral positive and negative test fixtures.
 
@@ -233,6 +242,8 @@ python -m compiler.artifact_profile_cli
 python -m compiler.structural_batch_cli
 python -m compiler.duplicate_choice_batch_cli
 python -m compiler.choice_structure_repair_cli --help
+python -m compiler.embedded_choice_batch_cli
+python -m compiler.approved_question_batch_cli --help
 python -m compiler.candidate_cli
 python -m pytest -q
 ```
@@ -248,10 +259,17 @@ The structural-exception review has safely resolved:
 PFQ-fundamentals-000000091
 PFQ-fundamentals-000000108
 PFQ-fundamentals-000000111
+PFQ-fundamentals-000000113
 PFQ-fundamentals-000000293
+PFQ-fundamentals-000000357
+PFQ-fundamentals-000000369
+PFQ-fundamentals-000000611
+PFQ-fundamentals-000000676
 PFQ-fundamentals-000000832
+PFQ-fundamentals-000000944
 PFQ-fundamentals-000000969
 PFQ-fundamentals-000001005
+PFQ-fundamentals-000001022
 ```
 
 Question 91 contained two consecutive, byte-for-byte identical A–D choice blocks.
@@ -282,48 +300,69 @@ new detector, code commit, or phrase-based rule was created. This created repair
 17, reduced promotion blockers from 302 to 301, and left the canonical Pack
 unchanged.
 
+Question 113 contained rationale text absorbed into choice B and displaced C/D
+choices. The project owner approved one complete A-D replacement preserving
+answer A. This created repair 18 through the existing atomic choice-structure
+operation.
+
+Questions 357, 369, 611, 676, 944, and 1022 were reviewed together. Their visible
+damage consisted of exact missing-choice markers embedded in neighboring fields,
+learned uppercase overlay fragments, and extraction spacing. The project owner
+approved the complete before-and-after shape for all six. One dry-run plan showed
+all six together, then one candidate-only application created six stale-guarded
+full-question correction records, bringing the repair count from 18 to 24.
+
+Four of those questions also support a generalized parser proposal: 357, 369,
+611, and 1022 each contain exactly one missing internal label whose lowercase
+marker and complete text are embedded in the immediately preceding choice. The
+new rule moves existing text only, requires canonical surviving labels, preserves
+the answer map, rejects multiple markers and stale shapes, and remains dry-run by
+default. The more irregular overlay cleanup remains review-required rather than a
+blind global deletion rule.
+
+The candidate rebuild after the six-question batch reported 24 repairs and 277
+promotion blockers. The reduction from 300 also reflects removal of false-positive
+interleaving findings for valid clinical units such as `mEq/L`; it does not mean
+23 questions were semantically rewritten. The canonical Pack remained unchanged,
+190 tests passed after the code checkpoint, and the 24-repair external snapshot
+passed SHA-256 verification.
+
 ## 9. Remaining structural exceptions
 
-Eight questions remain in this structural review group:
+One question remains in this structural review group:
 
 ```text
-PFQ-fundamentals-000000113
-PFQ-fundamentals-000000357
-PFQ-fundamentals-000000369
-PFQ-fundamentals-000000611
-PFQ-fundamentals-000000676
 PFQ-fundamentals-000000937
-PFQ-fundamentals-000000944
-PFQ-fundamentals-000001022
 ```
 
-Known preliminary classifications:
-
-- 113: rationale appears absorbed into choice B, with choices C/D displaced or
-  out of order;
-- 357 and 611: missing choice B;
-- 369: missing choice C;
-- 676 and 944: missing choice A appears absorbed into the stem, but damage is too
-  ambiguous for the existing high-confidence batch;
-- 937: appears to combine two different choice sets and has suspicious answer
-  mapping; and
-- 1022: missing choice C.
-
-These descriptions are preliminary QA observations, not approved corrections.
+Question 937 contains a complete A-D choice set followed by another A-F choice
+set. Its `mc` type conflicts with the recorded answers C/E/F, and its rationale
+contains a second select-all-that-apply prompt before truncating. The generalized
+merged-question detector identifies exactly this Fundamentals record using the
+combined evidence. It is a promotion blocker, not authorization to discard or
+split content. Original-source review is required to preserve both questions and
+assign identity safely.
 
 ## 10. Exact next task
 
-Begin with question 113.
+Begin the reusable document-intake front door. This is a local private-factory
+workflow, not a GitHub upload of source material.
 
-Its current choice B appears to contain educational rationale text, and its C/D
-ordering is suspicious. Inspect the complete question, answer mapping, rationale,
-and immediate neighbors before deciding whether intact wording can be moved
-atomically or whether original-source review is required.
+The first intake vertical slice should:
 
-First determine whether an existing operation can represent the approved
-correction. Do not create new code when the current atomic structural operation is
-sufficient. Do not invent missing choice wording or silently repair educational
-meaning.
+1. inspect and reuse the existing adapters, extraction, cleaning, parser,
+   normalization, and QA entrypoints;
+2. establish a Git-ignored local incoming area and per-run workspace;
+3. accept one explicitly selected local document through one guided command;
+4. copy only into PrepFlow-owned temporary space and never modify the user's
+   separately stored original;
+5. run extraction through candidate validation without promoting canonical data;
+6. produce a source-neutral baseline-versus-improved comparison; and
+7. prove cleanup and containment guarantees with positive and failure-path tests.
+
+Before implementing, inspect the current ignore rules and available format
+adapters. Do not create a web upload surface or persist a source document until
+the local lifecycle and deletion boundaries are tested.
 
 ## 11. First commands in a resumed session
 
@@ -341,24 +380,24 @@ Expected branch and recent history before new work:
 ```text
 feat/ingestion-workbench
 HEAD: documentation commit publishing this handoff
-code ancestor: f91b054 Add approved atomic choice-structure repairs
+code ancestor: fd23200 Consolidate guarded structural recovery
 ```
 
 Expected test result at the checkpoint:
 
 ```text
-165 passed
+190 passed
 ```
 
-Then verify that the ignored repair set still contains 17 records by rebuilding
+Then verify that the ignored repair set still contains 24 records by rebuilding
 the candidate:
 
 ```bash
 python -m compiler.candidate_cli
 ```
 
-If the ignored workbench is missing or does not report 17 approved repairs, stop.
-Restore or compare against the external 17-repair snapshot; do not recreate the
+If the ignored workbench is missing or does not report 24 approved repairs, stop.
+Restore or compare against the external 24-repair snapshot; do not recreate the
 repairs from memory.
 
 ## 12. Collaboration rules

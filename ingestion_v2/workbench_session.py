@@ -641,6 +641,10 @@ class SyntheticWorkbenchSession:
         if self._identity_report is None:
             return {"state": "not_run"}
         view = self._identity_report.view()
+        # The local browser needs counts and uncertain cases, not thousands of
+        # successful automatic mappings. Keep the complete mapping inside the
+        # engine so full-book payloads remain responsive and source-private.
+        view.pop("matches", None)
         resolved = self._lifecycle is not None and self._lifecycle.manifest()["stage"] == "identity_matched"
         view["state"] = "complete" if resolved else view["state"]
         view["review_cases"] = [

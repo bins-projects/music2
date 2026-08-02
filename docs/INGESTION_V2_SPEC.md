@@ -144,6 +144,18 @@ review change returns it to `review_ready` and invalidates those outputs. Explic
 completion is available only after comparison and removes raw and cleaned text.
 It never enables promotion.
 
+## Cleaning boundary
+
+`GuardedPageAwareCleaner` wraps the cross-source repeated-noise behavior already
+proven against Fundamentals and Medical-Surgical. It normalizes line endings,
+removes only eligible repeated page-edge lines and suffix overlays, protects
+repeated educational structures, and retains the guarded leading-index behavior.
+Its result reports input/output size, removals, suffix stripping, and protected
+candidate counts. It always reports zero meaning-level repairs and zero
+source-specific rules. The connected synthetic run now parses this cleaned result
+rather than the raw/pass-through value, and exposes only source-neutral cleaning
+metrics in the workbench and run manifest.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

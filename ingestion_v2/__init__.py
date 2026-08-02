@@ -19,6 +19,7 @@ from ingestion_v2.parser import ExistingParserAdapter, ParseBatch, ParsedRecord,
 from ingestion_v2.parser_bridge import materialize_matched_batch
 from ingestion_v2.comparison import ComparisonReport, FieldChange, compare_candidate
 from ingestion_v2.run_lifecycle import RunLifecycle
+from ingestion_v2.cleaning import CleaningResult, GuardedPageAwareCleaner
 
 __all__ = [
     "Candidate",
@@ -47,4 +48,6 @@ __all__ = [
     "FieldChange",
     "compare_candidate",
     "RunLifecycle",
+    "CleaningResult",
+    "GuardedPageAwareCleaner",
 ]

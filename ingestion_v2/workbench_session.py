@@ -18,6 +18,7 @@ from ingestion_v2.comparison import compare_candidate, comparison_view
 from ingestion_v2.review import ReviewStatus, build_review_queue
 from ingestion_v2.review_view import review_queue_view
 from ingestion_v2.run_lifecycle import RunLifecycle
+from ingestion_v2.cleaning import GuardedPageAwareCleaner
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,7 @@ class SyntheticWorkbenchSession:
         self._dispositions_by_finding: dict[str, FindingDisposition] = {}
         self._candidate = None
         self._comparison = None
+        self._cleaning_result = None
 
     def view(self) -> dict:
         queue = self._queue()
@@ -61,6 +63,18 @@ class SyntheticWorkbenchSession:
             "parsed_records": len(self.questions),
             "automatic_repairs": 0,
             "document_text_in_payload": False,
+            "cleaning": (
+                {
+                    "cleaner": self._cleaning_result.cleaner_name,
+                    "removed_repeated_lines": self._cleaning_result.removed_repeated_lines,
+                    "stripped_repeated_suffixes": self._cleaning_result.stripped_repeated_suffixes,
+                    "protected_repeated_structures": self._cleaning_result.protected_repeated_structures,
+                    "meaning_repairs": self._cleaning_result.meaning_repairs,
+                    "source_specific_rules": self._cleaning_result.source_specific_rules,
+                }
+                if self._cleaning_result is not None
+                else None
+            ),
         }
         payload["candidate"] = self._candidate_view()
         payload["comparison"] = (
@@ -81,8 +95,16 @@ class SyntheticWorkbenchSession:
             encoded = SYNTHETIC_DOCUMENT.encode("utf-8")
             lifecycle.stage_disposable_copy(encoded, source_type="synthetic_text")
             lifecycle.record_extraction(SYNTHETIC_DOCUMENT)
-            lifecycle.record_cleaning(SYNTHETIC_DOCUMENT)
-            self.questions, self.findings, self.proposals = synthetic_review_records()
+            cleaning = GuardedPageAwareCleaner().clean(SYNTHETIC_DOCUMENT)
+            lifecycle.record_cleaning(
+                cleaning.text,
+                cleaner_name=cleaning.cleaner_name,
+                removed_repeated_lines=cleaning.removed_repeated_lines,
+                stripped_repeated_suffixes=cleaning.stripped_repeated_suffixes,
+                protected_repeated_structures=cleaning.protected_repeated_structures,
+            )
+            self._cleaning_result = cleaning
+            self.questions, self.findings, self.proposals = synthetic_review_records(cleaning.text)
             lifecycle.record_review_ready(
                 parsed_records=len(self.questions),
                 finding_count=len(self.findings),

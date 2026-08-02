@@ -21,11 +21,11 @@ DIF: Synthetic
 """
 
 
-def synthetic_review_records() -> tuple[
+def synthetic_review_records(text: str = SYNTHETIC_DOCUMENT) -> tuple[
     tuple, tuple, tuple[Proposal, ...]
 ]:
     """Run a synthetic document through parser, identity bridge, and proposal setup."""
-    batch = ExistingParserAdapter().parse(SYNTHETIC_DOCUMENT)
+    batch = ExistingParserAdapter().parse(text)
     questions, findings = materialize_matched_batch(
         batch,
         {

@@ -37,6 +37,7 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
         "comparison-changes",
         "start-run-button",
         "complete-run-button",
+        "run-cleaning",
     ):
         assert f'id="{required_id}"' in html
     for action in ("approve", "reject", "defer", "leave_blocked", "exclude_record"):

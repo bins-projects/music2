@@ -27,6 +27,7 @@ def test_connected_session_starts_in_memory_and_non_promoting() -> None:
         "parsed_records": 2,
         "automatic_repairs": 0,
         "document_text_in_payload": False,
+        "cleaning": None,
     }
     assert len(payload["cases"]) == 3
     assert {item["damage_type"] for item in payload["cases"]} == {
@@ -212,6 +213,14 @@ def test_managed_session_runs_document_through_lifecycle_and_final_cleanup(tmp_p
     assert started["run"]["staged_copy_present"] is False
     assert started["run"]["raw_text_present"] is True
     assert started["run"]["cleaned_text_present"] is True
+    assert started["pipeline"]["cleaning"] == {
+        "cleaner": "guarded_page_aware_source_neutral_v1",
+        "removed_repeated_lines": 0,
+        "stripped_repeated_suffixes": 0,
+        "protected_repeated_structures": 0,
+        "meaning_repairs": 0,
+        "source_specific_rules": 0,
+    }
     assert len(started["cases"]) == 3
 
     candidate = session.build_isolated_candidate()

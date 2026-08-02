@@ -104,10 +104,27 @@ class RunLifecycle:
         self._write_manifest(manifest)
         return manifest
 
-    def record_cleaning(self, text: str) -> dict:
+    def record_cleaning(
+        self,
+        text: str,
+        *,
+        cleaner_name: str | None = None,
+        removed_repeated_lines: int = 0,
+        stripped_repeated_suffixes: int = 0,
+        protected_repeated_structures: int = 0,
+    ) -> dict:
         manifest = self._require_stage("extracted")
         if not text:
             raise DomainError("Cleaning output cannot be empty")
+        if any(
+            value < 0
+            for value in (
+                removed_repeated_lines,
+                stripped_repeated_suffixes,
+                protected_repeated_structures,
+            )
+        ):
+            raise DomainError("Cleaning counts cannot be negative")
         self._atomic_write_text(self._owned_path("artifacts", "cleaned.txt"), text)
         self._unlink_owned("incoming", "source.bin")
         manifest.update(
@@ -115,6 +132,12 @@ class RunLifecycle:
             staged_copy_present=False,
             cleaned_text_present=True,
             cleaned_characters=len(text),
+            cleaner_name=cleaner_name,
+            removed_repeated_lines=removed_repeated_lines,
+            stripped_repeated_suffixes=stripped_repeated_suffixes,
+            protected_repeated_structures=protected_repeated_structures,
+            cleaning_meaning_repairs=0,
+            cleaning_source_specific_rules=0,
         )
         self._write_manifest(manifest)
         return manifest

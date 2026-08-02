@@ -96,6 +96,26 @@ class ChoiceStructureRepairRecord:
 
 
 @dataclass(frozen=True)
+class QuestionCorrectionRecord:
+    format: str
+    version: str
+    repair_id: str
+    pack_id: str
+    question_id: str
+    expected_stem: str
+    replacement_stem: str
+    expected_choices: tuple[tuple[str, str], ...]
+    replacement_choices: tuple[tuple[str, str], ...]
+    expected_correct_answers: tuple[str, ...]
+    replacement_correct_answers: tuple[str, ...]
+    expected_rationale: str
+    replacement_rationale: str
+    damage_type: str
+    approval: str
+    disposition: str
+
+
+@dataclass(frozen=True)
 class RepairDeltaAnalysis:
     classification: str
     removed_characters: int
@@ -113,11 +133,15 @@ DUPLICATE_CHOICE_BLOCK_FIELDS = {
 CHOICE_STRUCTURE_REPAIR_FIELDS = {
     field.name for field in ChoiceStructureRepairRecord.__dataclass_fields__.values()
 }
+QUESTION_CORRECTION_FIELDS = {
+    field.name for field in QuestionCorrectionRecord.__dataclass_fields__.values()
+}
 RepairEntry = (
     RepairRecord
     | StemChoiceSplitRecord
     | DuplicateChoiceBlockRecord
     | ChoiceStructureRepairRecord
+    | QuestionCorrectionRecord
 )
 
 
@@ -517,6 +541,85 @@ def create_choice_structure_repair_record(
     )
 
 
+def create_question_correction_record(
+    pack: dict,
+    *,
+    question_id: str,
+    repair_id: str,
+    replacement_stem: str,
+    replacement_choices: tuple[tuple[str, str], ...],
+    replacement_correct_answers: tuple[str, ...],
+    replacement_rationale: str,
+    damage_type: str,
+    disposition: str = "one_question",
+) -> QuestionCorrectionRecord:
+    """Capture one approved full-question correction with stale-shape guards."""
+    if disposition not in REPAIR_DISPOSITIONS:
+        raise RepairError(f"Unsupported repair disposition: {disposition}")
+
+    question = find_question(pack, question_id)
+    expected_stem = question.get("stem")
+    expected_rationale = question.get("rationale")
+    expected_answers = question.get("correct_answers")
+    if not isinstance(expected_stem, str):
+        raise RepairError("Question stem must be text")
+    if not isinstance(expected_rationale, str):
+        raise RepairError("Question rationale must be text")
+    if not isinstance(expected_answers, list) or not expected_answers:
+        raise RepairError("Question must have at least one correct answer")
+
+    replacement_stem = normalize_replacement_text(replacement_stem)
+    replacement_rationale = normalize_replacement_text(replacement_rationale)
+    replacement_choices = tuple(
+        (label.strip(), normalize_replacement_text(text))
+        for label, text in replacement_choices
+    )
+    replacement_correct_answers = tuple(
+        answer.strip() for answer in replacement_correct_answers
+    )
+    if not replacement_stem or not replacement_rationale:
+        raise RepairError("Replacement stem and rationale must not be empty")
+
+    expected_choices = choice_pairs(question)
+    expected_correct_answers = tuple(str(item) for item in expected_answers)
+    if (
+        expected_stem == replacement_stem
+        and expected_choices == replacement_choices
+        and expected_correct_answers == replacement_correct_answers
+        and expected_rationale == replacement_rationale
+    ):
+        raise RepairError("Question correction is unchanged")
+
+    proposed = copy.deepcopy(question)
+    proposed["stem"] = replacement_stem
+    proposed["choices"] = [
+        {"label": label, "text": text}
+        for label, text in replacement_choices
+    ]
+    proposed["correct_answers"] = list(replacement_correct_answers)
+    proposed["rationale"] = replacement_rationale
+    validate_candidate_question(proposed)
+
+    return QuestionCorrectionRecord(
+        format="prepflow_question_correction_record",
+        version="1.0",
+        repair_id=repair_id,
+        pack_id=pack["pack_id"],
+        question_id=question_id,
+        expected_stem=expected_stem,
+        replacement_stem=replacement_stem,
+        expected_choices=expected_choices,
+        replacement_choices=replacement_choices,
+        expected_correct_answers=expected_correct_answers,
+        replacement_correct_answers=replacement_correct_answers,
+        expected_rationale=expected_rationale,
+        replacement_rationale=replacement_rationale,
+        damage_type=damage_type,
+        approval="approved",
+        disposition=disposition,
+    )
+
+
 def normalize_replacement_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
@@ -592,6 +695,8 @@ def apply_repairs(pack: dict, records: list[RepairEntry]) -> dict:
             apply_duplicate_choice_block_to_candidate(candidate, record)
         elif isinstance(record, ChoiceStructureRepairRecord):
             apply_choice_structure_repair_to_candidate(candidate, record)
+        elif isinstance(record, QuestionCorrectionRecord):
+            apply_question_correction_to_candidate(candidate, record)
         else:
             apply_repair_to_candidate(candidate, record)
 
@@ -692,6 +797,37 @@ def apply_choice_structure_repair_to_candidate(
     validate_candidate_question(question)
 
 
+def apply_question_correction_to_candidate(
+    candidate: dict,
+    record: QuestionCorrectionRecord,
+) -> None:
+    if record.pack_id != candidate.get("pack_id"):
+        raise RepairError("Repair record belongs to a different Pack")
+
+    question = find_question(candidate, record.question_id)
+    answers = question.get("correct_answers")
+    if (
+        question.get("stem") != record.expected_stem
+        or choice_pairs(question) != record.expected_choices
+        or not isinstance(answers, list)
+        or tuple(str(item) for item in answers)
+        != record.expected_correct_answers
+        or question.get("rationale") != record.expected_rationale
+    ):
+        raise RepairError(
+            "Question correction no longer matches the current full shape"
+        )
+
+    question["stem"] = record.replacement_stem
+    question["choices"] = [
+        {"label": label, "text": text}
+        for label, text in record.replacement_choices
+    ]
+    question["correct_answers"] = list(record.replacement_correct_answers)
+    question["rationale"] = record.replacement_rationale
+    validate_candidate_question(question)
+
+
 def choice_pair_tuple(value: object, *, field: str) -> tuple[tuple[str, str], ...]:
     if not isinstance(value, list):
         raise RepairError(f"Duplicate-choice {field} must be a list")
@@ -783,6 +919,44 @@ def repair_record_from_dict(value: object) -> RepairEntry:
         record = ChoiceStructureRepairRecord(**converted)
         if record.version != "1.0":
             raise RepairError("Unsupported choice-structure repair format")
+        if record.disposition not in REPAIR_DISPOSITIONS:
+            raise RepairError(
+                f"Unsupported repair disposition: {record.disposition}"
+            )
+        return record
+
+    if value.get("format") == "prepflow_question_correction_record":
+        if set(value) != QUESTION_CORRECTION_FIELDS:
+            raise RepairError(
+                "Question-correction fields do not match the schema"
+            )
+        converted = dict(value)
+        converted["expected_choices"] = choice_pair_tuple(
+            converted.get("expected_choices"),
+            field="expected choices",
+        )
+        converted["replacement_choices"] = choice_pair_tuple(
+            converted.get("replacement_choices"),
+            field="replacement choices",
+        )
+        for field in (
+            "expected_correct_answers",
+            "replacement_correct_answers",
+        ):
+            answers = converted.get(field)
+            if (
+                not isinstance(answers, list)
+                or not answers
+                or not all(isinstance(item, str) for item in answers)
+            ):
+                raise RepairError(
+                    f"Question-correction {field.replace('_', ' ')} must be a "
+                    "non-empty text list"
+                )
+            converted[field] = tuple(answers)
+        record = QuestionCorrectionRecord(**converted)
+        if record.version != "1.0":
+            raise RepairError("Unsupported question-correction format")
         if record.disposition not in REPAIR_DISPOSITIONS:
             raise RepairError(
                 f"Unsupported repair disposition: {record.disposition}"

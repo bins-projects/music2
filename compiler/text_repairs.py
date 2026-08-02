@@ -67,6 +67,9 @@ SPLIT_SUFFIX_RE = re.compile(
     r"(s|ed|ing|ly|tion|ment|ness|ity|al|ous|ive)\b"
 )
 WORD_RE = re.compile(r"\b[A-Za-z]+\b")
+CLINICAL_UNIT_RE = re.compile(
+    r"\b(?:mEq|mmol|mg|mcg|g|mL|L)/(?:L|dL|kg|min)\b"
+)
 APOSTROPHE_MARKS = {"'", "‘", "’"}
 
 
@@ -99,7 +102,11 @@ def case_transitions(word: str) -> int:
 
 
 def interleaving_blockers(text: str) -> tuple[str, ...]:
-    word_matches = tuple(WORD_RE.finditer(text))
+    analysis_text = CLINICAL_UNIT_RE.sub(
+        lambda match: " " * len(match.group(0)),
+        text,
+    )
+    word_matches = tuple(WORD_RE.finditer(analysis_text))
     words = [match.group(0) for match in word_matches]
     singleton_fragments = [
         match.group(0)
@@ -109,7 +116,7 @@ def interleaving_blockers(text: str) -> tuple[str, ...]:
         and not (
             match.group(0).lower() == "s"
             and match.start() > 0
-            and text[match.start() - 1] in APOSTROPHE_MARKS
+            and analysis_text[match.start() - 1] in APOSTROPHE_MARKS
         )
     ]
     mixed_case_fragments = [

@@ -4,10 +4,13 @@ from dataclasses import dataclass
 from compiler.artifact_profile import learn_overlay_signature
 from compiler.pack_qa import audit_choice_structure, finding_id_for_choice_structure
 from compiler.repair import (
+    ChoiceStructureRepairRecord,
     Finding,
     RepairEntry,
     StemChoiceSplitRecord,
     apply_repairs,
+    choice_pairs,
+    create_choice_structure_repair_record,
     create_stem_choice_split_record,
     find_question,
 )
@@ -18,11 +21,20 @@ ABSORBED_MARKER_RE = re.compile(
     r"(?:^|\s)([A-Z])\s*[.):]\s+",
     flags=re.IGNORECASE,
 )
+EMBEDDED_CHOICE_MARKER_RE = re.compile(
+    r"(?:^|\s)([a-z])\s*[.):]\s+(?=[A-Z])"
+)
 
 
 @dataclass(frozen=True)
 class StructuralBatchPlan:
     proposals: tuple[StemChoiceSplitRecord, ...]
+    review_question_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class EmbeddedChoiceBatchPlan:
+    proposals: tuple[ChoiceStructureRepairRecord, ...]
     review_question_ids: tuple[str, ...]
 
 
@@ -146,4 +158,99 @@ def plan_clear_absorbed_choices(
     return StructuralBatchPlan(
         proposals=tuple(proposals),
         review_question_ids=tuple(review),
+    )
+
+
+def plan_embedded_middle_choices(
+    pack: dict,
+    records: list[RepairEntry],
+) -> EmbeddedChoiceBatchPlan:
+    """Plan exact missing-label splits found inside the preceding choice.
+
+    This operation moves existing text only. It requires one missing internal
+    label, one matching marker, canonical surviving order, and an unchanged
+    answer map. Ambiguous or stale shapes remain in the review queue.
+    """
+    candidate = apply_repairs(pack, records)
+    proposals = []
+    review = []
+
+    for result in audit_choice_structure(candidate):
+        if len(result.missing_labels) != 1:
+            continue
+        missing = result.missing_labels[0]
+        if missing == "A" or len(result.labels) < 2:
+            continue
+        expected_without_missing = tuple(
+            chr(value)
+            for value in range(ord("A"), ord(result.labels[-1]) + 1)
+            if chr(value) != missing
+        )
+        if result.labels != expected_without_missing:
+            review.append(result.question_id)
+            continue
+
+        question = find_question(candidate, result.question_id)
+        before_choices = choice_pairs(question)
+        previous_label = chr(ord(missing) - 1)
+        previous_indexes = [
+            index
+            for index, (label, _) in enumerate(before_choices)
+            if label.upper() == previous_label
+        ]
+        if len(previous_indexes) != 1:
+            review.append(result.question_id)
+            continue
+
+        previous_index = previous_indexes[0]
+        previous_text = before_choices[previous_index][1]
+        markers = [
+            match
+            for match in EMBEDDED_CHOICE_MARKER_RE.finditer(previous_text)
+            if match.group(1).upper() == missing
+        ]
+        if len(markers) != 1:
+            review.append(result.question_id)
+            continue
+
+        marker = markers[0]
+        retained_text = previous_text[:marker.start()].strip()
+        inserted_text = previous_text[marker.end():].strip()
+        if not retained_text or not inserted_text:
+            review.append(result.question_id)
+            continue
+
+        replacement = list(before_choices)
+        replacement[previous_index] = (
+            before_choices[previous_index][0],
+            retained_text,
+        )
+        replacement.insert(previous_index + 1, (missing, inserted_text))
+        answers = question.get("correct_answers")
+        if not isinstance(answers, list) or not answers:
+            review.append(result.question_id)
+            continue
+
+        repair_id = (
+            "PFQA-EMBEDDED-CHOICE-"
+            + re.sub(r"[^A-Za-z0-9]+", "-", result.question_id).upper()
+            + f"-{missing}"
+        )
+        proposals.append(
+            create_choice_structure_repair_record(
+                candidate,
+                question_id=result.question_id,
+                repair_id=repair_id,
+                replacement_choices=tuple(replacement),
+                replacement_correct_answers=tuple(str(item) for item in answers),
+                damage_type=(
+                    "choice structure: exact embedded missing-label split"
+                ),
+                disposition="parser_candidate",
+            )
+        )
+
+    return EmbeddedChoiceBatchPlan(
+        proposals=tuple(proposals),
+        review_question_ids=tuple(dict.fromkeys(review)),
     )

@@ -35,6 +35,12 @@ class ChoiceStructureAuditResult:
     issue_codes: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class MergedQuestionAuditResult:
+    question_id: str
+    issue_codes: tuple[str, ...]
+
+
 INTERLEAVING_SEVERITIES = (
     "severe_interleaving",
     "probable_interleaving",
@@ -43,6 +49,10 @@ INTERLEAVING_SEVERITIES = (
 CHOICE_REQUIRED_TYPES = {"mc", "multiple_response", "ordered_response"}
 CHOICE_MARKER_RE = re.compile(
     r"(?:^|\s)([A-Z])\s*[.):]\s+\S",
+    flags=re.IGNORECASE,
+)
+SECOND_QUESTION_RE = re.compile(
+    r"\?\s*(?:\(Select all that apply\.\))?",
     flags=re.IGNORECASE,
 )
 
@@ -255,4 +265,65 @@ def choice_structure_repair_findings(pack: dict) -> list[Finding]:
             damage_type="choice structure: " + ", ".join(result.issue_codes),
         )
         for result in audit_choice_structure(pack)
+    ]
+
+
+def audit_merged_questions(pack: dict) -> list[MergedQuestionAuditResult]:
+    """Block records that contain evidence of more than one source question."""
+    results = []
+    for question in pack["questions"]:
+        choices = question.get("choices")
+        answers = question.get("correct_answers")
+        rationale = question.get("rationale")
+        if not isinstance(choices, list) or not isinstance(answers, list):
+            continue
+
+        labels = tuple(
+            str(choice.get("label") or "").strip().upper()
+            for choice in choices
+            if isinstance(choice, dict)
+        )
+        repeated_a = labels.count("A") >= 2
+        duplicate_labels = len(set(labels)) != len(labels)
+        answer_shape_mismatch = (
+            question.get("type") == "mc" and len(answers) > 1
+        )
+        second_prompt = (
+            isinstance(rationale, str)
+            and bool(SECOND_QUESTION_RE.search(rationale))
+        )
+        if not (
+            repeated_a
+            and duplicate_labels
+            and answer_shape_mismatch
+            and second_prompt
+        ):
+            continue
+
+        results.append(
+            MergedQuestionAuditResult(
+                question_id=question["id"],
+                issue_codes=(
+                    "restarted_choice_sequence",
+                    "mc_multiple_answer_mismatch",
+                    "question_prompt_in_rationale",
+                    "possible_merged_questions",
+                ),
+            )
+        )
+    return results
+
+
+def merged_question_repair_findings(pack: dict) -> list[Finding]:
+    return [
+        Finding(
+            finding_id=(
+                "PFQA-MERGED-"
+                + re.sub(r"[^A-Za-z0-9]+", "-", result.question_id).upper()
+            ),
+            question_id=result.question_id,
+            field="stem",
+            damage_type="; ".join(result.issue_codes).replace("_", " "),
+        )
+        for result in audit_merged_questions(pack)
     ]

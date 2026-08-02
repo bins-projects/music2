@@ -9,11 +9,13 @@ from compiler.pack_qa import (
     finding_id_for_typography,
     interleaving_repair_findings,
     iter_question_text,
+    merged_question_repair_findings,
 )
 from compiler.repair import (
     ChoiceStructureRepairRecord,
     DuplicateChoiceBlockRecord,
     Finding,
+    QuestionCorrectionRecord,
     RepairRecord,
     StemChoiceSplitRecord,
     analyze_repair_delta,
@@ -47,6 +49,7 @@ def build_candidate(
         | StemChoiceSplitRecord
         | DuplicateChoiceBlockRecord
         | ChoiceStructureRepairRecord
+        | QuestionCorrectionRecord
     ],
 ) -> CandidateBuildResult:
     candidate = apply_repairs(pack, records)
@@ -58,6 +61,8 @@ def build_candidate(
             manual_repair_lessons["exact_duplicate_choice_block_removed"] += 1
         elif isinstance(record, ChoiceStructureRepairRecord):
             manual_repair_lessons["approved_choice_structure_correction"] += 1
+        elif isinstance(record, QuestionCorrectionRecord):
+            manual_repair_lessons["approved_question_correction"] += 1
         else:
             lesson = analyze_repair_delta(
                 record.before,
@@ -110,6 +115,18 @@ def build_candidate(
         for item in interleaving_repair_findings(candidate)
     }
     for item in choice_structure_repair_findings(candidate):
+        key = (item.question_id, item.field)
+        existing = blocker_by_field.get(key)
+        if existing is None:
+            blocker_by_field[key] = item
+        else:
+            blocker_by_field[key] = Finding(
+                finding_id=existing.finding_id,
+                question_id=existing.question_id,
+                field=existing.field,
+                damage_type=existing.damage_type + "; " + item.damage_type,
+            )
+    for item in merged_question_repair_findings(candidate):
         key = (item.question_id, item.field)
         existing = blocker_by_field.get(key)
         if existing is None:

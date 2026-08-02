@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PrepFlow Factory — Review Workbench</title>
+    <link rel="stylesheet" href="workbench.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">PREPFLOW FACTORY / INGESTION V2</p>
+        <h1>Review workbench</h1>
+      </div>
+      <div class="safety-badge"><span></span> Synthetic preview · no writes</div>
+    </header>
+
+    <main>
+      <section class="summary" aria-label="Review queue summary">
+        <div><strong id="case-count">0</strong><span>review cases</span></div>
+        <div><strong id="blocking-count">0</strong><span>blocking</span></div>
+        <div><strong id="verified-count">0</strong><span>source verified</span></div>
+        <div class="candidate-state"><strong>Locked</strong><span>canonical promotion</span></div>
+      </section>
+
+      <section class="workspace">
+        <aside class="queue-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">QUEUE</p>
+              <h2>Needs attention</h2>
+            </div>
+            <span id="queue-position"></span>
+          </div>
+          <div id="queue" class="queue" role="list"></div>
+        </aside>
+
+        <article class="review-panel" aria-live="polite">
+          <div class="record-heading">
+            <div>
+              <p id="question-meta" class="eyebrow"></p>
+              <h2 id="damage-title"></h2>
+            </div>
+            <span id="status-pill" class="status-pill"></span>
+          </div>
+
+          <div class="explanation">
+            <span>Why PrepFlow stopped</span>
+            <p id="finding-explanation"></p>
+          </div>
+
+          <div class="comparison-grid">
+            <section class="value-card preserved-card">
+              <div class="card-label"><span class="dot amber"></span>Preserved candidate value</div>
+              <div id="preserved-value" class="record-value"></div>
+              <p class="card-note">This value remains unchanged until an authorized repair is built.</p>
+            </section>
+
+            <section class="value-card proposal-card">
+              <div class="card-label"><span class="dot blue"></span>Proposed correction</div>
+              <div id="proposed-value" class="record-value"></div>
+              <p id="proposal-explanation" class="card-note"></p>
+            </section>
+          </div>
+
+          <section id="verification-card" class="verification-card" hidden>
+            <div>
+              <span class="verification-icon">!</span>
+              <div>
+                <strong>Source verification required</strong>
+                <p>Approval alone cannot apply this proposal. Confirm it against the temporary source view.</p>
+              </div>
+            </div>
+            <button id="verify-button" type="button">Record synthetic verification</button>
+          </section>
+
+          <section class="decision-panel">
+            <div>
+              <p class="eyebrow">YOUR DECISION</p>
+              <p id="decision-help">Choose an action. This preview changes only the screen state.</p>
+            </div>
+            <div id="actions" class="actions"></div>
+          </section>
+
+          <footer class="audit-strip">
+            <span>Original preserved</span>
+            <span>Proposal is not authorization</span>
+            <span>No canonical write available</span>
+          </footer>
+        </article>
+      </section>
+    </main>
+
+    <script src="demo-data.js"></script>
+    <script src="workbench.js"></script>
+  </body>
+</html>

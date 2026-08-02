@@ -1,6 +1,24 @@
 from compiler.source_parser import parse_source_questions
 
 
+def test_default_intake_can_disable_broad_missing_a_recovery() -> None:
+    text = """Chapter 1: Test
+MULTIPLE CHOICE
+1. Which response is correct? First response
+b. Second response
+c. Third response
+ANS: A
+Rationale text.
+"""
+
+    legacy = parse_source_questions(text)
+    generalized = parse_source_questions(text, allow_missing_a_recovery=False)
+
+    assert [choice["label"] for choice in legacy[0]["choices"]] == ["A", "B", "C"]
+    assert [choice["label"] for choice in generalized[0]["choices"]] == ["B", "C"]
+    assert generalized[0]["stem"].endswith("First response")
+
+
 def test_parse_single_multiple_choice_question() -> None:
     text = """Chapter 1: Nursing Theory
 

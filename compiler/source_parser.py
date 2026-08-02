@@ -448,7 +448,16 @@ def number_unnumbered_questions(lines: list[str]) -> list[str]:
 
     return normalized
 
-def parse_source_questions(text: str) -> list[dict]:
+def parse_source_questions(
+    text: str,
+    *,
+    allow_missing_a_recovery: bool = True,
+) -> list[dict]:
+    def finalize(candidate: dict) -> dict:
+        if allow_missing_a_recovery:
+            return recover_missing_a_choice(candidate)
+        return candidate
+
     lines = [line.strip() for line in text.splitlines()]
     lines = normalize_labeled_question_format(lines)
     lines = normalize_split_choices(lines)
@@ -504,7 +513,7 @@ def parse_source_questions(text: str) -> list[dict]:
             # previous question before processing any wrapped chapter-title
             # or publisher-header lines that follow.
             if question is not None:
-                questions.append(recover_missing_a_choice(question))
+                questions.append(finalize(question))
                 question = None
 
             chapter = line
@@ -564,7 +573,7 @@ def parse_source_questions(text: str) -> list[dict]:
             or metadata_started
         ):
             if question is not None:
-                questions.append(recover_missing_a_choice(question))
+                questions.append(finalize(question))
 
             question = {
                 "chapter": chapter,
@@ -718,6 +727,6 @@ def parse_source_questions(text: str) -> list[dict]:
                 metadata_started = True
 
     if question is not None:
-        questions.append(recover_missing_a_choice(question))
+        questions.append(finalize(question))
 
     return questions

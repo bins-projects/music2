@@ -22,6 +22,16 @@ CHAPTER_HEADING_RE = re.compile(
 )
 
 
+def clean_text_generalized(text: str) -> str:
+    """Apply only source-neutral, meaning-preserving text cleanup."""
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    lines = [line.rstrip() for line in normalized.splitlines()]
+    lines = remove_leading_chapter_index(lines)
+    cleaned = "\n".join(lines)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip() + "\n"
+
+
 def remove_leading_chapter_index(lines: list[str]) -> list[str]:
     """
     Remove a leading table-of-contents-style chapter list.

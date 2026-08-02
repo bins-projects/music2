@@ -1,0 +1,14 @@
+{
+  "format": "prepflow_promotion_holds",
+  "version": "1.0",
+  "holds": [
+    {
+      "hold_id": "PFH-FUNDAMENTALS-000000108-ANSWER",
+      "pack_id": "fundamentals",
+      "question_id": "PFQ-fundamentals-000000108",
+      "category": "source_verification_required",
+      "reason": "Verify the candidate-only correct-answer change from A to C against the separately retained source before canonical promotion.",
+      "status": "unresolved"
+    }
+  ]
+}

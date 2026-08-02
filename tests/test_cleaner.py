@@ -1,4 +1,37 @@
-from compiler.cleaner import clean_text
+from compiler.cleaner import clean_text, clean_text_generalized
+
+
+def test_generalized_cleaner_changes_only_whitespace() -> None:
+    text = "Question  \r\n\r\n\r\nDocument shared on example.invalid  \r\n"
+
+    cleaned = clean_text_generalized(text)
+
+    assert cleaned == "Question\n\nDocument shared on example.invalid\n"
+
+
+def test_generalized_cleaner_does_not_run_legacy_source_rules() -> None:
+    text = "Document shared on https://www.docsity.com/example\nQuestion\n"
+
+    assert "docsity" in clean_text_generalized(text).lower()
+    assert "docsity" not in clean_text(text).lower()
+
+
+def test_generalized_cleaner_removes_only_guarded_leading_chapter_index() -> None:
+    text = """Book title
+Chapter 01: First
+Chapter 02: Second
+Chapter 03: Third
+
+Chapter 01: First
+1. Real question
+"""
+
+    cleaned = clean_text_generalized(text)
+
+    assert cleaned.count("Chapter 01: First") == 1
+    assert "Chapter 02: Second" not in cleaned
+    assert "Chapter 03: Third" not in cleaned
+    assert "1. Real question" in cleaned
 
 
 def test_removes_docsity_line():

@@ -71,6 +71,8 @@ to retain evidence of that selection or the identity of the material.
 ## 3. Temporary Import Lifecycle
 
 All source and whole-document artifacts are temporary working material.
+`incoming/` contains only a disposable staging copy and must never contain the
+user’s only original. The user’s original remains outside PrepFlow ownership.
 
 The intended lifecycle is:
 
@@ -91,9 +93,15 @@ Original files stored separately by the user are outside PrepFlow's ownership an
 must never be modified or deleted. PrepFlow deletes only the temporary copy
 deliberately placed into its incoming area.
 
-If a run fails before a safe cleanup point, PrepFlow must report the failure
-clearly. It must never reach outside its own ignored workspace to recover, modify,
-or delete a file.
+Successful extraction and cleaning deletes the disposable incoming copy. Final
+completion or promotion deletes whole-document raw extraction, cleaned text, and
+source-bearing detection artifacts.
+
+A failed intake must report the failed stage clearly. It may preserve only the
+artifacts needed for controlled diagnosis inside that run’s ignored workspace
+until explicit cleanup. Failed-run cleanup is confined to that exact workspace;
+it never follows links, reaches outside PrepFlow, touches the user’s original, or
+deletes an unverified path.
 
 Reprocessing requires the user to supply the original material again from separate
 storage. PrepFlow does not retain a hidden archival copy for convenience.
@@ -290,6 +298,12 @@ A generalized rule must have:
 
 Tests and fixtures should use minimal source-neutral examples. They must not become
 a repository of identifying document excerpts.
+
+Embedded-choice detection may produce a reviewable proposal, but a proposal does
+not authorize repair. Applying it remains candidate-only and requires an explicit
+human approval action. Legacy source-specific cleaning and broad missing-A
+recovery remain available only to explicitly selected legacy workflows and are
+outside the new default source-neutral intake path.
 
 ## 9. Baseline Comparison
 

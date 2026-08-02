@@ -26,21 +26,17 @@ list, next task, and safe restart commands.
 milestone:     Fundamentals cleanup and source-agnostic ingestion workbench
 repository:    bins-projects/prepflow-dev
 branch:        feat/ingestion-workbench
-code checkpoint: fd2320005a221adedf1f2b83d8af4581d03850c8
-tests:         190 passed
+code checkpoint: fd23200
+tests:         190 passed before the pre-intake gate
 repair state:  24 approved candidate-only repairs
 blockers:      277
 canonical:     unchanged
 ```
 
-The structural review group is complete except for question 937. Question 937 is
-blocked because one record appears to contain two merged source questions; do not
-discard or invent either question without the separately stored original.
-
-The next engineering task is the reusable intake front door: an ignored local
-incoming area and one guided command that stages a temporary source copy, runs the
-ingestion pipeline, produces a candidate and comparison, and enforces cleanup.
-Source documents must never be committed or uploaded to GitHub.
+The 17-to-24 repair comparison gate is recorded in
+`docs/PRE_INTAKE_SAFETY_GATE_2026-08-02.md`. Discuss the source-neutral intake
+design before implementing it. Question 108 has an unresolved source-verification
+hold and canonical promotion remains blocked.
 
 ## Repository boundary
 

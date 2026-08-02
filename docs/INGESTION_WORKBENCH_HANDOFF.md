@@ -1,7 +1,7 @@
 # PrepFlow Ingestion Workbench Handoff
 
 **Updated:** August 2, 2026  
-**Status:** Authoritative continuity record for the active Fundamentals cleanup
+**Status:** Pre-intake gate complete; isolated extraction slice verified
 
 ## New-session instruction
 
@@ -41,7 +41,7 @@ dev/private factory: bins-projects/prepflow-dev
 public product:       bins-projects/PrepFlow
 local repository:     ~/projects/prepflow
 active branch:        feat/ingestion-workbench
-code checkpoint:      fd2320005a221adedf1f2b83d8af4581d03850c8
+code checkpoint:      f91b054f8aef9bcb66b4a7e4340935c8690cf4c3
 private master:       e522a586003a6534e7b7dd502bbd3447fde42d96
 public master:        e522a586003a6534e7b7dd502bbd3447fde42d96
 ```
@@ -89,7 +89,7 @@ The work is protected at several levels.
 ### Git history
 
 The active private branch contains all ingestion-workbench implementation through
-commit `fd23200` (`Consolidate guarded structural recovery`).
+commit `f91b054` (`Add approved atomic choice-structure repairs`).
 
 ### Complete Git bundle
 
@@ -172,7 +172,7 @@ The latest verified state is:
 ```text
 approved candidate-only repairs: 24
 promotion blockers:               277
-automated tests:                  190 passed
+automated tests before gate:      190 passed
 canonical Pack:                   unchanged
 ```
 
@@ -222,13 +222,6 @@ The private branch now includes:
 - guarded batching of high-confidence leading choices absorbed into stems;
 - guarded removal of an exact duplicated choice block;
 - explicitly approved atomic choice removal and answer-map correction;
-- explicitly approved, stale-guarded full-question batch corrections;
-- guarded recovery of one missing middle choice when its exact lowercase marker
-  and complete text are embedded in the immediately preceding choice;
-- a merged-question promotion blocker requiring a restarted choice sequence,
-  incompatible answer cardinality, and a second question prompt;
-- protection for valid clinical units such as `mEq/L` so they are not mistaken
-  for extraction interleaving;
 - stale-shape rejection and full-question validation; and
 - source-neutral positive and negative test fixtures.
 
@@ -242,8 +235,6 @@ python -m compiler.artifact_profile_cli
 python -m compiler.structural_batch_cli
 python -m compiler.duplicate_choice_batch_cli
 python -m compiler.choice_structure_repair_cli --help
-python -m compiler.embedded_choice_batch_cli
-python -m compiler.approved_question_batch_cli --help
 python -m compiler.candidate_cli
 python -m pytest -q
 ```
@@ -259,17 +250,10 @@ The structural-exception review has safely resolved:
 PFQ-fundamentals-000000091
 PFQ-fundamentals-000000108
 PFQ-fundamentals-000000111
-PFQ-fundamentals-000000113
 PFQ-fundamentals-000000293
-PFQ-fundamentals-000000357
-PFQ-fundamentals-000000369
-PFQ-fundamentals-000000611
-PFQ-fundamentals-000000676
 PFQ-fundamentals-000000832
-PFQ-fundamentals-000000944
 PFQ-fundamentals-000000969
 PFQ-fundamentals-000001005
-PFQ-fundamentals-000001022
 ```
 
 Question 91 contained two consecutive, byte-for-byte identical A–D choice blocks.
@@ -300,69 +284,97 @@ new detector, code commit, or phrase-based rule was created. This created repair
 17, reduced promotion blockers from 302 to 301, and left the canonical Pack
 unchanged.
 
-Question 113 contained rationale text absorbed into choice B and displaced C/D
-choices. The project owner approved one complete A-D replacement preserving
-answer A. This created repair 18 through the existing atomic choice-structure
-operation.
+## 9. Structural comparison disposition
 
-Questions 357, 369, 611, 676, 944, and 1022 were reviewed together. Their visible
-damage consisted of exact missing-choice markers embedded in neighboring fields,
-learned uppercase overlay fragments, and extraction spacing. The project owner
-approved the complete before-and-after shape for all six. One dry-run plan showed
-all six together, then one candidate-only application created six stale-guarded
-full-question correction records, bringing the repair count from 18 to 24.
-
-Four of those questions also support a generalized parser proposal: 357, 369,
-611, and 1022 each contain exactly one missing internal label whose lowercase
-marker and complete text are embedded in the immediately preceding choice. The
-new rule moves existing text only, requires canonical surviving labels, preserves
-the answer map, rejects multiple markers and stale shapes, and remains dry-run by
-default. The more irregular overlay cleanup remains review-required rather than a
-blind global deletion rule.
-
-The candidate rebuild after the six-question batch reported 24 repairs and 277
-promotion blockers. The reduction from 300 also reflects removal of false-positive
-interleaving findings for valid clinical units such as `mEq/L`; it does not mean
-23 questions were semantically rewritten. The canonical Pack remained unchanged,
-190 tests passed after the code checkpoint, and the 24-repair external snapshot
-passed SHA-256 verification.
-
-## 9. Remaining structural exceptions
-
-One question remains in this structural review group:
+The 17-to-24 repair interval changed these seven questions only:
 
 ```text
-PFQ-fundamentals-000000937
+PFQ-fundamentals-000000113
+PFQ-fundamentals-000000357
+PFQ-fundamentals-000000369
+PFQ-fundamentals-000000611
+PFQ-fundamentals-000000676
+PFQ-fundamentals-000000944
+PFQ-fundamentals-000001022
 ```
 
-Question 937 contains a complete A-D choice set followed by another A-F choice
-set. Its `mc` type conflicts with the recorded answers C/E/F, and its rationale
-contains a second select-all-that-apply prompt before truncating. The generalized
-merged-question detector identifies exactly this Fundamentals record using the
-combined evidence. It is a promotion blocker, not authorization to discard or
-split content. Original-source review is required to preserve both questions and
-assign identity safely.
+Question 937 did not change. Its existing blocker was enriched by the guarded
+merged-question detector and remains unresolved. See the pre-intake gate report
+for the complete blocker delta and inventory.
 
 ## 10. Exact next task
 
-Begin the reusable document-intake front door. This is a local private-factory
-workflow, not a GitHub upload of source material.
+The source-neutral intake slice now creates an isolated run, copies a PDF to
+a generic `incoming/source.pdf`, extracts through the existing PDF adapter, writes
+raw text only inside the ignored run workspace, deletes the disposable PDF after
+successful extraction, and records source-neutral run status. Generalized cleaning
+normalizes whitespace and removes only a guarded leading chapter index; it does
+not invoke legacy source-specific cleaning. Its synthetic containment and
+cleaning, parsing, validation, and matching tests pass.
 
-The first intake vertical slice should:
+The first real run extracted 1,162,282 characters and generalized cleaning
+produced 1,137,914 characters, 42 chapter headings, and 1,046 numbered-question
+shapes. Isolated parsing produced 1,047 intermediate records: 828 multiple-choice
+and 219 multiple-response, with two missing answers and 16 choice-sequence
+findings. Broad missing-A recovery was disabled. Its incoming directory is empty.
+Temporary raw, cleaned, and parsed artifacts remain in the ignored run workspace
+for the next stage. The external original and canonical Pack hashes were
+unchanged. No stable IDs, repairs, candidate build, comparison, or promotion
+occurred.
 
-1. inspect and reuse the existing adapters, extraction, cleaning, parser,
-   normalization, and QA entrypoints;
-2. establish a Git-ignored local incoming area and per-run workspace;
-3. accept one explicitly selected local document through one guided command;
-4. copy only into PrepFlow-owned temporary space and never modify the user's
-   separately stored original;
-5. run extraction through candidate validation without promoting canonical data;
-6. produce a source-neutral baseline-versus-improved comparison; and
-7. prove cleanup and containment guarantees with positive and failure-path tests.
+Normalization retained all 1,047 records. Validation reported two fatal
+no-choice records, 43 recoverable diagnostics, and four advisories. Recoverable
+codes comprise 35 correct answers referencing missing choices, two missing
+answers, and six missing rationales. Because the legacy validator groups records
+by chapter/question label without question type, those 43 diagnostics currently
+block 57 records across 39 labels. This is not an acceptable candidate result and
+no Pack was built.
 
-Before implementing, inspect the current ignore rules and available format
-adapters. Do not create a web upload surface or persist a source document until
-the local lifecycle and deletion boundaries are tested.
+Read-only ordered stem alignment matched all 1,040 canonical IDs and all 1,040
+24-repair candidate IDs. It found exactly seven parsed-only records and zero
+target-only records. The same seven positions occur against both targets. Their
+source-neutral chapter/question keys are 5/1, 7/1, 7/9, 15/1, 15/15, 28/1, and
+38/1. Structural summaries show incomplete or merged parser products rather than
+seven complete duplicate questions: missing rationales, missing answers,
+absent/partial choices, or abnormally large combined fields. No source text or
+fingerprint is stored in the match report.
+
+Each parsed record now has a run-local `PFIR` identity, and the seven unmatched
+records have explicit `PFIQA-BOUNDARY` findings. A strictly isolated comparison
+candidate was built from the 1,040 aligned records using their existing stable
+PrepFlow IDs. Its manifest retains all boundary and validation findings, records
+zero applied repairs, and marks promotion readiness false with comparison and
+explicit-approval blockers. Canonical and 24-repair candidate hashes were
+unchanged, and the complete 220-test suite passes.
+
+The first field/blocker comparison is recorded in
+`docs/MOCK_IMPORT_COMPARISON_2026-08-02.md`. Of 24 repair lessons, 3 were
+reproduced, 9 were not reproduced, and 12 produced a different result. The
+isolated candidate has 331 blockers versus the known 277: 272 retained keys, 59
+added keys, five missing known keys, and no shared-key reclassifications. Across
+7,280 top-level fields, 5,990 are equal in all states, 770 match the normalized
+24-repair candidate, 19 remain canonical-shaped, and 501 differ from both. The
+complete 222-test suite passes; protected hashes remain unchanged.
+
+The diagnostic-only attribution report shows that legacy cleaning makes 426 of
+the 501 third-result fields exactly match the 24-repair candidate, changes another
+45 without reaching either target, and leaves 30 unchanged. Nineteen of the 59
+added blocker keys arise from the cleaning-path difference; 40 persist after
+legacy cleaning. All five missing known keys are absent in both new parses. The
+legacy cleaner was not placed on the default route, and the complete 223-test
+suite passes.
+
+Next, inventory the legacy transformations responsible for the 426 exact matches
+and design source-neutral guarded equivalents for repeated extraction noise.
+Protect each generalized rule with positive, negative, and Pack-drift tests. Keep
+the 45 partially changed and 30 persistent fields in review, and do not
+automatically apply any repair. The mock candidate must never promote or overwrite
+canonical data automatically.
+
+Question 108 has an unresolved, tracked source-verification hold on its
+candidate-only A-to-C answer change. Canonical promotion remains blocked until
+that change is checked against the separately retained source and the hold is
+explicitly resolved.
 
 ## 11. First commands in a resumed session
 
@@ -380,20 +392,23 @@ Expected branch and recent history before new work:
 ```text
 feat/ingestion-workbench
 HEAD: documentation commit publishing this handoff
-code ancestor: fd23200 Consolidate guarded structural recovery
+code ancestor: f91b054 Add approved atomic choice-structure repairs
 ```
 
 Expected test result at the checkpoint:
 
 ```text
-190 passed
+190 passed before the pre-intake gate
 ```
 
-Then verify that the ignored repair set still contains 24 records by rebuilding
-the candidate:
+Verify the ignored repair set still contains 24 records without recreating it.
+Use the read-only comparison against the external snapshots before any candidate
+rebuild:
 
 ```bash
-python -m compiler.candidate_cli
+python -m compiler.workbench_compare_cli \
+  ../prepflow-backups/workbench-2026-08-02-17-repairs \
+  ../prepflow-backups/workbench-2026-08-02-24-repairs
 ```
 
 If the ignored workbench is missing or does not report 24 approved repairs, stop.

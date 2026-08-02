@@ -208,6 +208,8 @@ def plan_embedded_middle_choices(
             match
             for match in EMBEDDED_CHOICE_MARKER_RE.finditer(previous_text)
             if match.group(1).upper() == missing
+            and (previous_text[:match.start()].rstrip().split() or [""])[-1].lower()
+            != "vitamin"
         ]
         if len(markers) != 1:
             review.append(result.question_id)

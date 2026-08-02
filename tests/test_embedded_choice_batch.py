@@ -110,6 +110,23 @@ def test_uppercase_prose_marker_is_not_treated_as_embedded_choice() -> None:
     assert plan.review_question_ids == ("PFQ-test-pack-000000001",)
 
 
+def test_lowercase_vitamin_prose_is_not_treated_as_embedded_choice() -> None:
+    pack = pack_with_choices(
+        [
+            ("A", "The patient takes vitamin b. Complex each morning"),
+            ("C", "Third action"),
+            ("D", "Fourth action"),
+        ]
+    )
+
+    original = copy.deepcopy(pack)
+    plan = plan_embedded_middle_choices(pack, [])
+
+    assert plan.proposals == ()
+    assert plan.review_question_ids == ("PFQ-test-pack-000000001",)
+    assert pack == original
+
+
 def test_multiple_matching_markers_stay_in_review() -> None:
     pack = pack_with_choices(
         [

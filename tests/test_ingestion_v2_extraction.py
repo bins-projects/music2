@@ -49,6 +49,28 @@ def test_pdf_adapter_extracts_pages_without_returning_metadata(tmp_path, monkeyp
     assert not hasattr(result, "metadata")
 
 
+def test_pdf_adapter_preserves_empty_physical_page_positions(tmp_path, monkeypatch) -> None:
+    run = staged_run(tmp_path, b"synthetic pdf bytes", "pdf")
+
+    class Page:
+        def __init__(self, text):
+            self.text = text
+
+        def extract_text(self):
+            return self.text
+
+    class Reader:
+        def __init__(self, _stream):
+            self.pages = [Page("First"), Page(None), Page("Third")]
+
+    monkeypatch.setattr("ingestion_v2.extraction.PdfReader", Reader)
+
+    result = PdfExtractionAdapter().extract(run.run_directory)
+
+    assert result.pages == ("First", "", "Third")
+    assert result.page_count == 3
+
+
 def test_adapter_rejects_unverified_directory_and_staged_symlink(tmp_path) -> None:
     ordinary = tmp_path / "ordinary"
     ordinary.mkdir()

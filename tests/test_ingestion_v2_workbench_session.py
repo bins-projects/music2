@@ -621,6 +621,67 @@ def test_materialized_embedded_choice_is_proposed_but_not_applied(tmp_path) -> N
     assert rebuilt["candidate"]["applied_proposal_ids"] == [case["proposal"]["proposal_id"]]
 
 
+def test_pdf_source_verification_requires_opening_temporary_page_first(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(
+        [
+            "Chapter 1: Synthetic PDF",
+            "MULTIPLE CHOICE",
+            "1. Which action is expected?",
+            "a. Damaged abCdEf xyZaBc g h j fragments",
+            "b. Clean choice",
+            "ANS: B",
+            "Clean rationale.",
+        ]
+    )
+    target = {
+        "format": "prepflow_pack",
+        "pack_id": "test",
+        "questions": [
+            {
+                "id": "PFQ-test-000000001",
+                "chapter": 1,
+                "type": "mc",
+                "stem": "Which action is expected?",
+                "choices": [
+                    {"label": "A", "text": "Original choice"},
+                    {"label": "B", "text": "Clean choice"},
+                ],
+                "correct_answers": ["B"],
+                "rationale": "Clean rationale.",
+            }
+        ],
+    }
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    session.match_existing_pack(target)
+    payload = session.materialize_identity_review()
+    qa_case = next(item for item in payload["cases"] if "interleaving" in item["damage_type"])
+    drafted = session.draft_user_proposal(
+        qa_case["finding_id"],
+        [["A", "Source-verified choice"], ["B", "Clean choice"]],
+        "Corrected from the temporary source page.",
+        requires_source_verification=True,
+    )
+    session.record_action(qa_case["finding_id"], "approve")
+
+    with pytest.raises(DomainError, match="Open the temporary source page"):
+        session.record_verification(qa_case["finding_id"])
+
+    source = session.view_source_page(qa_case["finding_id"])
+    assert source["page_number"] == 1
+    assert source["page_count"] == 1
+    assert "Which action is expected?" in source["text"]
+    assert source["temporary"] is True
+    verified = session.record_verification(qa_case["finding_id"])
+    assert case(verified, qa_case["finding_id"])["status"] == "approved"
+    manifest = (session._lifecycle.run_directory / "run.json").read_text()
+    assert "Which action is expected?" not in manifest
+
+    session.cleanup_run()
+    assert session._source_pages == ()
+    assert session._viewed_source_findings == set()
+
+
 def test_pdf_run_rejects_empty_selection_before_creating_workspace(tmp_path) -> None:
     session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
 

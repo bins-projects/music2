@@ -112,6 +112,9 @@ main { padding: 24px clamp(18px, 4vw, 64px) 48px; }
 .verification-icon { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 auto; color: #171006; background: var(--amber); border-radius: 50%; font-weight: 900; }
 .verification-card p { margin-top: 4px; color: #cdbd9e; font-size: 12px; }
 .verification-card button { padding: 9px 12px; color: var(--ink); border: 1px solid #8c6b34; border-radius: 8px; background: #3c2d17; cursor: pointer; }
+.verification-actions { display: flex; gap: 8px; }
+.source-dialog-content { display: grid; gap: 16px; }
+#source-page-text { max-height: 60vh; margin: 0; padding: 16px; overflow: auto; white-space: pre-wrap; color: #e6eeee; border: 1px solid var(--line); border-radius: 8px; background: #081113; font: 12px/1.55 ui-monospace, monospace; }
 
 .decision-panel { display: flex; justify-content: space-between; gap: 25px; align-items: center; padding: 20px 26px; border-top: 1px solid var(--line); background: #0e1719; }
 .decision-panel > div:first-child { display: grid; gap: 5px; }
@@ -150,7 +153,7 @@ dialog .check-row { display: flex; align-items: center; gap: 9px; }
   .workspace, .comparison-grid { grid-template-columns: 1fr; }
   .summary { grid-template-columns: 1fr 1fr; }
   .queue-panel { max-height: 320px; overflow: auto; }
-  .decision-panel, .candidate-panel, .verification-card:not([hidden]) { align-items: stretch; flex-direction: column; }
+  .decision-panel, .candidate-panel, .verification-card:not([hidden]), .verification-actions { align-items: stretch; flex-direction: column; }
   .candidate-actions { align-items: stretch; flex-direction: column; }
   .runbar, .run-actions { align-items: stretch; flex-direction: column; }
   .actions { justify-content: flex-start; }

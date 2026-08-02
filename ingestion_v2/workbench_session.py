@@ -68,6 +68,8 @@ class SyntheticWorkbenchSession:
         self._identity_target_pack: dict | None = None
         self._benchmark_questions = None
         self._qa_result: QaResult | None = None
+        self._source_pages: tuple[str, ...] = ()
+        self._viewed_source_findings: set[str] = set()
         self._last_cleanup = None
 
     def view(self) -> dict:
@@ -159,6 +161,7 @@ class SyntheticWorkbenchSession:
                 page_count=extraction.page_count,
             )
             self._extraction_result = extraction
+            self._source_pages = extraction.pages
             cleaning = GuardedPageAwareCleaner().clean(extraction.text)
             lifecycle.record_cleaning(
                 cleaning.text,
@@ -294,6 +297,7 @@ class SyntheticWorkbenchSession:
                 page_count=extraction.page_count,
             )
             self._extraction_result = extraction
+            self._source_pages = extraction.pages
             cleaning = GuardedPageAwareCleaner().clean(extraction.text)
             lifecycle.record_cleaning(
                 cleaning.text,
@@ -487,6 +491,12 @@ class SyntheticWorkbenchSession:
             raise DomainError("Source verification is not allowed for current review state")
         if case.proposal is None:
             raise DomainError("Source verification requires a proposal")
+        if (
+            self._lifecycle is not None
+            and self._lifecycle.manifest().get("source_type") == "pdf"
+            and finding_id not in self._viewed_source_findings
+        ):
+            raise DomainError("Open the temporary source page before recording verification")
         event_number = len(self._events) + 1
         verification = SourceVerification(
             verification_id=f"PFV2-VERIFY-SESSION-{event_number:06d}",
@@ -507,11 +517,51 @@ class SyntheticWorkbenchSession:
         )
         return self.view()
 
+    def view_source_page(self, finding_id: str) -> dict:
+        if self._lifecycle is None or self._lifecycle.manifest().get("source_type") != "pdf":
+            raise DomainError("A temporary source page is available only for an active PDF run")
+        case = self._case(finding_id)
+        if case.status is not ReviewStatus.AWAITING_SOURCE_VERIFICATION:
+            raise DomainError("Source page viewing is available only for pending verification")
+        if not self._source_pages:
+            raise DomainError("Temporary source pages are no longer available")
+        needle = _source_search_text(case.question.stem)
+        matches = [
+            index
+            for index, page in enumerate(self._source_pages)
+            if needle and needle in _source_search_text(page)
+        ]
+        if len(matches) != 1:
+            raise DomainError("PrepFlow could not locate one unambiguous temporary source page")
+        page_index = matches[0]
+        self._viewed_source_findings.add(finding_id)
+        event_number = len(self._events) + 1
+        self._events.append(
+            SessionEvent(
+                event_id=f"PFV2-EVENT-{event_number:06d}",
+                finding_id=finding_id,
+                event_type=f"source_page:viewed:{page_index + 1}",
+            )
+        )
+        return {
+            "format": "prepflow_v2_temporary_source_page",
+            "version": "1.0",
+            "run_id": self._lifecycle.manifest()["run_id"],
+            "question_id": case.question.question_id,
+            "page_number": page_index + 1,
+            "page_count": len(self._source_pages),
+            "text": self._source_pages[page_index],
+            "temporary": True,
+            "canonical_write_available": False,
+        }
+
     def complete_run(self) -> dict:
         self._ensure_active_run_if_configured()
         if self._comparison is None:
             raise DomainError("Complete comparison before finishing the run")
         self._lifecycle.complete_and_cleanup()
+        self._source_pages = ()
+        self._viewed_source_findings.clear()
         return self.view()
 
     def cleanup_run(self) -> dict:
@@ -540,6 +590,8 @@ class SyntheticWorkbenchSession:
         self._identity_target_pack = None
         self._benchmark_questions = None
         self._qa_result = None
+        self._source_pages = ()
+        self._viewed_source_findings.clear()
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()
@@ -658,7 +710,13 @@ class SyntheticWorkbenchSession:
         self._identity_target_pack = None
         self._benchmark_questions = None
         self._qa_result = None
+        self._source_pages = ()
+        self._viewed_source_findings.clear()
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()
         self._dispositions_by_finding.clear()
+
+
+def _source_search_text(value: str) -> str:
+    return " ".join(value.split()).casefold()

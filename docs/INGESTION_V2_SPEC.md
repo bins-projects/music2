@@ -297,6 +297,24 @@ verifications tied to the superseded proposal. Empty explanations, unchanged
 values, invalid field shapes, and actions unavailable in the current review
 state are rejected.
 
+## Temporary source-page verification
+
+PDF extraction preserves physical page positions, including pages without an
+extractable text layer, so displayed page numbers are not shifted. Extracted
+pages remain only in the active in-memory session and the already controlled raw
+artifact. A source page is returned to the local interface only on an explicit
+request for a finding currently awaiting source verification.
+
+PrepFlow locates the reviewed question by its preserved normalized stem and
+opens a page only when exactly one physical page matches. Zero or multiple
+matches stop with an ambiguity error instead of displaying a guessed page. The
+temporary response contains the page text and page number but is never written
+to the source-neutral run manifest. For PDF runs, source verification is refused
+until that finding's page has been opened. Viewing and verification are separate
+audit events. Completion or controlled cleanup clears the in-memory pages and
+removes the owned whole-document artifacts; the user's original remains outside
+the run and untouched.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

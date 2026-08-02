@@ -43,11 +43,9 @@ class PdfExtractionAdapter:
         data = _read_verified_disposable_copy(run_directory)
         try:
             reader = PdfReader(BytesIO(data))
-            pages = tuple(
-                text
-                for page in reader.pages
-                if (text := page.extract_text()) and text.strip()
-            )
+            # Preserve physical page positions, including pages without text, so
+            # later source verification never reports a shifted page number.
+            pages = tuple(page.extract_text() or "" for page in reader.pages)
         except Exception as error:
             raise DomainError("PDF extraction failed inside the private run") from error
         return _result(pages, self.adapter_name)
@@ -62,7 +60,7 @@ def extract_disposable_copy(run_directory: Path, source_type: str) -> Extraction
 
 
 def _result(pages: tuple[str, ...], adapter_name: str) -> ExtractionResult:
-    if not pages:
+    if not pages or not any(page.strip() for page in pages):
         raise DomainError("No extractable text was found in the disposable copy")
     text = "\n\f\n".join(pages)
     return ExtractionResult(

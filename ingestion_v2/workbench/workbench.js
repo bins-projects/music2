@@ -397,6 +397,29 @@
     render();
   });
 
+  document.getElementById("view-source-button").addEventListener("click", async () => {
+    const item = cases[selectedIndex];
+    try {
+      const response = await fetch("/api/source-page", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ finding_id: item.finding_id })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Temporary source page is unavailable.");
+      document.getElementById("source-page-title").textContent = `Extracted PDF page ${result.page_number} of ${result.page_count}`;
+      document.getElementById("source-page-text").textContent = result.text;
+      document.getElementById("source-dialog").showModal();
+    } catch (error) {
+      document.getElementById("decision-help").textContent = error.message;
+    }
+  });
+
+  document.getElementById("source-close").addEventListener("click", () => {
+    document.getElementById("source-page-text").textContent = "";
+    document.getElementById("source-dialog").close();
+  });
+
   document.getElementById("candidate-button").addEventListener("click", () => {
     if (payload.session?.mode !== "synthetic_in_memory") return;
     fetch("/api/candidate", {

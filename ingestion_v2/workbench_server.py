@@ -94,6 +94,11 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                     explanation,
                     requires_source_verification=verification,
                 )
+            elif self.path == "/api/source-page":
+                finding_id = body.get("finding_id")
+                if not isinstance(finding_id, str):
+                    raise DomainError("finding_id is required")
+                payload = self.session.view_source_page(finding_id)
             else:
                 self._send_json({"error": "not_found"}, status=404)
                 return

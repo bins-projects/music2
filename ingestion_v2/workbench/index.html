@@ -94,7 +94,10 @@
                 <p>Approval alone cannot apply this proposal. Confirm it against the temporary source view.</p>
               </div>
             </div>
-            <button id="verify-button" type="button">Record synthetic verification</button>
+            <div class="verification-actions">
+              <button id="view-source-button" type="button">Open temporary source page</button>
+              <button id="verify-button" type="button">Record source verification</button>
+            </div>
           </section>
 
           <section class="decision-panel">
@@ -142,6 +145,16 @@
           <button class="primary" type="submit">Save proposal</button>
         </div>
       </form>
+    </dialog>
+
+    <dialog id="source-dialog">
+      <div class="source-dialog-content">
+        <p class="eyebrow">TEMPORARY PRIVATE SOURCE VIEW</p>
+        <h2 id="source-page-title">Source page</h2>
+        <p class="dialog-help">This extracted page is available only inside the active private run.</p>
+        <pre id="source-page-text"></pre>
+        <div class="dialog-actions"><button id="source-close" type="button">Close source view</button></div>
+      </div>
     </dialog>
 
     <script src="demo-data.js"></script>

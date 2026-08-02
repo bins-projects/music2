@@ -28,15 +28,16 @@ repository:    bins-projects/prepflow-dev
 branch:        feat/ingestion-workbench
 code checkpoint: f91b054f8aef9bcb66b4a7e4340935c8690cf4c3
 tests:         165 passed
-repair state:  16 approved candidate-only repairs
-blockers:      302
+repair state:  17 approved candidate-only repairs
+blockers:      301
 canonical:     unchanged
 ```
 
-Fundamentals question 108 is complete as an explicitly approved, candidate-only
-atomic choice-structure correction. The next review target is question 111. Its
-leading `D Evaluation` exactly duplicates its retained D choice, but no
-single-choice duplicate rule has been approved or applied yet.
+Fundamentals questions 108 and 111 are complete as explicitly approved,
+candidate-only atomic choice-structure corrections. The next review target is
+question 113, whose rationale appears absorbed into choice B while choices C and
+D are displaced or out of order. Inspect the complete question before proposing a
+correction.
 
 ## Repository boundary
 

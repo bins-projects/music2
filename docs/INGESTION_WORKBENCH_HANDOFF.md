@@ -112,6 +112,7 @@ The ignored Fundamentals workbench has these external snapshots:
 ../prepflow-backups/workbench-2026-08-01-14-repairs
 ../prepflow-backups/workbench-2026-08-01-15-repairs
 ../prepflow-backups/workbench-2026-08-02-16-repairs
+../prepflow-backups/workbench-2026-08-02-17-repairs
 ```
 
 Each snapshot contains:
@@ -123,7 +124,7 @@ fundamentals/repair-records.json
 SHA256SUMS
 ```
 
-The 16-repair snapshot is the current recovery point. Its three recorded files
+The 17-repair snapshot is the current recovery point. Its three recorded files
 passed SHA-256 verification when the snapshot was created.
 
 ### Preserved former branch tips
@@ -168,16 +169,16 @@ approval, complete validation, comparison, and no unexplained drift.
 The latest verified state is:
 
 ```text
-approved candidate-only repairs: 16
-promotion blockers:               302
+approved candidate-only repairs: 17
+promotion blockers:               301
 automated tests:                  165 passed
 canonical Pack:                   unchanged
 ```
 
-The 16 repair lessons are:
+The 17 repair lessons are:
 
 ```text
-approved_choice_structure_correction: 1
+approved_choice_structure_correction: 2
 exact_duplicate_choice_block_removed: 1
 manual_text_rewrite:                   1
 stem_choice_split:                     6
@@ -246,6 +247,7 @@ The structural-exception review has safely resolved:
 ```text
 PFQ-fundamentals-000000091
 PFQ-fundamentals-000000108
+PFQ-fundamentals-000000111
 PFQ-fundamentals-000000293
 PFQ-fundamentals-000000832
 PFQ-fundamentals-000000969
@@ -272,12 +274,19 @@ records the complete previous choice and answer shape, rejects stale application
 and created repair 16. The candidate rebuild passed with 302 promotion blockers;
 the canonical Pack remained unchanged.
 
+Question 111 contained one leading `D Evaluation` choice before an otherwise
+complete A-D choice block whose retained D choice was byte-for-byte identical.
+The project owner approved removing only the leading duplicate while preserving
+answer A. The existing atomic choice-structure operation was sufficient, so no
+new detector, code commit, or phrase-based rule was created. This created repair
+17, reduced promotion blockers from 302 to 301, and left the canonical Pack
+unchanged.
+
 ## 9. Remaining structural exceptions
 
-Nine questions remain in this structural review group:
+Eight questions remain in this structural review group:
 
 ```text
-PFQ-fundamentals-000000111
 PFQ-fundamentals-000000113
 PFQ-fundamentals-000000357
 PFQ-fundamentals-000000369
@@ -290,8 +299,6 @@ PFQ-fundamentals-000001022
 
 Known preliminary classifications:
 
-- 111: a leading `D Evaluation` exactly duplicates the retained D choice outside
-  an otherwise complete A-D choice block;
 - 113: rationale appears absorbed into choice B, with choices C/D displaced or
   out of order;
 - 357 and 611: missing choice B;
@@ -306,27 +313,17 @@ These descriptions are preliminary QA observations, not approved corrections.
 
 ## 10. Exact next task
 
-Begin with question 111.
+Begin with question 113.
 
-Question 108 and question 111 do not share one safe phrase-based rule. Question
-108 required an explicitly approved one-question correction; question 111 has a
-different deterministic signature: one complete, ordered A-D block plus one
-isolated extra choice whose label and text exactly duplicate the retained D
-choice.
+Its current choice B appears to contain educational rationale text, and its C/D
+ordering is suspicious. Inspect the complete question, answer mapping, rationale,
+and immediate neighbors before deciding whether intact wording can be moved
+atomically or whether original-source review is required.
 
-Before applying question 111:
-
-1. confirm the complete current question shape still matches;
-2. design a source-neutral single-choice duplicate detector;
-3. require exactly one contiguous canonical choice block and exactly one
-   byte-for-byte duplicate outside it;
-4. preserve every correct-answer mapping;
-5. add positive, negative, ambiguous-shape, invalid-answer, and stale-shape tests;
-6. dry-run the rule against the full candidate; and
-7. show the complete before and after for explicit approval.
-
-Do not use `D Evaluation` as the trigger and do not apply question 111 merely
-because its proposed correction is mechanically strong.
+First determine whether an existing operation can represent the approved
+correction. Do not create new code when the current atomic structural operation is
+sufficient. Do not invent missing choice wording or silently repair educational
+meaning.
 
 ## 11. First commands in a resumed session
 
@@ -344,7 +341,7 @@ Expected branch and recent history before new work:
 ```text
 feat/ingestion-workbench
 HEAD: documentation commit publishing this handoff
-parent: f91b054 Add approved atomic choice-structure repairs
+code ancestor: f91b054 Add approved atomic choice-structure repairs
 ```
 
 Expected test result at the checkpoint:
@@ -353,15 +350,15 @@ Expected test result at the checkpoint:
 165 passed
 ```
 
-Then verify that the ignored repair set still contains 16 records by rebuilding
+Then verify that the ignored repair set still contains 17 records by rebuilding
 the candidate:
 
 ```bash
 python -m compiler.candidate_cli
 ```
 
-If the ignored workbench is missing or does not report 16 approved repairs, stop.
-Restore or compare against the external 16-repair snapshot; do not recreate the
+If the ignored workbench is missing or does not report 17 approved repairs, stop.
+Restore or compare against the external 17-repair snapshot; do not recreate the
 repairs from memory.
 
 ## 12. Collaboration rules

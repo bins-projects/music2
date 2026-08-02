@@ -209,6 +209,14 @@ byte-for-byte identical choice blocks. Eligibility also requires canonical retai
 label order and valid correct-answer mappings. The repair records the complete
 expected choice shape, blocks stale application, and remains candidate-only.
 
+An explicitly approved one-question choice-structure correction may atomically
+remove an identified leaked choice and update the correct-answer mapping when the
+project owner has approved both changes. The record must preserve the complete
+expected choice list and answer mapping, define the complete replacement shape,
+reject stale application, validate the repaired question, and remain
+candidate-only. This operation is not an automatic semantic repair and does not
+authorize a generalized rule.
+
 ## 7. Repair Confidence
 
 Repairs are separated by risk.

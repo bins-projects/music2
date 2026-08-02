@@ -26,17 +26,17 @@ list, next task, and safe restart commands.
 milestone:     Fundamentals cleanup and source-agnostic ingestion workbench
 repository:    bins-projects/prepflow-dev
 branch:        feat/ingestion-workbench
-code checkpoint: 7b21b961c8f56d61f76871c0cb839663b18e029c
-tests:         159 passed
-repair state:  15 approved candidate-only repairs
-blockers:      303
+code checkpoint: f91b054f8aef9bcb66b4a7e4340935c8690cf4c3
+tests:         165 passed
+repair state:  16 approved candidate-only repairs
+blockers:      302
 canonical:     unchanged
 ```
 
-The next review targets are Fundamentals questions 108 and 111. They appear to
-share leaked `D Evaluation` content, but no generalized repair rule exists yet.
-Inspect each question and its neighbors before deciding whether one guarded rule
-is justified.
+Fundamentals question 108 is complete as an explicitly approved, candidate-only
+atomic choice-structure correction. The next review target is question 111. Its
+leading `D Evaluation` exactly duplicates its retained D choice, but no
+single-choice duplicate rule has been approved or applied yet.
 
 ## Repository boundary
 

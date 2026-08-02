@@ -142,7 +142,7 @@ At the August 2, 2026 ingestion-workbench checkpoint:
 private master:          e522a586003a6534e7b7dd502bbd3447fde42d96
 public master:           e522a586003a6534e7b7dd502bbd3447fde42d96
 active private branch:   feat/ingestion-workbench
-code checkpoint:         7b21b961c8f56d61f76871c0cb839663b18e029c
+code checkpoint:         f91b054f8aef9bcb66b4a7e4340935c8690cf4c3
 public deployment:       unchanged by the workbench milestone
 ```
 

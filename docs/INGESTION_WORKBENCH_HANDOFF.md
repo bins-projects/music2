@@ -41,7 +41,7 @@ dev/private factory: bins-projects/prepflow-dev
 public product:       bins-projects/PrepFlow
 local repository:     ~/projects/prepflow
 active branch:        feat/ingestion-workbench
-code checkpoint:      7b21b961c8f56d61f76871c0cb839663b18e029c
+code checkpoint:      f91b054f8aef9bcb66b4a7e4340935c8690cf4c3
 private master:       e522a586003a6534e7b7dd502bbd3447fde42d96
 public master:        e522a586003a6534e7b7dd502bbd3447fde42d96
 ```
@@ -89,7 +89,7 @@ The work is protected at several levels.
 ### Git history
 
 The active private branch contains all ingestion-workbench implementation through
-commit `7b21b96` (`Repair exact duplicate choice blocks safely`).
+commit `f91b054` (`Add approved atomic choice-structure repairs`).
 
 ### Complete Git bundle
 
@@ -111,6 +111,7 @@ The ignored Fundamentals workbench has these external snapshots:
 ../prepflow-backups/workbench-2026-08-01-1117
 ../prepflow-backups/workbench-2026-08-01-14-repairs
 ../prepflow-backups/workbench-2026-08-01-15-repairs
+../prepflow-backups/workbench-2026-08-02-16-repairs
 ```
 
 Each snapshot contains:
@@ -122,7 +123,8 @@ fundamentals/repair-records.json
 SHA256SUMS
 ```
 
-The 15-repair snapshot is the current recovery point.
+The 16-repair snapshot is the current recovery point. Its three recorded files
+passed SHA-256 verification when the snapshot was created.
 
 ### Preserved former branch tips
 
@@ -166,15 +168,16 @@ approval, complete validation, comparison, and no unexplained drift.
 The latest verified state is:
 
 ```text
-approved candidate-only repairs: 15
-promotion blockers:               303
-automated tests:                  159 passed
+approved candidate-only repairs: 16
+promotion blockers:               302
+automated tests:                  165 passed
 canonical Pack:                   unchanged
 ```
 
-The 15 repair lessons are:
+The 16 repair lessons are:
 
 ```text
+approved_choice_structure_correction: 1
 exact_duplicate_choice_block_removed: 1
 manual_text_rewrite:                   1
 stem_choice_split:                     6
@@ -215,6 +218,7 @@ The private branch now includes:
 - Pack-wide choice-structure QA;
 - guarded batching of high-confidence leading choices absorbed into stems;
 - guarded removal of an exact duplicated choice block;
+- explicitly approved atomic choice removal and answer-map correction;
 - stale-shape rejection and full-question validation; and
 - source-neutral positive and negative test fixtures.
 
@@ -227,6 +231,7 @@ python -m compiler.repair_audit_cli
 python -m compiler.artifact_profile_cli
 python -m compiler.structural_batch_cli
 python -m compiler.duplicate_choice_batch_cli
+python -m compiler.choice_structure_repair_cli --help
 python -m compiler.candidate_cli
 python -m pytest -q
 ```
@@ -240,6 +245,7 @@ The structural-exception review has safely resolved:
 
 ```text
 PFQ-fundamentals-000000091
+PFQ-fundamentals-000000108
 PFQ-fundamentals-000000293
 PFQ-fundamentals-000000832
 PFQ-fundamentals-000000969
@@ -257,12 +263,20 @@ The generalized repair retains the first block only when:
 
 This reduced promotion blockers from 304 to 303 and created repair 15.
 
+Question 108 contained a leaked fifth choice, `D Evaluation`, following a
+complete A-D choice set. Its recorded answer was A even though the unchanged stem,
+choices, and rationale identify C, `Subjective data from a primary source`. The
+project owner explicitly approved one atomic correction that removed only the
+leaked fifth choice and changed the answer mapping from A to C. The operation
+records the complete previous choice and answer shape, rejects stale application,
+and created repair 16. The candidate rebuild passed with 302 promotion blockers;
+the canonical Pack remained unchanged.
+
 ## 9. Remaining structural exceptions
 
-Ten questions remain in this structural review group:
+Nine questions remain in this structural review group:
 
 ```text
-PFQ-fundamentals-000000108
 PFQ-fundamentals-000000111
 PFQ-fundamentals-000000113
 PFQ-fundamentals-000000357
@@ -276,8 +290,8 @@ PFQ-fundamentals-000001022
 
 Known preliminary classifications:
 
-- 108 and 111: apparent leaked extra `D Evaluation` content across question
-  boundaries;
+- 111: a leading `D Evaluation` exactly duplicates the retained D choice outside
+  an otherwise complete A-D choice block;
 - 113: rationale appears absorbed into choice B, with choices C/D displaced or
   out of order;
 - 357 and 611: missing choice B;
@@ -292,26 +306,27 @@ These descriptions are preliminary QA observations, not approved corrections.
 
 ## 10. Exact next task
 
-Begin with questions 108 and 111.
+Begin with question 111.
 
-The safety framework already applies, but no generalized `D Evaluation` repair
-rule exists. Do not delete that text merely because the phrase repeats.
+Question 108 and question 111 do not share one safe phrase-based rule. Question
+108 required an explicitly approved one-question correction; question 111 has a
+different deterministic signature: one complete, ordered A-D block plus one
+isolated extra choice whose label and text exactly duplicate the retained D
+choice.
 
-For each question:
+Before applying question 111:
 
-1. open the flagged question through the repair/audit tooling;
-2. inspect its complete source-neutral question fields;
-3. inspect the immediately neighboring PrepFlow questions to understand the
-   boundary shape;
-4. determine independently whether the extra choice is leaked content;
-5. compare the two findings only after both have been understood;
-6. decide whether they share one deterministic mechanical signature;
-7. if they do, implement one guarded candidate-only operation with exact-shape,
-   answer-map, positive, negative, and stale-shape tests; or
-8. if they do not, keep them as individual repairs or promotion blockers.
+1. confirm the complete current question shape still matches;
+2. design a source-neutral single-choice duplicate detector;
+3. require exactly one contiguous canonical choice block and exactly one
+   byte-for-byte duplicate outside it;
+4. preserve every correct-answer mapping;
+5. add positive, negative, ambiguous-shape, invalid-answer, and stale-shape tests;
+6. dry-run the rule against the full candidate; and
+7. show the complete before and after for explicit approval.
 
-The manual checks are rule-development work. They are not permission to silently
-rewrite both questions.
+Do not use `D Evaluation` as the trigger and do not apply question 111 merely
+because its proposed correction is mechanically strong.
 
 ## 11. First commands in a resumed session
 
@@ -329,24 +344,24 @@ Expected branch and recent history before new work:
 ```text
 feat/ingestion-workbench
 HEAD: documentation commit publishing this handoff
-parent: 7b21b96 Repair exact duplicate choice blocks safely
+parent: f91b054 Add approved atomic choice-structure repairs
 ```
 
 Expected test result at the checkpoint:
 
 ```text
-159 passed
+165 passed
 ```
 
-Then verify that the ignored repair set still contains 15 records by rebuilding
+Then verify that the ignored repair set still contains 16 records by rebuilding
 the candidate:
 
 ```bash
 python -m compiler.candidate_cli
 ```
 
-If the ignored workbench is missing or does not report 15 approved repairs, stop.
-Restore or compare against the external 15-repair snapshot; do not recreate the
+If the ignored workbench is missing or does not report 16 approved repairs, stop.
+Restore or compare against the external 16-repair snapshot; do not recreate the
 repairs from memory.
 
 ## 12. Collaboration rules

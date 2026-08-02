@@ -164,6 +164,18 @@ class RunLifecycle:
         self._write_manifest(manifest)
         return manifest
 
+    def record_identity_pending(self, *, parsed_records: int, parser_findings: int) -> dict:
+        manifest = self._require_stage("cleaned")
+        if parsed_records < 0 or parser_findings < 0:
+            raise DomainError("Parsed record counts cannot be negative")
+        manifest.update(
+            stage="identity_pending",
+            parsed_records=parsed_records,
+            parser_finding_count=parser_findings,
+        )
+        self._write_manifest(manifest)
+        return manifest
+
     def record_candidate(self, *, question_count: int, unresolved_findings: int) -> dict:
         manifest = self.manifest()
         if manifest.get("stage") not in {"review_ready", "candidate_built", "compared"} or manifest.get("status") != "running":

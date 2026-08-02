@@ -116,11 +116,17 @@
     renderRun();
     renderCandidate();
     if (!item) {
+      const identityPending = payload.run?.state === "identity_pending";
+      const failed = payload.run?.state === "failed";
       document.getElementById("queue-position").textContent = "0 / 0";
-      document.getElementById("question-meta").textContent = "START A SYNTHETIC RUN";
-      document.getElementById("damage-title").textContent = "No review cases loaded";
+      document.getElementById("question-meta").textContent = failed ? "PDF INTAKE FAILED" : identityPending ? "PDF FRONT-HALF COMPLETE" : "START A RUN";
+      document.getElementById("damage-title").textContent = failed ? "Controlled cleanup required" : identityPending ? "Stable identity decision required" : "No review cases loaded";
       document.getElementById("status-pill").textContent = "Waiting";
-      document.getElementById("finding-explanation").textContent = "Start the private synthetic run to process its disposable document copy.";
+      document.getElementById("finding-explanation").textContent = failed
+        ? `The run stopped safely with code ${payload.run.failure_code}. Use Cancel and clean run before retrying.`
+        : identityPending
+        ? `${payload.run.parsed_records} record(s) parsed with ${payload.run.parser_findings} parser finding(s). Choose new Pack or existing-Pack re-import before assigning stable IDs.`
+        : "Start the private synthetic run to process its disposable document copy.";
       document.getElementById("preserved-value").textContent = "No record";
       document.getElementById("proposed-value").textContent = "No proposal";
       document.getElementById("proposal-explanation").textContent = "The parser and review queue have not run.";
@@ -152,17 +158,24 @@
     const cleaning = document.getElementById("run-cleaning");
     const start = document.getElementById("start-run-button");
     const complete = document.getElementById("complete-run-button");
+    const cleanup = document.getElementById("cleanup-run-button");
+    const pdfInput = document.getElementById("pdf-input");
+    const pdfButton = document.querySelector("label[for='pdf-input']");
     state.textContent = run.state.replaceAll("_", " ");
-    if (run.state === "not_started") {
+    if (["not_started", "completed"].includes(run.state)) {
       artifacts.textContent = "No disposable source or text artifacts.";
       extraction.textContent = "Extractor has not run.";
       cleaning.textContent = "Cleaner has not run.";
       start.disabled = false;
+      pdfInput.disabled = false;
+      pdfButton.classList.remove("disabled");
     } else if (run.state === "unmanaged_demo") {
       artifacts.textContent = "Standalone display only; open through the local engine to run stages.";
       extraction.textContent = "Connected extraction metrics unavailable.";
       cleaning.textContent = "Connected cleaning metrics unavailable.";
       start.disabled = true;
+      pdfInput.disabled = true;
+      pdfButton.classList.add("disabled");
     } else {
       artifacts.textContent = `staged copy: ${run.staged_copy_present ? "present" : "removed"} · raw text: ${run.raw_text_present ? "present" : "removed"} · cleaned text: ${run.cleaned_text_present ? "present" : "removed"}`;
       const extractionMetrics = payload.pipeline?.extraction;
@@ -174,8 +187,11 @@
         ? `${metrics.cleaner} · ${metrics.removed_repeated_lines} repeated lines removed · ${metrics.stripped_repeated_suffixes} suffixes removed · ${metrics.protected_repeated_structures} structures protected`
         : "Cleaner has not run.";
       start.disabled = true;
+      pdfInput.disabled = true;
+      pdfButton.classList.add("disabled");
     }
     complete.disabled = run.state !== "compared";
+    cleanup.disabled = ["not_started", "unmanaged_demo", "completed"].includes(run.state);
   }
 
   function renderCandidate() {
@@ -291,6 +307,26 @@
 
   document.getElementById("start-run-button").addEventListener("click", () => runCommand("/api/run/start"));
   document.getElementById("complete-run-button").addEventListener("click", () => runCommand("/api/run/complete"));
+  document.getElementById("cleanup-run-button").addEventListener("click", () => runCommand("/api/run/cleanup"));
+
+  document.getElementById("pdf-input").addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+      const response = await fetch("/api/run/start-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/pdf" },
+        body: file
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "PDF intake failed.");
+      acceptEnginePayload(result);
+    } catch (error) {
+      document.getElementById("decision-help").textContent = error.message;
+    } finally {
+      event.target.value = "";
+    }
+  });
 
   function acceptEnginePayload(result) {
     const selectedFinding = cases[selectedIndex]?.finding_id;

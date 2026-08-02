@@ -62,6 +62,8 @@ main { padding: 24px clamp(18px, 4vw, 64px) 48px; }
 .runbar span { color: var(--muted); font-size: 12px; }
 .run-actions { display: flex; gap: 9px; }
 .run-actions button { padding: 9px 12px; color: var(--ink); border: 1px solid #405257; border-radius: 8px; background: #1b292c; cursor: pointer; }
+.pdf-button { display: inline-flex; align-items: center; padding: 9px 12px; color: var(--ink); border: 1px solid #405257; border-radius: 8px; background: #1b292c; cursor: pointer; }
+.pdf-button.disabled { color: #738083; border-color: #344448; background: #1a2629; pointer-events: none; }
 .run-actions button:first-child { color: #071513; border-color: var(--cyan); background: var(--cyan); font-weight: 800; }
 .run-actions button:disabled { color: #738083; border-color: #344448; background: #1a2629; cursor: not-allowed; }
 

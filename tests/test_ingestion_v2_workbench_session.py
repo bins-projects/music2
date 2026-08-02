@@ -1,6 +1,9 @@
 import json
 
 import pytest
+from io import BytesIO
+from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from ingestion_v2.demo import SYNTHETIC_DOCUMENT
 
@@ -10,6 +13,32 @@ from ingestion_v2.workbench_session import SyntheticWorkbenchSession
 
 def case(payload: dict, finding_id: str) -> dict:
     return next(item for item in payload["cases"] if item["finding_id"] == finding_id)
+
+
+def synthetic_pdf_bytes(lines: list[str]) -> bytes:
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }
+    )
+    page[NameObject("/Resources")] = DictionaryObject(
+        {NameObject("/Font"): DictionaryObject({NameObject("/F1"): font})}
+    )
+    commands = ["BT /F1 11 Tf 72 740 Td"]
+    for line in lines:
+        escaped = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+        commands.append(f"({escaped}) Tj 0 -14 Td")
+    commands.append("ET")
+    stream = DecodedStreamObject()
+    stream.set_data("\n".join(commands).encode("latin-1"))
+    page[NameObject("/Contents")] = stream
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
 
 
 def test_connected_session_starts_in_memory_and_non_promoting() -> None:
@@ -29,6 +58,7 @@ def test_connected_session_starts_in_memory_and_non_promoting() -> None:
         "document_text_in_payload": False,
         "extraction": None,
         "cleaning": None,
+        "identity_pending": False,
     }
     assert len(payload["cases"]) == 3
     assert {item["damage_type"] for item in payload["cases"]} == {
@@ -254,3 +284,105 @@ def test_review_change_returns_managed_compared_run_to_review_stage(tmp_path) ->
     assert payload["run"]["state"] == "review_ready"
     assert payload["candidate"]["state"] == "not_built"
     assert payload["comparison"]["state"] == "not_run"
+
+
+def test_real_pdf_bytes_run_front_half_and_stop_at_identity_gate(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(
+        [
+            "Chapter 1: Synthetic PDF",
+            "MULTIPLE CHOICE",
+            "1. Which option is expected?",
+            "a. First option",
+            "b. Second option",
+            "ANS: B",
+            "The second option is expected.",
+            "DIF: Synthetic",
+        ]
+    )
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+
+    payload = session.start_pdf_run(pdf)
+
+    assert payload["run"]["state"] == "identity_pending"
+    assert payload["run"]["staged_copy_present"] is False
+    assert payload["run"]["raw_text_present"] is True
+    assert payload["run"]["cleaned_text_present"] is True
+    assert payload["run"]["parsed_records"] == 1
+    assert payload["pipeline"]["extraction"]["adapter"] == "text_pdf_pages_v1"
+    assert payload["pipeline"]["extraction"]["page_count"] == 1
+    assert payload["pipeline"]["identity_pending"] is True
+    assert payload["cases"] == []
+    manifest_text = (session._lifecycle.run_directory / "run.json").read_text()
+    assert "Synthetic PDF" not in manifest_text
+    assert ".pdf" not in manifest_text
+
+
+def test_pdf_run_rejects_empty_selection_before_creating_workspace(tmp_path) -> None:
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+
+    with pytest.raises(DomainError, match="empty"):
+        session.start_pdf_run(b"")
+
+    assert not (tmp_path / "runs").exists()
+
+
+def test_identity_pending_pdf_can_be_cancelled_cleaned_and_retried(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(
+        [
+            "Chapter 1: Synthetic PDF",
+            "MULTIPLE CHOICE",
+            "1. Which option?",
+            "a. First",
+            "b. Second",
+            "ANS: A",
+            "First is expected.",
+        ]
+    )
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    run_directory = session._lifecycle.run_directory
+
+    payload = session.cleanup_run()
+
+    assert payload["run"]["state"] == "not_started"
+    assert payload["run"]["last_cleanup"]["source_bearing_artifacts_removed"] is True
+    assert not (run_directory / "incoming" / "source.bin").exists()
+    assert not (run_directory / "artifacts" / "raw.txt").exists()
+    assert not (run_directory / "artifacts" / "cleaned.txt").exists()
+    assert json.loads((run_directory / "run.json").read_text())["stage"] == "failed_cleaned"
+
+    retry = session.start_pdf_run(pdf)
+    assert retry["run"]["state"] == "identity_pending"
+
+
+def test_invalid_pdf_failure_can_be_explicitly_cleaned(tmp_path) -> None:
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+
+    with pytest.raises(DomainError, match="PDF extraction failed"):
+        session.start_pdf_run(b"not a pdf")
+
+    failed_run = session._lifecycle.run_directory
+    assert session.view()["run"]["state"] == "failed"
+    payload = session.cleanup_run()
+
+    assert payload["run"]["state"] == "not_started"
+    assert not (failed_run / "incoming" / "source.bin").exists()
+
+
+def test_completed_run_manifest_survives_while_new_run_starts(tmp_path) -> None:
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_run()
+    session.build_isolated_candidate()
+    session.compare_isolated_candidate()
+    completed = session.complete_run()
+    completed_directory = session._lifecycle.run_directory
+
+    assert completed["run"]["state"] == "completed"
+    next_run = session.start_run()
+
+    assert next_run["run"]["state"] == "review_ready"
+    assert session._lifecycle.run_directory != completed_directory
+    prior_manifest = json.loads((completed_directory / "run.json").read_text())
+    assert prior_manifest["stage"] == "completed"
+    assert not (completed_directory / "artifacts" / "raw.txt").exists()
+    assert not (completed_directory / "artifacts" / "cleaned.txt").exists()

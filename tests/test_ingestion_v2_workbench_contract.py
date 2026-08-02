@@ -37,14 +37,21 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
         "comparison-changes",
         "start-run-button",
         "complete-run-button",
+        "cleanup-run-button",
         "run-cleaning",
         "run-extraction",
+        "pdf-input",
     ):
         assert f'id="{required_id}"' in html
     for action in ("approve", "reject", "defer", "leave_blocked", "exclude_record"):
         assert action in script
     assert '"/api/run/start"' in script
     assert '"/api/run/complete"' in script
+    assert '"/api/run/start-pdf"' in script
+    assert '"/api/run/cleanup"' in script
+    assert 'headers: { "Content-Type": "application/pdf" }' in script
+    assert "FormData" not in script
+    assert ".name" not in script
 
 
 def test_workbench_has_responsive_layout() -> None:

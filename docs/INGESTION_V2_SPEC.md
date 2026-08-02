@@ -169,6 +169,29 @@ The connected lifecycle now passes extraction output—with form-feed page
 boundaries—into guarded cleaning and reports only adapter, page, and character
 counts to the workbench.
 
+## Private PDF intake control
+
+The local workbench accepts a selected PDF as raw bytes with an
+`application/pdf` request. It does not transmit or persist the user's filename
+or filesystem path, and rejects empty inputs and files larger than 250 MiB. The
+server creates its own disposable `incoming/source.bin`, extracts the PDF,
+applies guarded source-neutral cleaning, and parses the cleaned text. A real,
+minimal PDF fixture exercises this path in tests rather than substituting plain
+text for the extraction step.
+
+The front half deliberately stops at `identity_pending`. Parsed records have no
+PrepFlow IDs until the user selects either a new-Pack identity strategy or an
+existing-Pack re-import strategy. Consequently this control cannot build a
+candidate, compare with canonical data, promote data, or overwrite a Pack.
+
+On successful front-half processing, the incoming copy has already been
+deleted while private raw and cleaned text remain available for the next stage.
+The user may cancel and clean the run, which removes only the owned
+source-bearing artifacts and permits a retry. Extraction or parsing failure is
+reported with a source-neutral failure code and likewise requires explicit
+controlled cleanup. A completed run's manifest remains as an audit record while
+a later intake receives a new isolated run directory.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

@@ -26,6 +26,10 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         try:
+            if self.path == "/api/run/start-pdf":
+                payload = self.session.start_pdf_run(self._read_pdf_body())
+                self._send_json(payload)
+                return
             body = self._read_json()
             if self.path == "/api/actions":
                 finding_id = body.get("finding_id")
@@ -54,6 +58,8 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 payload = self.session.start_run()
             elif self.path == "/api/run/complete":
                 payload = self.session.complete_run()
+            elif self.path == "/api/run/cleanup":
+                payload = self.session.cleanup_run()
             else:
                 self._send_json({"error": "not_found"}, status=404)
                 return
@@ -72,6 +78,20 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
         if not isinstance(value, dict):
             raise DomainError("Request body must be an object")
         return value
+
+    def _read_pdf_body(self) -> bytes:
+        if self.headers.get("Content-Type", "").split(";", 1)[0].strip() != "application/pdf":
+            raise DomainError("PDF intake requires application/pdf bytes")
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError as error:
+            raise DomainError("PDF request size is invalid") from error
+        if length <= 0 or length > 250 * 1024 * 1024:
+            raise DomainError("PDF must be between 1 byte and 250 MiB")
+        data = self.rfile.read(length)
+        if len(data) != length:
+            raise DomainError("PDF request ended before all bytes arrived")
+        return data
 
     def _send_json(self, payload: dict, *, status: int = 200) -> None:
         encoded = json.dumps(payload).encode("utf-8")

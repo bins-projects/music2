@@ -56,6 +56,12 @@ question records, findings, proposals, review decisions, verification, guarded
 candidate construction, and read-only promotion-readiness reporting. It uses no
 private source data and imports no legacy compiler behavior.
 
+The review-case layer projects those immutable records into a deterministic queue
+for an interface. It computes statuses and allowed actions but does not edit a
+candidate itself. Queue ordering is stable by question ID, field, and finding ID.
+The interface therefore displays engine state rather than inventing its own
+authorization rules.
+
 ## Review interface contract
 
 The future workbench will show one review case at a time with:

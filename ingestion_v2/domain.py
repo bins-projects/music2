@@ -39,8 +39,6 @@ class QuestionRecord:
     def __post_init__(self) -> None:
         if not QUESTION_ID_RE.fullmatch(self.question_id):
             raise DomainError("Question ID must be a stable PrepFlow ID")
-        if not self.question_type or not self.stem:
-            raise DomainError("Question type and preserved stem are required")
         labels = tuple(label for label, _ in self.choices)
         if any(not label or not text for label, text in self.choices):
             raise DomainError("Choices require non-empty labels and text")

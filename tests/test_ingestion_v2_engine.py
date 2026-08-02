@@ -155,6 +155,18 @@ def test_source_neutral_ids_and_fields_are_enforced() -> None:
             question_type="mc",
             stem="Synthetic stem",
         )
+
+
+def test_incomplete_damaged_record_can_be_preserved_for_blocking_review() -> None:
+    damaged = QuestionRecord(
+        question_id="PFQ-synthetic-000000002",
+        chapter=None,
+        question_type="",
+        stem="",
+    )
+
+    assert damaged.stem == ""
+    assert damaged.question_type == ""
     with pytest.raises(DomainError, match="source-neutral"):
         Finding(
             finding_id="PFV2-FIND-0001",

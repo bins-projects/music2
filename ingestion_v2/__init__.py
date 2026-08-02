@@ -13,6 +13,8 @@ from ingestion_v2.domain import (
 from ingestion_v2.engine import build_candidate, promotion_readiness
 from ingestion_v2.review import ReviewCase, ReviewQueue, ReviewStatus, build_review_queue
 from ingestion_v2.review_view import review_queue_view
+from ingestion_v2.parser import ExistingParserAdapter, ParseBatch, ParsedRecord, ParserFinding
+from ingestion_v2.parser_bridge import materialize_matched_batch
 
 __all__ = [
     "Candidate",
@@ -30,4 +32,9 @@ __all__ = [
     "ReviewStatus",
     "build_review_queue",
     "review_queue_view",
+    "ExistingParserAdapter",
+    "ParseBatch",
+    "ParsedRecord",
+    "ParserFinding",
+    "materialize_matched_batch",
 ]

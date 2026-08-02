@@ -115,6 +115,25 @@ result as an exact ID match. Comparison succeeds only when every missing ID is
 accounted for by a documented exclusion; unrelated findings remain unresolved.
 Neither disposition invents replacement content.
 
+## Private run lifecycle
+
+Every intake operates inside one private `v2-run-*` directory. The lifecycle
+manifest stores only source-neutral stage names, counts, and failure codes. It
+never stores the user's original path, filename, source bytes, or extracted text.
+
+The run accepts bytes only as a disposable copy. That copy remains available
+through extraction and is deleted after cleaning succeeds. Raw and cleaned
+whole-document text remain inside the owned artifacts directory while parsing,
+review, candidate construction, and comparison proceed. Final completion removes
+the disposable source, raw text, and cleaned text while retaining the
+source-neutral run manifest.
+
+A failed run records its exact stage and a constrained source-neutral failure
+code. Controlled artifacts remain until explicit failed-run cleanup. Cleanup can
+address only three known filenames under the exact verified run boundary; it
+rejects symbolic links and non-file targets and never follows a link to an
+external original.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

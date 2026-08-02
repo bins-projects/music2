@@ -13,7 +13,8 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     assert "No canonical write available" in html
     assert "promote_canonical: false" in data
     assert "promote(" not in script
-    assert "fetch(" not in script
+    assert 'fetch("/api/review"' in script
+    assert 'fetch("/api/actions"' in script
     assert "localStorage" not in script
 
 

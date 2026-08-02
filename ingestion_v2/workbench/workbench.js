@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  const payload = window.PREPFLOW_REVIEW_DEMO;
-  const cases = payload.cases.map((item) => ({ ...item }));
+  let payload = window.PREPFLOW_REVIEW_DEMO;
+  let cases = payload.cases.map((item) => ({ ...item }));
   let selectedIndex = 0;
 
   const labels = {
@@ -56,17 +56,32 @@
   function renderActions(item) {
     const actions = document.getElementById("actions");
     actions.replaceChildren();
-    item.allowed_actions.forEach((action) => {
+    item.allowed_actions.filter((action) => labels[action]).forEach((action) => {
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = labels[action] || action;
       button.className = action === "approve" ? "primary" : action === "reject" ? "danger" : "secondary";
-      button.addEventListener("click", () => takeDemoAction(item, action));
+      button.addEventListener("click", () => takeAction(item, action));
       actions.append(button);
     });
   }
 
-  function takeDemoAction(item, action) {
+  async function takeAction(item, action) {
+    if (payload.session?.mode === "synthetic_in_memory") {
+      try {
+        const response = await fetch("/api/actions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ finding_id: item.finding_id, action })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Engine rejected the action.");
+        acceptEnginePayload(result);
+      } catch (error) {
+        document.getElementById("decision-help").textContent = error.message;
+      }
+      return;
+    }
     if (action === "approve") {
       item.status = item.proposal?.requires_source_verification && !item.source_verification_recorded
         ? "awaiting_source_verification"
@@ -111,6 +126,22 @@
 
   document.getElementById("verify-button").addEventListener("click", () => {
     const item = cases[selectedIndex];
+    if (payload.session?.mode === "synthetic_in_memory") {
+      fetch("/api/verifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ finding_id: item.finding_id })
+      })
+        .then(async (response) => {
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Engine rejected verification.");
+          acceptEnginePayload(result);
+        })
+        .catch((error) => {
+          document.getElementById("decision-help").textContent = error.message;
+        });
+      return;
+    }
     item.source_verification_recorded = true;
     item.status = "approved";
     item.allowed_actions = [];
@@ -118,5 +149,24 @@
     render();
   });
 
-  render();
+  function acceptEnginePayload(result) {
+    const selectedFinding = cases[selectedIndex]?.finding_id;
+    payload = result;
+    cases = result.cases.map((item) => ({ ...item }));
+    selectedIndex = Math.max(0, cases.findIndex((item) => item.finding_id === selectedFinding));
+    document.getElementById("connection-badge").innerHTML = "<span></span> Engine connected · in memory";
+    document.getElementById("decision-help").textContent = `Validated by Python engine · ${result.session.event_count} session event(s) · nothing saved to disk.`;
+    render();
+  }
+
+  fetch("/api/review", { headers: { "Accept": "application/json" } })
+    .then((response) => {
+      if (!response.ok) throw new Error("Engine unavailable");
+      return response.json();
+    })
+    .then(acceptEnginePayload)
+    .catch(() => {
+      document.getElementById("connection-badge").innerHTML = "<span></span> Standalone mock · no writes";
+      render();
+    });
 })();

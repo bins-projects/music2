@@ -78,6 +78,12 @@ The future workbench will show one review case at a time with:
 The interface is a client of the engine. It cannot bypass domain validation or
 write directly to canonical Packs.
 
+The first connected workbench runs on `127.0.0.1` only and uses synthetic,
+in-memory records. Browser actions are submitted to the Python review engine,
+validated against the current queue state, and returned as a new read-only view.
+Its event history disappears when the local process stops. It has no Pack-write,
+filesystem-persistence, candidate-build, or promotion endpoint.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

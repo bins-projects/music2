@@ -28,11 +28,41 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pack", type=Path, default=DEFAULT_PACK)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--question-id", required=True)
-    parser.add_argument("--remove-index", type=int, required=True)
+    replacement = parser.add_mutually_exclusive_group(required=True)
+    replacement.add_argument("--remove-index", type=int)
+    replacement.add_argument(
+        "--replacement-choice",
+        action="append",
+        metavar="LABEL=TEXT",
+        help=(
+            "Provide the complete approved replacement choice set. Repeat once "
+            "for each choice in the intended order."
+        ),
+    )
     parser.add_argument("--correct-answer", action="append", required=True)
     parser.add_argument("--repair-id", required=True)
     parser.add_argument("--apply", action="store_true")
     return parser
+
+
+def parse_replacement_choices(
+    values: list[str],
+) -> tuple[tuple[str, str], ...]:
+    choices = []
+    for value in values:
+        if "=" not in value:
+            raise RepairError(
+                "Replacement choices must use the form LABEL=TEXT"
+            )
+        label, text = (item.strip() for item in value.split("=", 1))
+        if not label or not text:
+            raise RepairError(
+                "Replacement choice label and text must not be empty"
+            )
+        choices.append((label, text))
+    if not choices:
+        raise RepairError("At least one replacement choice is required")
+    return tuple(choices)
 
 
 def main() -> None:
@@ -45,29 +75,36 @@ def main() -> None:
         current = apply_repairs(pack, records)
         question = find_question(current, args.question_id)
         before_choices = choice_pairs(question)
-        if args.remove_index < 0 or args.remove_index >= len(before_choices):
-            raise RepairError(
-                f"Choice removal index is out of range: {args.remove_index}"
+        removed = None
+        if args.replacement_choice:
+            after_choices = parse_replacement_choices(
+                args.replacement_choice
             )
-        after_choices = tuple(
-            choice
-            for index, choice in enumerate(before_choices)
-            if index != args.remove_index
-        )
+        else:
+            if (
+                args.remove_index < 0
+                or args.remove_index >= len(before_choices)
+            ):
+                raise RepairError(
+                    f"Choice removal index is out of range: "
+                    f"{args.remove_index}"
+                )
+            removed = before_choices[args.remove_index]
+            after_choices = tuple(
+                choice
+                for index, choice in enumerate(before_choices)
+                if index != args.remove_index
+            )
         record = create_choice_structure_repair_record(
             current,
             question_id=args.question_id,
             repair_id=args.repair_id,
             replacement_choices=after_choices,
             replacement_correct_answers=tuple(args.correct_answer),
-            damage_type=(
-                "choice structure: approved leaked choice removal and "
-                "correct-answer correction"
-            ),
+            damage_type="choice structure: approved atomic replacement",
             disposition="one_question",
         )
 
-        removed = before_choices[args.remove_index]
         print("PrepFlow approved choice-structure correction")
         print(f"Question: {record.question_id}")
         print("Before choices:")
@@ -76,7 +113,8 @@ def main() -> None:
         print("Before correct answer: " + ", ".join(
             record.expected_correct_answers
         ))
-        print(f"Removed choice: {removed[0]}: {removed[1]}")
+        if removed is not None:
+            print(f"Removed choice: {removed[0]}: {removed[1]}")
         print("After choices:")
         for label, text in record.replacement_choices:
             print(f"  {label}: {text}")

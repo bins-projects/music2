@@ -91,15 +91,25 @@ class RunLifecycle:
         self._write_manifest(manifest)
         return manifest
 
-    def record_extraction(self, text: str) -> dict:
+    def record_extraction(
+        self,
+        text: str,
+        *,
+        adapter_name: str | None = None,
+        page_count: int | None = None,
+    ) -> dict:
         manifest = self._require_stage("staged")
         if not text:
             raise DomainError("Extraction output cannot be empty")
+        if page_count is not None and page_count <= 0:
+            raise DomainError("Extraction page count must be positive")
         self._atomic_write_text(self._owned_path("artifacts", "raw.txt"), text)
         manifest.update(
             stage="extracted",
             raw_text_present=True,
             extracted_characters=len(text),
+            extraction_adapter=adapter_name,
+            extracted_pages=page_count,
         )
         self._write_manifest(manifest)
         return manifest

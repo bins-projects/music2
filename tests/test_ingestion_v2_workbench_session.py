@@ -27,6 +27,7 @@ def test_connected_session_starts_in_memory_and_non_promoting() -> None:
         "parsed_records": 2,
         "automatic_repairs": 0,
         "document_text_in_payload": False,
+        "extraction": None,
         "cleaning": None,
     }
     assert len(payload["cases"]) == 3
@@ -213,6 +214,11 @@ def test_managed_session_runs_document_through_lifecycle_and_final_cleanup(tmp_p
     assert started["run"]["staged_copy_present"] is False
     assert started["run"]["raw_text_present"] is True
     assert started["run"]["cleaned_text_present"] is True
+    assert started["pipeline"]["extraction"] == {
+        "adapter": "synthetic_text_utf8_v1",
+        "page_count": 1,
+        "extracted_characters": len(SYNTHETIC_DOCUMENT),
+    }
     assert started["pipeline"]["cleaning"] == {
         "cleaner": "guarded_page_aware_source_neutral_v1",
         "removed_repeated_lines": 0,

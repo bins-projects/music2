@@ -148,20 +148,27 @@
     const run = payload.run || { state: "unmanaged_demo" };
     const state = document.getElementById("run-state");
     const artifacts = document.getElementById("run-artifacts");
+    const extraction = document.getElementById("run-extraction");
     const cleaning = document.getElementById("run-cleaning");
     const start = document.getElementById("start-run-button");
     const complete = document.getElementById("complete-run-button");
     state.textContent = run.state.replaceAll("_", " ");
     if (run.state === "not_started") {
       artifacts.textContent = "No disposable source or text artifacts.";
+      extraction.textContent = "Extractor has not run.";
       cleaning.textContent = "Cleaner has not run.";
       start.disabled = false;
     } else if (run.state === "unmanaged_demo") {
       artifacts.textContent = "Standalone display only; open through the local engine to run stages.";
+      extraction.textContent = "Connected extraction metrics unavailable.";
       cleaning.textContent = "Connected cleaning metrics unavailable.";
       start.disabled = true;
     } else {
       artifacts.textContent = `staged copy: ${run.staged_copy_present ? "present" : "removed"} · raw text: ${run.raw_text_present ? "present" : "removed"} · cleaned text: ${run.cleaned_text_present ? "present" : "removed"}`;
+      const extractionMetrics = payload.pipeline?.extraction;
+      extraction.textContent = extractionMetrics
+        ? `${extractionMetrics.adapter} · ${extractionMetrics.page_count} page(s) · ${extractionMetrics.extracted_characters} characters`
+        : "Extractor has not run.";
       const metrics = payload.pipeline?.cleaning;
       cleaning.textContent = metrics
         ? `${metrics.cleaner} · ${metrics.removed_repeated_lines} repeated lines removed · ${metrics.stripped_repeated_suffixes} suffixes removed · ${metrics.protected_repeated_structures} structures protected`

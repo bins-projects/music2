@@ -20,6 +20,12 @@ from ingestion_v2.parser_bridge import materialize_matched_batch
 from ingestion_v2.comparison import ComparisonReport, FieldChange, compare_candidate
 from ingestion_v2.run_lifecycle import RunLifecycle
 from ingestion_v2.cleaning import CleaningResult, GuardedPageAwareCleaner
+from ingestion_v2.extraction import (
+    ExtractionResult,
+    PdfExtractionAdapter,
+    SyntheticTextExtractionAdapter,
+    extract_disposable_copy,
+)
 
 __all__ = [
     "Candidate",
@@ -50,4 +56,8 @@ __all__ = [
     "RunLifecycle",
     "CleaningResult",
     "GuardedPageAwareCleaner",
+    "ExtractionResult",
+    "PdfExtractionAdapter",
+    "SyntheticTextExtractionAdapter",
+    "extract_disposable_copy",
 ]

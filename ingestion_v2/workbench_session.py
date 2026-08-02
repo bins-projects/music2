@@ -19,6 +19,7 @@ from ingestion_v2.review import ReviewStatus, build_review_queue
 from ingestion_v2.review_view import review_queue_view
 from ingestion_v2.run_lifecycle import RunLifecycle
 from ingestion_v2.cleaning import GuardedPageAwareCleaner
+from ingestion_v2.extraction import extract_disposable_copy
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,7 @@ class SyntheticWorkbenchSession:
         self._candidate = None
         self._comparison = None
         self._cleaning_result = None
+        self._extraction_result = None
 
     def view(self) -> dict:
         queue = self._queue()
@@ -63,6 +65,15 @@ class SyntheticWorkbenchSession:
             "parsed_records": len(self.questions),
             "automatic_repairs": 0,
             "document_text_in_payload": False,
+            "extraction": (
+                {
+                    "adapter": self._extraction_result.adapter_name,
+                    "page_count": self._extraction_result.page_count,
+                    "extracted_characters": self._extraction_result.extracted_characters,
+                }
+                if self._extraction_result is not None
+                else None
+            ),
             "cleaning": (
                 {
                     "cleaner": self._cleaning_result.cleaner_name,
@@ -94,8 +105,14 @@ class SyntheticWorkbenchSession:
         try:
             encoded = SYNTHETIC_DOCUMENT.encode("utf-8")
             lifecycle.stage_disposable_copy(encoded, source_type="synthetic_text")
-            lifecycle.record_extraction(SYNTHETIC_DOCUMENT)
-            cleaning = GuardedPageAwareCleaner().clean(SYNTHETIC_DOCUMENT)
+            extraction = extract_disposable_copy(lifecycle.run_directory, "synthetic_text")
+            lifecycle.record_extraction(
+                extraction.text,
+                adapter_name=extraction.adapter_name,
+                page_count=extraction.page_count,
+            )
+            self._extraction_result = extraction
+            cleaning = GuardedPageAwareCleaner().clean(extraction.text)
             lifecycle.record_cleaning(
                 cleaning.text,
                 cleaner_name=cleaning.cleaner_name,

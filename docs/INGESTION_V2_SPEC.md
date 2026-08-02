@@ -156,6 +156,19 @@ source-specific rules. The connected synthetic run now parses this cleaned resul
 rather than the raw/pass-through value, and exposes only source-neutral cleaning
 metrics in the workbench and run manifest.
 
+## Extraction boundary
+
+Extraction adapters receive only the verified `incoming/source.bin` disposable
+copy inside a `v2-run-*` directory. They reject alternate directories, missing
+copies, symbolic links, and unsupported source types. The synthetic UTF-8 adapter
+and text-PDF adapter both return page-preserving text plus source-neutral counts.
+PDF extraction reads the contained bytes without depending on or recording the
+original filename, path, document metadata, or hash. A PDF with no extractable
+text fails with a source-neutral diagnostic suitable for a future OCR decision.
+The connected lifecycle now passes extraction output—with form-feed page
+boundaries—into guarded cleaning and reports only adapter, page, and character
+counts to the workbench.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

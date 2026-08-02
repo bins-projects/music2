@@ -15,6 +15,7 @@ from ingestion_v2.review import ReviewCase, ReviewQueue, ReviewStatus, build_rev
 from ingestion_v2.review_view import review_queue_view
 from ingestion_v2.parser import ExistingParserAdapter, ParseBatch, ParsedRecord, ParserFinding
 from ingestion_v2.parser_bridge import materialize_matched_batch
+from ingestion_v2.comparison import ComparisonReport, FieldChange, compare_candidate
 
 __all__ = [
     "Candidate",
@@ -37,4 +38,7 @@ __all__ = [
     "ParsedRecord",
     "ParserFinding",
     "materialize_matched_batch",
+    "ComparisonReport",
+    "FieldChange",
+    "compare_candidate",
 ]

@@ -129,17 +129,35 @@
     const candidate = payload.candidate;
     const state = document.getElementById("candidate-state");
     const detail = document.getElementById("candidate-detail");
+    const comparisonDetail = document.getElementById("comparison-detail");
+    const comparisonChanges = document.getElementById("comparison-changes");
     const button = document.getElementById("candidate-button");
+    const comparisonButton = document.getElementById("comparison-button");
     if (!candidate || candidate.state === "not_built") {
       state.textContent = "Not built";
       detail.textContent = "Builds in memory only. Unresolved findings remain visible.";
       button.disabled = payload.session?.mode !== "synthetic_in_memory";
+      comparisonButton.disabled = true;
+      comparisonDetail.textContent = "Comparison has not run.";
+      comparisonChanges.replaceChildren();
       return;
     }
     state.textContent = `${candidate.question_count} questions · ${candidate.applied_proposal_ids.length} approved proposal(s) applied`;
     detail.textContent = `${candidate.unresolved_finding_ids.length} unresolved finding(s) · promotion remains ${candidate.promotion_ready ? "ready" : "blocked"}.`;
     button.textContent = "Rebuild isolated candidate";
     button.disabled = false;
+    comparisonButton.disabled = payload.session?.mode !== "synthetic_in_memory";
+    if (payload.comparison?.state === "complete") {
+      comparisonDetail.textContent = `Comparison complete · stable IDs exact · ${payload.comparison.field_change_count} changed field(s).`;
+      comparisonChanges.innerHTML = payload.comparison.field_changes.map((change) => (
+        `<span><b>${escapeHtml(change.question_id.replace("PFQ-synthetic-", "Question "))} · ${escapeHtml(change.field)}</b> ${formatValue(change.benchmark_value)} → ${formatValue(change.candidate_value)}</span>`
+      )).join("");
+      comparisonButton.textContent = "Run comparison again";
+    } else {
+      comparisonDetail.textContent = "Comparison has not run for this candidate.";
+      comparisonChanges.replaceChildren();
+      comparisonButton.textContent = "Compare with benchmark";
+    }
   }
 
   document.getElementById("verify-button").addEventListener("click", () => {
@@ -177,6 +195,23 @@
       .then(async (response) => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Candidate build failed.");
+        acceptEnginePayload(result);
+      })
+      .catch((error) => {
+        document.getElementById("decision-help").textContent = error.message;
+      });
+  });
+
+  document.getElementById("comparison-button").addEventListener("click", () => {
+    if (payload.session?.mode !== "synthetic_in_memory") return;
+    fetch("/api/comparison", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}"
+    })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Comparison failed.");
         acceptEnginePayload(result);
       })
       .catch((error) => {

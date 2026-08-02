@@ -63,11 +63,13 @@ window.PREPFLOW_REVIEW_DEMO = {
     record_review_decision: true,
     record_source_verification: true,
     build_isolated_candidate: false,
+    compare_isolated_candidate: false,
     promote_canonical: false
   },
   candidate: {
     state: "not_built",
     persistent: false,
     promotion_ready: false
-  }
+  },
+  comparison: { state: "not_run" }
 };

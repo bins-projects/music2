@@ -10,6 +10,7 @@ from ingestion_v2.domain import (
     SourceVerification,
 )
 from ingestion_v2.engine import build_candidate, promotion_readiness
+from ingestion_v2.comparison import compare_candidate, comparison_view
 from ingestion_v2.review import ReviewStatus, build_review_queue
 from ingestion_v2.review_view import review_queue_view
 
@@ -30,11 +31,13 @@ class SyntheticWorkbenchSession:
         self._verifications_by_proposal: dict[str, SourceVerification] = {}
         self._events: list[SessionEvent] = []
         self._candidate = None
+        self._comparison = None
 
     def view(self) -> dict:
         queue = self._queue()
         payload = review_queue_view(queue)
-        payload["capabilities"]["build_isolated_candidate"] = False
+        payload["capabilities"]["build_isolated_candidate"] = True
+        payload["capabilities"]["compare_isolated_candidate"] = True
         payload["session"] = {
             "mode": "synthetic_in_memory",
             "persistent": False,
@@ -49,6 +52,11 @@ class SyntheticWorkbenchSession:
             "document_text_in_payload": False,
         }
         payload["candidate"] = self._candidate_view()
+        payload["comparison"] = (
+            comparison_view(self._comparison)
+            if self._comparison is not None
+            else {"state": "not_run"}
+        )
         return payload
 
     def record_action(self, finding_id: str, action: str) -> dict:
@@ -68,6 +76,8 @@ class SyntheticWorkbenchSession:
             reviewer_note="Recorded in synthetic in-memory workbench session.",
         )
         self._decisions_by_proposal[case.proposal.proposal_id] = decision
+        self._candidate = None
+        self._comparison = None
         self._events.append(
             SessionEvent(
                 event_id=f"PFV2-EVENT-{event_number:06d}",
@@ -85,12 +95,27 @@ class SyntheticWorkbenchSession:
             tuple(self._decisions_by_proposal.values()),
             tuple(self._verifications_by_proposal.values()),
         )
+        self._comparison = None
         event_number = len(self._events) + 1
         self._events.append(
             SessionEvent(
                 event_id=f"PFV2-EVENT-{event_number:06d}",
                 finding_id="PFV2-CANDIDATE",
                 event_type="candidate:built_in_memory",
+            )
+        )
+        return self.view()
+
+    def compare_isolated_candidate(self) -> dict:
+        if self._candidate is None:
+            raise DomainError("Build an isolated candidate before comparison")
+        self._comparison = compare_candidate(self._candidate, self.questions)
+        event_number = len(self._events) + 1
+        self._events.append(
+            SessionEvent(
+                event_id=f"PFV2-EVENT-{event_number:06d}",
+                finding_id="PFV2-COMPARISON",
+                event_type="comparison:completed_in_memory",
             )
         )
         return self.view()
@@ -109,6 +134,8 @@ class SyntheticWorkbenchSession:
             reviewer_note="Synthetic source verification recorded in memory.",
         )
         self._verifications_by_proposal[case.proposal.proposal_id] = verification
+        self._candidate = None
+        self._comparison = None
         self._events.append(
             SessionEvent(
                 event_id=f"PFV2-EVENT-{event_number:06d}",
@@ -143,7 +170,7 @@ class SyntheticWorkbenchSession:
         readiness = promotion_readiness(
             self._candidate,
             self.findings,
-            comparison_complete=False,
+            comparison_complete=bool(self._comparison and self._comparison.complete),
         )
         return {
             "state": "built_in_memory",

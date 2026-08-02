@@ -42,6 +42,8 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 payload = self.session.record_verification(finding_id)
             elif self.path == "/api/candidate":
                 payload = self.session.build_isolated_candidate()
+            elif self.path == "/api/comparison":
+                payload = self.session.compare_isolated_candidate()
             else:
                 self._send_json({"error": "not_found"}, status=404)
                 return

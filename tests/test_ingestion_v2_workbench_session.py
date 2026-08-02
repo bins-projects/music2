@@ -18,7 +18,8 @@ def test_connected_session_starts_in_memory_and_non_promoting() -> None:
     assert payload["session"]["mode"] == "synthetic_in_memory"
     assert payload["session"]["persistent"] is False
     assert payload["session"]["event_count"] == 0
-    assert payload["capabilities"]["build_isolated_candidate"] is False
+    assert payload["capabilities"]["build_isolated_candidate"] is True
+    assert payload["capabilities"]["compare_isolated_candidate"] is True
     assert payload["capabilities"]["promote_canonical"] is False
     assert payload["pipeline"] == {
         "input": "synthetic_document",
@@ -119,3 +120,43 @@ def test_verified_approval_changes_only_isolated_candidate_and_remains_blocked()
     assert session.questions[0].correct_answers == ("A",)
     assert session._candidate.questions[0].correct_answers == ("B",)
     assert payload["session"]["events"][-1]["event_type"] == "candidate:built_in_memory"
+
+
+def test_comparison_explains_verified_candidate_delta_and_clears_stale_gate() -> None:
+    session = SyntheticWorkbenchSession()
+    session.record_action("PFV2-FIND-PARSE-000002", "approve")
+    session.record_verification("PFV2-FIND-PARSE-000002")
+    session.build_isolated_candidate()
+
+    payload = session.compare_isolated_candidate()
+
+    assert payload["comparison"]["state"] == "complete"
+    assert payload["comparison"]["stable_ids_exact"] is True
+    assert payload["comparison"]["field_change_count"] == 1
+    assert payload["comparison"]["field_changes"] == [
+        {
+            "question_id": "PFQ-synthetic-000000108",
+            "field": "correct_answers",
+            "benchmark_value": ("A",),
+            "candidate_value": ("B",),
+        }
+    ]
+    assert "candidate_comparison_incomplete" not in payload["candidate"]["blocking_reasons"]
+    assert payload["candidate"]["promotion_ready"] is False
+
+
+def test_review_change_invalidates_candidate_and_its_comparison() -> None:
+    session = SyntheticWorkbenchSession()
+    session.record_action("PFV2-FIND-PARSE-000002", "defer")
+    session.build_isolated_candidate()
+    session.compare_isolated_candidate()
+
+    payload = session.record_action("PFV2-FIND-PARSE-000002", "approve")
+
+    assert payload["candidate"]["state"] == "not_built"
+    assert payload["comparison"]["state"] == "not_run"
+
+
+def test_comparison_requires_a_built_candidate() -> None:
+    with pytest.raises(DomainError, match="before comparison"):
+        SyntheticWorkbenchSession().compare_isolated_candidate()

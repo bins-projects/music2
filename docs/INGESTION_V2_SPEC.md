@@ -99,6 +99,12 @@ immutable. The workbench returns applied proposal IDs, unresolved finding IDs,
 and promotion-readiness reasons; comparison remains incomplete and promotion is
 still unavailable.
 
+Candidate comparison requires exact stable-ID equality with the selected
+benchmark. It reports every changed field in stable question/field order. A
+review decision, verification, or candidate rebuild invalidates the prior report.
+Only a comparison for the current candidate can satisfy the comparison gate;
+unresolved blocking findings continue to prevent readiness independently.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

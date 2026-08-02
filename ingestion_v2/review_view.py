@@ -49,6 +49,7 @@ def review_queue_view(queue: ReviewQueue) -> dict:
             "record_review_decision": True,
             "record_source_verification": True,
             "build_isolated_candidate": True,
+            "compare_isolated_candidate": False,
             "promote_canonical": False,
         },
     }

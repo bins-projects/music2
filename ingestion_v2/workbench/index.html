@@ -87,8 +87,13 @@
               <p class="eyebrow">ISOLATED CANDIDATE</p>
               <strong id="candidate-state">Not built</strong>
               <p id="candidate-detail">Builds in memory only. Unresolved findings remain visible.</p>
+              <p id="comparison-detail">Comparison has not run.</p>
+              <div id="comparison-changes" class="comparison-changes"></div>
             </div>
-            <button id="candidate-button" type="button">Build isolated candidate</button>
+            <div class="candidate-actions">
+              <button id="candidate-button" type="button">Build isolated candidate</button>
+              <button id="comparison-button" type="button">Compare with benchmark</button>
+            </div>
           </section>
 
           <footer class="audit-strip">

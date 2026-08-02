@@ -84,6 +84,13 @@ validated against the current queue state, and returned as a new read-only view.
 Its event history disappears when the local process stops. It has no Pack-write,
 filesystem-persistence, candidate-build, or promotion endpoint.
 
+The connected synthetic workbench is now fed through the parser boundary rather
+than hand-assembled review cases. Synthetic document text produces run-local
+records, structured parser findings, exact stable-ID mappings, and then the
+review queue. Whole-document input text is not returned in the interface payload.
+The demonstration currently produces three visible blockers from two parsed
+records and performs zero automatic repairs.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

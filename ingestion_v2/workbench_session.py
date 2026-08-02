@@ -39,6 +39,13 @@ class SyntheticWorkbenchSession:
             "event_count": len(self._events),
             "events": [event.__dict__ for event in self._events],
         }
+        payload["pipeline"] = {
+            "input": "synthetic_document",
+            "parser": "existing_source_parser_without_broad_missing_a_recovery",
+            "parsed_records": len(self.questions),
+            "automatic_repairs": 0,
+            "document_text_in_payload": False,
+        }
         return payload
 
     def record_action(self, finding_id: str, action: str) -> dict:

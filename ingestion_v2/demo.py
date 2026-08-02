@@ -1,86 +1,50 @@
-from ingestion_v2.domain import Finding, FindingSeverity, Proposal, QuestionRecord
+from ingestion_v2.domain import Proposal
+from ingestion_v2.parser import ExistingParserAdapter
+from ingestion_v2.parser_bridge import materialize_matched_batch
+
+
+SYNTHETIC_DOCUMENT = """Chapter 1: Synthetic Safety
+MULTIPLE CHOICE
+1. Which synthetic option is expected? First option
+b. Second option
+c. Third option
+ANS: A
+The second option is expected in this deliberately conflicted example.
+DIF: Synthetic
+
+2. Which synthetic observation should remain unresolved?
+a. First observation
+b. Second observation
+ANS:
+The source contains no usable answer key for this synthetic record.
+DIF: Synthetic
+"""
 
 
 def synthetic_review_records() -> tuple[
-    tuple[QuestionRecord, ...], tuple[Finding, ...], tuple[Proposal, ...]
+    tuple, tuple, tuple[Proposal, ...]
 ]:
-    """Return source-neutral synthetic records for local workbench development."""
-    questions = (
-        QuestionRecord(
-            question_id="PFQ-synthetic-000000108",
-            chapter=4,
-            question_type="mc",
-            stem="Which synthetic answer is supported?",
-            choices=(("A", "First option"), ("B", "Second option"), ("C", "Third option")),
-            correct_answers=("A",),
-            rationale="The synthetic rationale supports the third option.",
-        ),
-        QuestionRecord(
-            question_id="PFQ-synthetic-000000369",
-            chapter=14,
-            question_type="mc",
-            stem="Synthetic question with a possible absorbed first option.",
-            choices=(("B", "Second synthetic option"), ("C", "Third synthetic option")),
-            correct_answers=("B",),
-        ),
-        QuestionRecord(
-            question_id="PFQ-synthetic-000000937",
-            chapter=37,
-            question_type="multiple_response",
-            stem="Synthetic damaged stem with a second question-shaped fragment.",
-            choices=(("A", "First"), ("B", "Second")),
-            correct_answers=("A",),
-        ),
+    """Run a synthetic document through parser, identity bridge, and proposal setup."""
+    batch = ExistingParserAdapter().parse(SYNTHETIC_DOCUMENT)
+    questions, findings = materialize_matched_batch(
+        batch,
+        {
+            "PFV2-REC-000001": "PFQ-synthetic-000000108",
+            "PFV2-REC-000002": "PFQ-synthetic-000000369",
+        },
     )
-    findings = (
-        Finding(
-            finding_id="PFV2-FIND-0001",
-            question_id=questions[0].question_id,
-            field="correct_answers",
-            damage_type="answer_rationale_conflict",
-            severity=FindingSeverity.BLOCKING,
-            explanation="The recorded answer and rationale disagree. PrepFlow cannot safely choose between them.",
-        ),
-        Finding(
-            finding_id="PFV2-FIND-0002",
-            question_id=questions[1].question_id,
-            field="choices",
-            damage_type="possible_choice_absorbed_in_stem",
-            severity=FindingSeverity.BLOCKING,
-            explanation="The choice sequence starts at B, and the stem contains a possible A marker.",
-        ),
-        Finding(
-            finding_id="PFV2-FIND-0003",
-            question_id=questions[2].question_id,
-            field="stem",
-            damage_type="possible_merged_question",
-            severity=FindingSeverity.BLOCKING,
-            explanation="Two question-shaped fragments may have merged. No safe correction has been established.",
-        ),
-    )
+    finding_by_damage = {finding.damage_type: finding for finding in findings}
+    answer_finding = finding_by_damage["correct_answer_without_choice"]
     proposals = (
         Proposal(
             proposal_id="PFV2-PROP-0001",
-            finding_id=findings[0].finding_id,
-            question_id=questions[0].question_id,
+            finding_id=answer_finding.finding_id,
+            question_id=answer_finding.question_id,
             field="correct_answers",
             expected_before=("A",),
-            proposed_after=("C",),
-            explanation="The rationale supports C, but the temporary source must confirm the printed answer.",
+            proposed_after=("B",),
+            explanation="The rationale supports B, but only temporary source verification can authorize changing the parsed answer.",
             requires_source_verification=True,
-        ),
-        Proposal(
-            proposal_id="PFV2-PROP-0002",
-            finding_id=findings[1].finding_id,
-            question_id=questions[1].question_id,
-            field="choices",
-            expected_before=questions[1].choices,
-            proposed_after=(
-                ("A", "Recovered synthetic option"),
-                ("B", "Second synthetic option"),
-                ("C", "Third synthetic option"),
-            ),
-            explanation="Restore the explicitly marked choice as one atomic structural proposal.",
         ),
     )
     return questions, findings, proposals

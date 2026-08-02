@@ -60,6 +60,7 @@ def test_connected_session_starts_in_memory_and_non_promoting() -> None:
         "cleaning": None,
         "identity_pending": False,
         "identity": {"state": "not_run"},
+        "qa": {"state": "not_run"},
     }
     assert len(payload["cases"]) == 3
     assert {item["damage_type"] for item in payload["cases"]} == {
@@ -442,6 +443,52 @@ def test_identity_defer_keeps_run_blocked_and_invalid_selection_is_rejected(tmp_
         session.record_identity_action(
             "PFV2-REC-000001", "approve", "PFQ-test-999999999"
         )
+
+
+def test_materialized_pdf_runs_qa_detectors_without_repairs_or_proposals(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(
+        [
+            "Chapter 1: Synthetic PDF",
+            "MULTIPLE CHOICE",
+            "1. Which action is expected?",
+            "a. Damaged abCdEf xyZaBc g h j fragments",
+            "b. Clean choice",
+            "ANS: B",
+            "Clean rationale.",
+        ]
+    )
+    target = {
+        "format": "prepflow_pack",
+        "pack_id": "test",
+        "questions": [
+            {
+                "id": "PFQ-test-000000001",
+                "chapter": 1,
+                "type": "mc",
+                "stem": "Which action is expected?",
+                "choices": [
+                    {"label": "A", "text": "Original choice"},
+                    {"label": "B", "text": "Clean choice"},
+                ],
+                "correct_answers": ["B"],
+                "rationale": "Clean rationale.",
+            }
+        ],
+    }
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    matched = session.match_existing_pack(target)
+    assert matched["run"]["state"] == "identity_matched"
+
+    payload = session.materialize_identity_review()
+
+    assert payload["pipeline"]["qa"]["finding_count"] >= 1
+    assert payload["pipeline"]["qa"]["detector_counts"]["interleaving"] == 1
+    assert payload["pipeline"]["qa"]["automatic_repairs"] == 0
+    assert payload["pipeline"]["qa"]["proposals_created"] == 0
+    qa_cases = [item for item in payload["cases"] if item["finding_id"].startswith("PFV2-FIND-QA-")]
+    assert any(item["field"] == "choices" for item in qa_cases)
+    assert all(item["proposal"] is None for item in qa_cases)
 
 
 def test_pdf_run_rejects_empty_selection_before_creating_workspace(tmp_path) -> None:

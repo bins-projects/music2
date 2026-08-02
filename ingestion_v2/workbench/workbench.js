@@ -222,6 +222,7 @@
     const extraction = document.getElementById("run-extraction");
     const cleaning = document.getElementById("run-cleaning");
     const identity = document.getElementById("run-identity");
+    const qa = document.getElementById("run-qa");
     const start = document.getElementById("start-run-button");
     const complete = document.getElementById("complete-run-button");
     const cleanup = document.getElementById("cleanup-run-button");
@@ -235,6 +236,7 @@
       extraction.textContent = "Extractor has not run.";
       cleaning.textContent = "Cleaner has not run.";
       identity.textContent = "Identity matcher has not run.";
+      qa.textContent = "QA detectors have not run.";
       start.disabled = false;
       pdfInput.disabled = false;
       pdfButton.classList.remove("disabled");
@@ -243,6 +245,7 @@
       extraction.textContent = "Connected extraction metrics unavailable.";
       cleaning.textContent = "Connected cleaning metrics unavailable.";
       identity.textContent = "Identity matcher unavailable.";
+      qa.textContent = "QA detectors unavailable.";
       start.disabled = true;
       pdfInput.disabled = true;
       pdfButton.classList.add("disabled");
@@ -260,6 +263,10 @@
       identity.textContent = identityReport && identityReport.state !== "not_run"
         ? `${identityReport.matched_count} exact ID match(es) · ${identityReport.finding_count} review finding(s) · ${identityReport.target_only_count} Pack-only record(s)`
         : "Identity matcher has not run.";
+      const qaReport = payload.pipeline?.qa;
+      qa.textContent = qaReport && qaReport.state !== "not_run"
+        ? `${qaReport.finding_count} QA finding(s) · ${qaReport.automatic_repairs} automatic repair(s) · ${qaReport.proposals_created} proposal(s)`
+        : "QA detectors have not run.";
       start.disabled = true;
       pdfInput.disabled = true;
       pdfButton.classList.add("disabled");

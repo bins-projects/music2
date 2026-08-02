@@ -243,6 +243,24 @@ benchmark—not against the parsed baseline—so every changed field is visible.
 Neither preparation, candidate construction, nor comparison exposes a Pack
 writer or promotion operation.
 
+## Generalized QA detector bridge
+
+Materialization runs the proven source-neutral typography, interleaving,
+choice-structure, merged-question, and embedded-choice detection logic over the
+isolated parsed records. A temporary in-memory detection Pack adapts immutable
+v2 records to the existing detector boundary. It is never exported. Choice-item
+paths such as `choices[0].text` are translated back to the source-neutral v2
+`choices` field.
+
+Every detector result becomes a blocking v2 finding with a new v2 audit ID. The
+bridge applies zero repairs and emits zero v2 proposals. In particular, a
+high-confidence embedded-choice shape becomes
+`embedded_choice_recovery_candidate`, whose explanation requires a later
+reviewable proposal and explicit approval. Ambiguous shapes—including lowercase
+prose such as “vitamin b. Complex”—remain findings without proposals. Parser and
+QA findings are combined in the same review queue before candidate construction;
+the preserved parsed question remains unchanged.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

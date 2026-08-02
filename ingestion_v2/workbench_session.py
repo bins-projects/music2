@@ -29,6 +29,7 @@ from ingestion_v2.identity_review import (
 )
 from ingestion_v2.pack_bridge import pack_questions_to_domain
 from ingestion_v2.parser_bridge import materialize_matched_batch
+from ingestion_v2.qa_adapter import QaResult, detect_candidate_damage
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ class SyntheticWorkbenchSession:
         self._identity_mapping: dict[str, str] | None = None
         self._identity_target_pack: dict | None = None
         self._benchmark_questions = None
+        self._qa_result: QaResult | None = None
         self._last_cleanup = None
 
     def view(self) -> dict:
@@ -112,6 +114,16 @@ class SyntheticWorkbenchSession:
                 and self._lifecycle.manifest()["stage"] == "identity_pending"
             ),
             "identity": self._identity_view(),
+            "qa": (
+                {
+                    "detector_counts": dict(self._qa_result.detector_counts),
+                    "finding_count": len(self._qa_result.findings),
+                    "automatic_repairs": self._qa_result.automatic_repairs,
+                    "proposals_created": self._qa_result.proposals_created,
+                }
+                if self._qa_result is not None
+                else {"state": "not_run"}
+            ),
         }
         payload["candidate"] = self._candidate_view()
         payload["comparison"] = (
@@ -242,15 +254,17 @@ class SyntheticWorkbenchSession:
         questions, findings = materialize_matched_batch(
             self._parse_batch, self._identity_mapping
         )
+        qa_result = detect_candidate_damage(questions)
         benchmark = pack_questions_to_domain(self._identity_target_pack)
         if {item.question_id for item in questions} != {item.question_id for item in benchmark}:
             raise DomainError("Materialized stable IDs do not exactly match the benchmark Pack")
         self.questions = questions
-        self.findings = findings
+        self.findings = findings + qa_result.findings
         self.proposals = ()
         self._benchmark_questions = benchmark
+        self._qa_result = qa_result
         self._lifecycle.record_identity_materialized(
-            parsed_records=len(questions), finding_count=len(findings)
+            parsed_records=len(questions), finding_count=len(self.findings)
         )
         return self.view()
 
@@ -460,6 +474,7 @@ class SyntheticWorkbenchSession:
         self._identity_mapping = None
         self._identity_target_pack = None
         self._benchmark_questions = None
+        self._qa_result = None
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()
@@ -577,6 +592,7 @@ class SyntheticWorkbenchSession:
         self._identity_mapping = None
         self._identity_target_pack = None
         self._benchmark_questions = None
+        self._qa_result = None
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()

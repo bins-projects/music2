@@ -1,6 +1,7 @@
 from copy import deepcopy
 
-from ingestion_v2.domain import QuestionRecord
+from ingestion_v2.domain import DispositionAction, FindingDisposition, QuestionRecord
+from ingestion_v2.engine import build_candidate
 from ingestion_v2.qa_adapter import detect_candidate_damage
 
 
@@ -71,3 +72,49 @@ def test_detector_adapter_does_not_mutate_question_records() -> None:
 
     assert first == second
     assert questions == before
+
+
+def test_complete_same_chapter_duplicate_flags_only_later_record() -> None:
+    first = question()
+    second = question(question_id="PFQ-test-000000002")
+
+    result = detect_candidate_damage((first, second))
+
+    duplicate = next(item for item in result.findings if item.damage_type == "complete_duplicate_record")
+    assert duplicate.question_id == second.question_id
+    assert first.question_id in duplicate.explanation
+    assert dict(result.detector_counts)["complete_duplicate"] == 1
+
+
+def test_identical_records_in_different_chapters_are_not_automatic_duplicates() -> None:
+    first = question()
+    second = question(question_id="PFQ-test-000000002", chapter=2)
+
+    result = detect_candidate_damage((first, second))
+
+    assert not any(item.damage_type == "complete_duplicate_record" for item in result.findings)
+
+
+def test_duplicate_is_preserved_until_explicit_whole_record_exclusion() -> None:
+    questions = (question(), question(question_id="PFQ-test-000000002"))
+    result = detect_candidate_damage(questions)
+    duplicate = next(item for item in result.findings if item.damage_type == "complete_duplicate_record")
+
+    preserved = build_candidate(questions, result.findings)
+    excluded = build_candidate(
+        questions,
+        result.findings,
+        dispositions=(
+            FindingDisposition(
+                disposition_id="PFV2-DISP-DUPLICATE-000001",
+                finding_id=duplicate.finding_id,
+                question_id=duplicate.question_id,
+                action=DispositionAction.EXCLUDE_RECORD,
+                reviewer_note="Explicit same-chapter complete-duplicate exclusion.",
+            ),
+        ),
+    )
+
+    assert len(preserved.questions) == 2
+    assert tuple(item.question_id for item in excluded.questions) == ("PFQ-test-000000001",)
+    assert excluded.excluded_question_ids == ("PFQ-test-000000002",)

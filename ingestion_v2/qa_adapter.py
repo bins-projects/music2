@@ -91,6 +91,17 @@ def detect_candidate_damage(questions: tuple[QuestionRecord, ...]) -> QaResult:
         for question_id in sorted(review_question_ids - proposal_question_ids)
     )
 
+    duplicate_records = _complete_same_chapter_duplicates(questions)
+    raw.extend(
+        (
+            duplicate_id,
+            "stem",
+            "complete_duplicate_record",
+            f"This complete record duplicates {retained_id} in the same chapter. Preserve both until explicit whole-record exclusion review.",
+        )
+        for duplicate_id, retained_id in duplicate_records
+    )
+
     findings = tuple(
         Finding(
             finding_id=f"PFV2-FIND-QA-{index:06d}",
@@ -108,6 +119,7 @@ def detect_candidate_damage(questions: tuple[QuestionRecord, ...]) -> QaResult:
         ("choice_structure", len(choice_structure)),
         ("merged_question", len(merged)),
         ("embedded_choice", len(proposal_question_ids | review_question_ids)),
+        ("complete_duplicate", len(duplicate_records)),
     )
     return QaResult(findings=findings, detector_counts=counts)
 
@@ -141,3 +153,27 @@ def _pack_type(value: str) -> str:
 
 def _field(value: str) -> str:
     return "choices" if value.startswith("choices[") else value
+
+
+def _complete_same_chapter_duplicates(
+    questions: tuple[QuestionRecord, ...],
+) -> tuple[tuple[str, str], ...]:
+    first_by_signature: dict[tuple, str] = {}
+    duplicates = []
+    for item in questions:
+        signature = (
+            item.chapter,
+            item.question_type,
+            _normalized(item.stem),
+            tuple((label, _normalized(text)) for label, text in item.choices),
+            item.correct_answers,
+            _normalized(item.rationale),
+        )
+        retained = first_by_signature.setdefault(signature, item.question_id)
+        if retained != item.question_id:
+            duplicates.append((item.question_id, retained))
+    return tuple(duplicates)
+
+
+def _normalized(value: str) -> str:
+    return " ".join(value.split()).casefold()

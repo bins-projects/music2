@@ -279,6 +279,16 @@ evidence, including protected vitamin prose, produces no proposal. No source
 verification requirement is asserted for this exact text-only move, but the
 ordinary explicit review decision remains mandatory.
 
+Complete-record duplicate detection groups records only when they share a
+chapter and their normalized type, stem, choices, correct answers, and rationale
+are all identical. The first stable ID is preserved as the retained reference;
+each later identical record receives a `complete_duplicate_record` blocker. An
+identical record in another chapter is not automatically classified as a
+duplicate because placement may carry distinct instructional meaning. Detection
+never deletes either record. Whole-record exclusion uses the existing explicit,
+audited disposition and remains visible in comparison as a documented excluded
+stable ID.
+
 ## User-authored proposal boundary
 
 Findings without a deterministic correction can be opened in a private proposal

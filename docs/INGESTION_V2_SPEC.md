@@ -325,6 +325,23 @@ audit events. Completion or controlled cleanup clears the in-memory pages and
 removes the owned whole-document artifacts; the user's original remains outside
 the run and untouched.
 
+## Source-neutral private checkpoints
+
+Active existing-Pack runs maintain `audit/checkpoint.json` inside their verified
+private run directory. The checkpoint records only temporary-to-stable identity
+decisions, proposal decision references, verification booleans, whole-record
+dispositions, and comparison counts. It contains no question values, proposal
+values, source-page text, raw or cleaned text, filenames, or original paths.
+
+Checkpoint writes are atomic and constrained to the exact run boundary. The
+schema validates stable PrepFlow IDs, temporary record IDs, v2 references,
+allowed actions, non-negative counts, and exact run identity. It rejects known
+content-bearing keys recursively and refuses symbolic-link audit paths. Source
+cleanup retains this source-neutral checkpoint while removing disposable source
+and whole-document artifacts. A later resume layer may reconstruct deterministic
+engine records from the controlled cleaned artifact and these decisions; it must
+refuse reconstruction when a referenced proposal cannot be reproduced exactly.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

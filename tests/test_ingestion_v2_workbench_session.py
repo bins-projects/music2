@@ -485,6 +485,17 @@ def test_changed_pdf_stem_stops_in_identity_review_without_guessed_id(tmp_path) 
     assert {change["question_id"] for change in compared["comparison"]["field_changes"]} == {
         "PFQ-test-000000001"
     }
+    checkpoint = json.loads(
+        (session._lifecycle.run_directory / "audit" / "checkpoint.json").read_text()
+    )
+    assert checkpoint["identity_actions"] == [
+        {
+            "record_id": "PFV2-REC-000001",
+            "target_question_id": "PFQ-test-000000001",
+        }
+    ]
+    assert checkpoint["comparison_counts"]["candidate_questions"] == 1
+    assert "Changed stem?" not in json.dumps(checkpoint)
 
 
 def test_identity_defer_keeps_run_blocked_and_invalid_selection_is_rejected(tmp_path) -> None:

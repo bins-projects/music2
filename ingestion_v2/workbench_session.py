@@ -33,6 +33,7 @@ from ingestion_v2.pack_bridge import pack_questions_to_domain
 from ingestion_v2.parser_bridge import materialize_matched_batch
 from ingestion_v2.qa_adapter import QaResult, detect_candidate_damage
 from ingestion_v2.proposal_adapter import draft_benchmark_answer_proposals, draft_deterministic_proposals
+from ingestion_v2.checkpoint import write_checkpoint
 
 
 @dataclass(frozen=True)
@@ -201,6 +202,7 @@ class SyntheticWorkbenchSession:
         self._identity_actions = {}
         self._identity_target_pack = target_pack
         self._identity_mapping = report.stable_id_by_record_id if report.complete else None
+        self._save_checkpoint()
         return self.view()
 
     def record_identity_action(
@@ -250,6 +252,7 @@ class SyntheticWorkbenchSession:
                 self._identity_report, self._identity_cases, approvals
             )
             self._lifecycle.record_identity_resolution(approved_matches=len(approvals))
+        self._save_checkpoint()
         return self.view()
 
     def materialize_identity_review(self) -> dict:
@@ -364,6 +367,7 @@ class SyntheticWorkbenchSession:
                 event_type=f"decision:{action}",
             )
         )
+        self._save_checkpoint()
         return self.view()
 
     def draft_user_proposal(
@@ -421,6 +425,7 @@ class SyntheticWorkbenchSession:
                 event_type="proposal:user_authored",
             )
         )
+        self._save_checkpoint()
         return self.view()
 
     def build_isolated_candidate(self) -> dict:
@@ -447,6 +452,7 @@ class SyntheticWorkbenchSession:
                 event_type="candidate:built_in_memory",
             )
         )
+        self._save_checkpoint()
         return self.view()
 
     def record_disposition(self, finding_id: str, action: str) -> dict:
@@ -477,6 +483,7 @@ class SyntheticWorkbenchSession:
                 event_type=f"disposition:{action_map[action].value}",
             )
         )
+        self._save_checkpoint()
         return self.view()
 
     def compare_isolated_candidate(self) -> dict:
@@ -498,6 +505,7 @@ class SyntheticWorkbenchSession:
                 event_type="comparison:completed_in_memory",
             )
         )
+        self._save_checkpoint()
         return self.view()
 
     def record_verification(self, finding_id: str) -> dict:
@@ -681,6 +689,60 @@ class SyntheticWorkbenchSession:
         view["automatic_id_assignments_authorized"] = self._identity_report.complete
         view["reviewed_id_assignments_authorized"] = bool(resolved and self._identity_cases)
         return view
+
+    def _save_checkpoint(self) -> None:
+        if self._lifecycle is None or self._identity_report is None:
+            return
+        comparison_counts = {}
+        if self._comparison is not None:
+            comparison_counts = {
+                "field_changes": len(self._comparison.field_changes),
+                "excluded_questions": len(self._comparison.documented_excluded_question_ids),
+                "candidate_questions": self._comparison.candidate_question_count,
+            }
+        write_checkpoint(
+            self._lifecycle.run_directory,
+            {
+                "format": "prepflow_v2_checkpoint",
+                "version": "1.0",
+                "run_id": self._lifecycle.manifest()["run_id"],
+                "target_pack_id": self._identity_report.target_pack_id,
+                "identity_actions": [
+                    {
+                        "record_id": record_id,
+                        "target_question_id": value["target_question_id"],
+                    }
+                    for record_id, value in sorted(self._identity_actions.items())
+                    if value["action"] == "approve"
+                ],
+                "review_decisions": [
+                    {
+                        "decision_id": item.decision_id,
+                        "proposal_id": item.proposal_id,
+                        "action": item.action.value,
+                    }
+                    for item in sorted(self._decisions_by_proposal.values(), key=lambda value: value.decision_id)
+                ],
+                "verifications": [
+                    {
+                        "verification_id": item.verification_id,
+                        "proposal_id": item.proposal_id,
+                        "verified": item.verified,
+                    }
+                    for item in sorted(self._verifications_by_proposal.values(), key=lambda value: value.verification_id)
+                ],
+                "dispositions": [
+                    {
+                        "disposition_id": item.disposition_id,
+                        "finding_id": item.finding_id,
+                        "question_id": item.question_id,
+                        "action": item.action.value,
+                    }
+                    for item in sorted(self._dispositions_by_finding.values(), key=lambda value: value.disposition_id)
+                ],
+                "comparison_counts": comparison_counts,
+            },
+        )
 
     def _ensure_active_run_if_configured(self) -> None:
         if self._workspace_root is not None and self._lifecycle is None:

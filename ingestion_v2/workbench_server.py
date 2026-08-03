@@ -69,9 +69,14 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
             elif self.path == "/api/dispositions":
                 finding_id = body.get("finding_id")
                 action = body.get("action")
+                target_question_id = body.get("target_question_id")
                 if not isinstance(finding_id, str) or not isinstance(action, str):
                     raise DomainError("finding_id and action are required")
-                payload = self.session.record_disposition(finding_id, action)
+                if target_question_id is not None and not isinstance(target_question_id, str):
+                    raise DomainError("target_question_id must be a string")
+                payload = self.session.record_disposition(
+                    finding_id, action, target_question_id
+                )
             elif self.path == "/api/candidate":
                 payload = self.session.build_isolated_candidate()
             elif self.path == "/api/comparison":

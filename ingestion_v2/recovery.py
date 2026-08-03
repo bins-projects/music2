@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from ingestion_v2.checkpoint import read_checkpoint
+from ingestion_v2.checkpoint import proposal_fingerprint, read_checkpoint
 from ingestion_v2.comparison import ComparisonReport, compare_candidate
 from ingestion_v2.domain import (
     Candidate, DispositionAction, DomainError, Finding, FindingDisposition,
@@ -164,14 +164,31 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
         + draft_benchmark_answer_proposals(questions, benchmark, findings)
     )
     proposal_ids = {item.proposal_id for item in proposals}
+    proposal_by_fingerprint = {
+        proposal_fingerprint(
+            finding_id=item.finding_id,
+            question_id=item.question_id,
+            field=item.field,
+            expected_before=item.expected_before,
+            proposed_after=item.proposed_after,
+            requires_source_verification=item.requires_source_verification,
+        ): item.proposal_id
+        for item in proposals
+    }
+    recovered_proposal_id = {
+        item["proposal_id"]: proposal_by_fingerprint.get(item["fingerprint"])
+        for item in checkpoint.get("proposal_fingerprints", [])
+    }
+    def proposal_id(value: str) -> str:
+        return value if value in proposal_ids else recovered_proposal_id.get(value) or value
     finding_by_id = {item.finding_id: item for item in findings}
 
     decisions = tuple(
-        ReviewDecision(item["decision_id"], item["proposal_id"], ReviewAction(item["action"]), "Recovered from private checkpoint.")
+        ReviewDecision(item["decision_id"], proposal_id(item["proposal_id"]), ReviewAction(item["action"]), "Recovered from private checkpoint.")
         for item in checkpoint["review_decisions"]
     )
     verifications = tuple(
-        SourceVerification(item["verification_id"], item["proposal_id"], item["verified"], "Recovered verified checkpoint event.")
+        SourceVerification(item["verification_id"], proposal_id(item["proposal_id"]), item["verified"], "Recovered verified checkpoint event.")
         for item in checkpoint["verifications"]
     )
     if any(item.proposal_id not in proposal_ids for item in decisions + verifications):
@@ -179,7 +196,9 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
     dispositions = []
     for item in checkpoint["dispositions"]:
         finding = finding_by_id.get(item["finding_id"])
-        if finding is None or finding.question_id != item["question_id"]:
+        if finding is None or item["question_id"] not in {
+            finding.question_id, finding.related_question_id
+        }:
             raise DomainError("Checkpoint disposition finding cannot be reproduced exactly")
         dispositions.append(
             FindingDisposition(

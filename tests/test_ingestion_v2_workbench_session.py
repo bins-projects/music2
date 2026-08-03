@@ -686,6 +686,11 @@ def test_pdf_source_verification_requires_opening_temporary_page_first(tmp_path)
     assert source["temporary"] is True
     verified = session.record_verification(qa_case["finding_id"])
     assert case(verified, qa_case["finding_id"])["status"] == "approved"
+    checkpoint = json.loads(
+        (session._lifecycle.run_directory / "audit" / "checkpoint.json").read_text()
+    )
+    assert checkpoint["verifications"][0]["verified"] is True
+    assert checkpoint["proposal_fingerprints"][0]["fingerprint"]
     manifest = (session._lifecycle.run_directory / "run.json").read_text()
     assert "Which action is expected?" not in manifest
 

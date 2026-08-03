@@ -43,6 +43,15 @@
     return node.innerHTML;
   }
 
+  function chapterLabel(item) {
+    const number = item.chapter == null ? "Chapter unknown" : `Chapter ${item.chapter}`;
+    return item.chapter_title ? `${number}: ${item.chapter_title}` : number;
+  }
+
+  function sourceRecordLabel(item) {
+    return item.source_record_id ? ` · source ${item.source_record_id}` : "";
+  }
+
   function renderQueue() {
     const queue = document.getElementById("queue");
     queue.replaceChildren();
@@ -62,6 +71,26 @@
   function renderActions(item) {
     const actions = document.getElementById("actions");
     actions.replaceChildren();
+    if (item.damage_type === "complete_duplicate_record" && item.related_question) {
+      if (item.status === "excluded_record") {
+        const restore = document.createElement("button");
+        restore.type = "button";
+        restore.className = "secondary";
+        restore.textContent = `Undo exclusion of ${item.disposition.question_id}`;
+        restore.addEventListener("click", () => takeDuplicateDisposition(item, "restore_record"));
+        actions.append(restore);
+        return;
+      }
+      [item, item.related_question].forEach((record) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "danger";
+        button.textContent = `Exclude ${record.question_id}`;
+        button.addEventListener("click", () => takeDuplicateDisposition(item, "exclude_record", record.question_id));
+        actions.append(button);
+      });
+      return;
+    }
     item.allowed_actions.filter((action) => labels[action]).forEach((action) => {
       const button = document.createElement("button");
       button.type = "button";
@@ -76,6 +105,25 @@
       });
       actions.append(button);
     });
+  }
+
+  async function takeDuplicateDisposition(item, action, targetQuestionId = null) {
+    try {
+      const response = await fetch("/api/dispositions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          finding_id: item.finding_id,
+          action,
+          target_question_id: targetQuestionId
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Duplicate decision was rejected.");
+      acceptEnginePayload(result);
+    } catch (error) {
+      document.getElementById("decision-help").textContent = error.message;
+    }
   }
 
   function openProposalEditor(item) {
@@ -198,15 +246,20 @@
       renderQueue();
       return;
     }
-    document.getElementById("question-meta").textContent = `${item.question_id} · Chapter ${item.chapter} · ${item.field}`;
+    document.getElementById("question-meta").textContent = `${item.question_id} · ${chapterLabel(item)}${sourceRecordLabel(item)} · ${item.field}`;
     document.getElementById("damage-title").textContent = item.damage_type.replaceAll("_", " ");
     const pill = document.getElementById("status-pill");
     pill.textContent = statusLabels[item.status];
     pill.dataset.status = item.status;
     document.getElementById("finding-explanation").textContent = item.explanation;
     document.getElementById("preserved-value").innerHTML = formatValue(item.preserved_value);
-    document.getElementById("proposed-value").innerHTML = item.proposal ? formatValue(item.proposal.proposed_value) : "No correction proposed";
-    document.getElementById("proposal-explanation").textContent = item.proposal?.explanation || "The record remains blocked until a justified proposal exists.";
+    if (item.damage_type === "complete_duplicate_record" && item.related_question) {
+      document.getElementById("proposed-value").innerHTML = `<b>${escapeHtml(item.related_question.question_id)}</b><br>${escapeHtml(chapterLabel(item.related_question))}${escapeHtml(sourceRecordLabel(item.related_question))}<br><br>${escapeHtml(item.related_question.stem)}`;
+      document.getElementById("proposal-explanation").textContent = "These are two preserved records. Explicitly choose the stable ID to exclude; the other remains unchanged.";
+    } else {
+      document.getElementById("proposed-value").innerHTML = item.proposal ? formatValue(item.proposal.proposed_value) : "No correction proposed";
+      document.getElementById("proposal-explanation").textContent = item.proposal?.explanation || "The record remains blocked until a justified proposal exists.";
+    }
     const verificationCard = document.getElementById("verification-card");
     verificationCard.hidden = item.status !== "awaiting_source_verification";
     renderActions(item);
@@ -215,7 +268,7 @@
 
   function renderIdentityCase(item) {
     document.getElementById("queue-position").textContent = `${item.record_id} · ${item.status}`;
-    document.getElementById("question-meta").textContent = `${item.record_id} · Chapter ${item.chapter ?? "unknown"}`;
+    document.getElementById("question-meta").textContent = `${item.record_id} · ${chapterLabel(item)}`;
     document.getElementById("damage-title").textContent = "Confirm stable question identity";
     const pill = document.getElementById("status-pill");
     pill.textContent = item.status === "pending" ? "Review required" : item.status;

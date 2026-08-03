@@ -23,6 +23,7 @@ def materialize_matched_batch(
             choices=record.choices,
             correct_answers=record.correct_answers,
             rationale=record.rationale,
+            source_record_id=record.record_id,
         )
         for record in batch.records
     )

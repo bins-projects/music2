@@ -23,6 +23,7 @@ class IdentityReviewCase:
     chapter: int | None
     finding_code: str
     suggestions: tuple[IdentitySuggestion, ...]
+    chapter_title: str = ""
 
 
 def build_identity_review_cases(
@@ -64,6 +65,7 @@ def build_identity_review_cases(
                 chapter=record.chapter,
                 finding_code=finding.finding_code,
                 suggestions=tuple(ranked[:limit]),
+                chapter_title=record.chapter_title,
             )
         )
     return tuple(cases)

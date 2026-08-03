@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 import re
 
@@ -9,6 +10,7 @@ from ingestion_v2.domain import DomainError, QUESTION_ID_RE
 
 RECORD_ID_RE = re.compile(r"^PFV2-REC-\d{6}$")
 REFERENCE_RE = re.compile(r"^PFV2-(?:PROP|FIND|DEC|VERIFY|DISP)-[A-Za-z0-9-]+$")
+FINGERPRINT_RE = re.compile(r"^[a-f0-9]{64}$")
 ACTIONS = {"approve", "reject", "defer", "exclude_record", "retain_blocker"}
 FORBIDDEN_KEYS = {
     "text", "stem", "choices", "rationale", "source_path", "filename",
@@ -73,10 +75,36 @@ def validate_checkpoint(payload: dict, *, run_id: str) -> dict:
                 raise DomainError("Checkpoint disposition contains an invalid question ID")
             if "action" in item and item["action"] not in ACTIONS:
                 raise DomainError("Checkpoint contains an invalid action")
+    fingerprints = payload.get("proposal_fingerprints", [])
+    if not isinstance(fingerprints, list):
+        raise DomainError("Checkpoint proposal fingerprints must be a list")
+    for item in fingerprints:
+        if (
+            not isinstance(item, dict)
+            or not REFERENCE_RE.fullmatch(str(item.get("proposal_id") or ""))
+            or not FINGERPRINT_RE.fullmatch(str(item.get("fingerprint") or ""))
+        ):
+            raise DomainError("Checkpoint contains an invalid proposal fingerprint")
     counts = payload.get("comparison_counts", {})
     if not isinstance(counts, dict) or any(not isinstance(value, int) or value < 0 for value in counts.values()):
         raise DomainError("Checkpoint comparison counts are invalid")
     return payload
+
+
+def proposal_fingerprint(
+    *, finding_id: str, question_id: str, field: str, expected_before,
+    proposed_after, requires_source_verification: bool,
+) -> str:
+    value = {
+        "finding_id": finding_id,
+        "question_id": question_id,
+        "field": field,
+        "expected_before": expected_before,
+        "proposed_after": proposed_after,
+        "requires_source_verification": requires_source_verification,
+    }
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _contains_forbidden_key(value) -> bool:

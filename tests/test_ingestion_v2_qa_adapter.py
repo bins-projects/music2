@@ -82,6 +82,7 @@ def test_complete_same_chapter_duplicate_flags_only_later_record() -> None:
 
     duplicate = next(item for item in result.findings if item.damage_type == "complete_duplicate_record")
     assert duplicate.question_id == second.question_id
+    assert duplicate.related_question_id == first.question_id
     assert first.question_id in duplicate.explanation
     assert dict(result.detector_counts)["complete_duplicate"] == 1
 
@@ -118,3 +119,26 @@ def test_duplicate_is_preserved_until_explicit_whole_record_exclusion() -> None:
     assert len(preserved.questions) == 2
     assert tuple(item.question_id for item in excluded.questions) == ("PFQ-test-000000001",)
     assert excluded.excluded_question_ids == ("PFQ-test-000000002",)
+
+
+def test_duplicate_review_can_explicitly_exclude_either_preserved_record() -> None:
+    questions = (question(), question(question_id="PFQ-test-000000002"))
+    result = detect_candidate_damage(questions)
+    duplicate = next(item for item in result.findings if item.damage_type == "complete_duplicate_record")
+
+    candidate = build_candidate(
+        questions,
+        result.findings,
+        dispositions=(
+            FindingDisposition(
+                disposition_id="PFV2-DISP-DUPLICATE-000002",
+                finding_id=duplicate.finding_id,
+                question_id=duplicate.related_question_id,
+                action=DispositionAction.EXCLUDE_RECORD,
+                reviewer_note="Explicitly chose the related duplicate record for exclusion.",
+            ),
+        ),
+    )
+
+    assert tuple(item.question_id for item in candidate.questions) == ("PFQ-test-000000002",)
+    assert candidate.unresolved_finding_ids == ()

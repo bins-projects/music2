@@ -37,7 +37,7 @@ def build_candidate(
         finding = finding_map.get(disposition.finding_id)
         if finding is None:
             raise DomainError("Disposition must reference an existing finding")
-        if finding.question_id != disposition.question_id:
+        if disposition.question_id not in {finding.question_id, finding.related_question_id}:
             raise DomainError("Disposition and finding question IDs must match")
 
     for proposal in proposals:
@@ -80,6 +80,11 @@ def build_candidate(
         if disposition.action is DispositionAction.EXCLUDE_RECORD
     }))
     excluded_set = set(excluded_question_ids)
+    resolved_findings.update(
+        disposition.finding_id
+        for disposition in dispositions
+        if disposition.action is DispositionAction.EXCLUDE_RECORD
+    )
     for question_id in excluded_question_ids:
         audit_events.append(f"{question_id}:excluded_by_documented_disposition")
 

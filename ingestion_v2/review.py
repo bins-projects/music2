@@ -38,6 +38,7 @@ class ReviewCase:
     disposition: FindingDisposition | None
     status: ReviewStatus
     allowed_actions: tuple[str, ...]
+    related_question: QuestionRecord | None = None
 
 
 @dataclass(frozen=True)
@@ -75,7 +76,7 @@ def build_review_queue(
         finding = finding_by_id.get(disposition.finding_id)
         if finding is None:
             raise DomainError("Review disposition references an unknown finding")
-        if finding.question_id != disposition.question_id:
+        if disposition.question_id not in {finding.question_id, finding.related_question_id}:
             raise DomainError("Review disposition and finding targets must match")
 
     excluded_questions = {
@@ -102,7 +103,9 @@ def build_review_queue(
             verification_by_proposal.get(proposal.proposal_id) if proposal else None
         )
         disposition = disposition_by_finding.get(finding.finding_id)
-        if finding.question_id in excluded_questions:
+        if finding.question_id in excluded_questions or (
+            disposition and disposition.action is DispositionAction.EXCLUDE_RECORD
+        ):
             status, actions = ReviewStatus.EXCLUDED_RECORD, ("restore_record",)
         elif disposition and disposition.action is DispositionAction.RETAIN_BLOCKER:
             status, actions = ReviewStatus.RETAINED_BLOCKER, (
@@ -121,6 +124,11 @@ def build_review_queue(
                 disposition=disposition,
                 status=status,
                 allowed_actions=actions,
+                related_question=(
+                    question_map.get(finding.related_question_id)
+                    if finding.related_question_id
+                    else None
+                ),
             )
         )
 

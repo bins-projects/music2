@@ -33,7 +33,7 @@ from ingestion_v2.pack_bridge import pack_questions_to_domain
 from ingestion_v2.parser_bridge import materialize_matched_batch
 from ingestion_v2.qa_adapter import QaResult, detect_candidate_damage
 from ingestion_v2.proposal_adapter import draft_benchmark_answer_proposals, draft_deterministic_proposals
-from ingestion_v2.checkpoint import write_checkpoint
+from ingestion_v2.checkpoint import proposal_fingerprint, write_checkpoint
 from ingestion_v2.recovery import recover_run
 
 
@@ -492,20 +492,35 @@ class SyntheticWorkbenchSession:
         self._save_checkpoint()
         return self.view()
 
-    def record_disposition(self, finding_id: str, action: str) -> dict:
+    def record_disposition(
+        self, finding_id: str, action: str, target_question_id: str | None = None
+    ) -> dict:
         self._ensure_active_run_if_configured()
         case = self._case(finding_id)
         action_map = {
             "leave_blocked": DispositionAction.RETAIN_BLOCKER,
             "exclude_record": DispositionAction.EXCLUDE_RECORD,
         }
+        if action == "restore_record" and action in case.allowed_actions:
+            self._dispositions_by_finding.pop(finding_id, None)
+            self._candidate = None
+            self._comparison = None
+            self._return_lifecycle_to_review()
+            self._save_checkpoint()
+            return self.view()
         if action not in action_map or action not in case.allowed_actions:
             raise DomainError(f"Disposition is not allowed for current review state: {action}")
+        allowed_targets = {case.finding.question_id}
+        if case.finding.related_question_id:
+            allowed_targets.add(case.finding.related_question_id)
+        target = target_question_id or case.finding.question_id
+        if target not in allowed_targets:
+            raise DomainError("Disposition target is not part of this review finding")
         event_number = len(self._events) + 1
         disposition = FindingDisposition(
             disposition_id=f"PFV2-DISP-SESSION-{event_number:06d}",
             finding_id=finding_id,
-            question_id=case.finding.question_id,
+            question_id=target,
             action=action_map[action],
             reviewer_note="Recorded in synthetic in-memory workbench session.",
         )
@@ -576,6 +591,7 @@ class SyntheticWorkbenchSession:
                 event_type="source_verification:verified",
             )
         )
+        self._save_checkpoint()
         return self.view()
 
     def view_source_page(self, finding_id: str) -> dict:
@@ -712,6 +728,7 @@ class SyntheticWorkbenchSession:
             {
                 "record_id": case.record_id,
                 "chapter": case.chapter,
+                "chapter_title": case.chapter_title,
                 "finding_code": case.finding_code,
                 "parsed_stem": case.parsed_stem,
                 "status": self._identity_actions.get(case.record_id, {}).get("action", "pending"),
@@ -767,6 +784,20 @@ class SyntheticWorkbenchSession:
                         "verified": item.verified,
                     }
                     for item in sorted(self._verifications_by_proposal.values(), key=lambda value: value.verification_id)
+                ],
+                "proposal_fingerprints": [
+                    {
+                        "proposal_id": item.proposal_id,
+                        "fingerprint": proposal_fingerprint(
+                            finding_id=item.finding_id,
+                            question_id=item.question_id,
+                            field=item.field,
+                            expected_before=item.expected_before,
+                            proposed_after=item.proposed_after,
+                            requires_source_verification=item.requires_source_verification,
+                        ),
+                    }
+                    for item in sorted(self.proposals, key=lambda value: value.proposal_id)
                 ],
                 "dispositions": [
                     {

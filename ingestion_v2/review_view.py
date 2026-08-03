@@ -18,6 +18,8 @@ def review_queue_view(queue: ReviewQueue) -> dict:
                 "finding_id": case.finding.finding_id,
                 "question_id": case.question.question_id,
                 "chapter": case.question.chapter,
+                "chapter_title": case.question.chapter_title,
+                "source_record_id": case.question.source_record_id,
                 "question_type": case.question.question_type,
                 "field": case.finding.field,
                 "damage_type": case.finding.damage_type,
@@ -41,9 +43,21 @@ def review_queue_view(queue: ReviewQueue) -> dict:
                 "source_verification_recorded": bool(
                     case.verification and case.verification.verified
                 ),
+                "related_question": (
+                    {
+                        "question_id": case.related_question.question_id,
+                        "chapter": case.related_question.chapter,
+                        "chapter_title": case.related_question.chapter_title,
+                        "source_record_id": case.related_question.source_record_id,
+                        "stem": case.related_question.stem,
+                    }
+                    if case.related_question
+                    else None
+                ),
                 "disposition": (
                     {
                         "disposition_id": case.disposition.disposition_id,
+                        "question_id": case.disposition.question_id,
                         "action": case.disposition.action.value,
                         "reviewer_note": case.disposition.reviewer_note,
                     }

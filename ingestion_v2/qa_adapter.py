@@ -92,6 +92,7 @@ def detect_candidate_damage(questions: tuple[QuestionRecord, ...]) -> QaResult:
     )
 
     duplicate_records = _complete_same_chapter_duplicates(questions)
+    duplicate_related = dict(duplicate_records)
     raw.extend(
         (
             duplicate_id,
@@ -110,6 +111,11 @@ def detect_candidate_damage(questions: tuple[QuestionRecord, ...]) -> QaResult:
             damage_type=damage_type,
             severity=FindingSeverity.BLOCKING,
             explanation=explanation,
+            related_question_id=(
+                duplicate_related.get(question_id)
+                if damage_type == "complete_duplicate_record"
+                else None
+            ),
         )
         for index, (question_id, field, damage_type, explanation) in enumerate(raw, start=1)
     )

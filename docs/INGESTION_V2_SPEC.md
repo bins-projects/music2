@@ -362,6 +362,15 @@ Completed summaries are shown only after owned source-bearing artifacts are
 confirmed removed. The public `web/` study runtime has an automated dependency
 boundary test and must not reference this engine or its local APIs.
 
+Every review case exposes its source chapter title and temporary source-record
+ID alongside the stable PrepFlow ID. Complete-duplicate review shows both
+preserved records with their chapter context and requires the reviewer to choose
+the exact stable ID to exclude; either record may be selected, and no exclusion
+is inferred from numeric ID order. Edited proposal content remains absent from
+checkpoints. A SHA-256 fingerprint over the deterministic proposal identity and
+values permits exact regenerated proposals to recover prior decisions while
+still refusing any proposal whose content cannot be reproduced.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

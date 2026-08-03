@@ -40,6 +40,7 @@ class QuestionRecord:
     correct_answers: tuple[str, ...] = ()
     rationale: str = ""
     chapter_title: str = ""
+    source_record_id: str | None = None
 
     def __post_init__(self) -> None:
         if not QUESTION_ID_RE.fullmatch(self.question_id):
@@ -49,6 +50,8 @@ class QuestionRecord:
             raise DomainError("Choices require non-empty labels and text")
         if len(labels) != len(set(labels)):
             raise DomainError("Choice labels must be unique")
+        if self.source_record_id is not None and not re.fullmatch(r"PFV2-REC-\d{6}", self.source_record_id):
+            raise DomainError("Source record ID must be a temporary v2 record ID")
 
 
 @dataclass(frozen=True)
@@ -59,12 +62,15 @@ class Finding:
     damage_type: str
     severity: FindingSeverity
     explanation: str
+    related_question_id: str | None = None
 
     def __post_init__(self) -> None:
         _validate_reference(self.finding_id, "PFV2-FIND-")
         _validate_question_and_field(self.question_id, self.field)
         if not self.damage_type or not self.explanation:
             raise DomainError("Finding type and explanation are required")
+        if self.related_question_id is not None and not QUESTION_ID_RE.fullmatch(self.related_question_id):
+            raise DomainError("Related question ID must be a stable PrepFlow ID")
 
 
 @dataclass(frozen=True)

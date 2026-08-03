@@ -9,6 +9,8 @@ def test_review_view_is_source_neutral_and_explicitly_non_promoting() -> None:
     question = QuestionRecord(
         question_id="PFQ-synthetic-000000001",
         chapter=1,
+        chapter_title="Source Chapter Name",
+        source_record_id="PFV2-REC-000001",
         question_type="mc",
         stem="Preserved synthetic damage",
         choices=(("A", "First"), ("B", "Second")),
@@ -39,6 +41,8 @@ def test_review_view_is_source_neutral_and_explicitly_non_promoting() -> None:
 
     assert payload["cases"][0]["preserved_value"] == "Preserved synthetic damage"
     assert payload["cases"][0]["status"] == "awaiting_decision"
+    assert payload["cases"][0]["chapter_title"] == "Source Chapter Name"
+    assert payload["cases"][0]["source_record_id"] == "PFV2-REC-000001"
     assert payload["capabilities"]["promote_canonical"] is False
     assert "source_path" not in serialized
     assert "filename" not in serialized

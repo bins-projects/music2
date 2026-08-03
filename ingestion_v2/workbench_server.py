@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from ingestion_v2.domain import DomainError
+from ingestion_v2.recovery import list_recoverable_runs
 from ingestion_v2.workbench_session import SyntheticWorkbenchSession
 from compiler.repair import load_pack
 
@@ -16,10 +17,11 @@ IDENTITY_PACKS = {
     "fundamentals": PROJECT_DIRECTORY / "packs" / "fundamentals.prepflow.json",
     "medical_surgical": PROJECT_DIRECTORY / "packs" / "medical_surgical.prepflow.json",
 }
+RUNS_DIRECTORY = PROJECT_DIRECTORY / "output" / "v2-runs"
 
 
 class WorkbenchHandler(SimpleHTTPRequestHandler):
-    session = SyntheticWorkbenchSession(workspace_root=Path("output/v2-runs"))
+    session = SyntheticWorkbenchSession(workspace_root=RUNS_DIRECTORY)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(WORKBENCH_DIRECTORY), **kwargs)
@@ -27,6 +29,11 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path == "/api/review":
             self._send_json(self.session.view())
+            return
+        if self.path == "/api/runs/resumable":
+            self._send_json(
+                {"runs": list(list_recoverable_runs(RUNS_DIRECTORY, set(IDENTITY_PACKS)))}
+            )
             return
         super().do_GET()
 
@@ -66,6 +73,19 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 payload = self.session.complete_run()
             elif self.path == "/api/run/cleanup":
                 payload = self.session.cleanup_run()
+            elif self.path == "/api/run/resume":
+                run_id = body.get("run_id")
+                pack_id = body.get("pack_id")
+                if pack_id not in IDENTITY_PACKS or not isinstance(run_id, str):
+                    raise DomainError("A protected Pack and private run ID are required")
+                run_directory = RUNS_DIRECTORY / run_id
+                if run_directory.parent != RUNS_DIRECTORY or not run_id.startswith("v2-run-"):
+                    raise DomainError("Private run ID is invalid")
+                resumed = SyntheticWorkbenchSession.resume_run(
+                    run_directory, load_pack(IDENTITY_PACKS[pack_id])
+                )
+                type(self).session = resumed
+                payload = resumed.view()
             elif self.path == "/api/identity/existing-pack":
                 pack_id = body.get("pack_id")
                 if pack_id not in IDENTITY_PACKS:
@@ -143,7 +163,7 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the local synthetic PrepFlow v2 workbench.")
+    parser = argparse.ArgumentParser(description="Run the local private PrepFlow v2 workbench.")
     parser.add_argument("--port", type=int, default=8765)
     return parser
 
@@ -153,8 +173,8 @@ def main() -> None:
     if not 1024 <= args.port <= 65535:
         raise SystemExit("Port must be between 1024 and 65535")
     server = ThreadingHTTPServer(("127.0.0.1", args.port), WorkbenchHandler)
-    print(f"PrepFlow v2 synthetic workbench: http://127.0.0.1:{args.port}/")
-    print("In-memory synthetic mode; no persistence, Pack writes, or promotion.")
+    print(f"PrepFlow v2 private workbench: http://127.0.0.1:{args.port}/")
+    print("Private checkpoints enabled; no canonical Pack writes or promotion.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

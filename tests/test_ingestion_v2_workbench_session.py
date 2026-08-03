@@ -8,6 +8,7 @@ from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 from ingestion_v2.demo import SYNTHETIC_DOCUMENT
 
 from ingestion_v2.domain import DomainError
+from ingestion_v2.recovery import list_recoverable_runs
 from ingestion_v2.workbench_session import SyntheticWorkbenchSession
 
 
@@ -787,6 +788,15 @@ def test_active_compared_pdf_run_resumes_to_exact_same_candidate_and_comparison(
     original.build_isolated_candidate()
     before = original.compare_isolated_candidate()
     run_directory = original._lifecycle.run_directory
+
+    available = list_recoverable_runs(tmp_path / "runs", {"test"})
+    assert available == ({
+        "run_id": run_directory.name,
+        "pack_id": "test",
+        "stage": "compared",
+        "parsed_records": 1,
+        "finding_count": 0,
+    },)
 
     resumed = SyntheticWorkbenchSession.resume_run(run_directory, target)
     after = resumed.view()

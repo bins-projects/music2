@@ -4,6 +4,7 @@
   let payload = window.PREPFLOW_REVIEW_DEMO;
   let cases = payload.cases.map((item) => ({ ...item }));
   let selectedIndex = 0;
+  let resumableRun = null;
 
   const labels = {
     approve: "Approve proposal",
@@ -480,6 +481,23 @@
   }
 
   document.getElementById("start-run-button").addEventListener("click", () => runCommand("/api/run/start"));
+  document.getElementById("resume-run-button").addEventListener("click", async () => {
+    if (!resumableRun) return;
+    try {
+      const response = await fetch("/api/run/resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ run_id: resumableRun.run_id, pack_id: resumableRun.pack_id })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Previous review could not be restored.");
+      resumableRun = null;
+      document.getElementById("resume-run-button").hidden = true;
+      acceptEnginePayload(result);
+    } catch (error) {
+      document.getElementById("decision-help").textContent = error.message;
+    }
+  });
   document.getElementById("complete-run-button").addEventListener("click", () => runCommand("/api/run/complete"));
   document.getElementById("cleanup-run-button").addEventListener("click", () => runCommand("/api/run/cleanup"));
   document.getElementById("materialize-identity-button").addEventListener("click", () => runCommand("/api/identity/materialize"));
@@ -525,9 +543,31 @@
     payload = result;
     cases = result.cases.map((item) => ({ ...item }));
     selectedIndex = Math.max(0, cases.findIndex((item) => item.finding_id === selectedFinding));
-    document.getElementById("connection-badge").innerHTML = "<span></span> Engine connected · in memory";
-    document.getElementById("decision-help").textContent = `Validated by Python engine · ${result.session.event_count} session event(s) · nothing saved to disk.`;
+    document.getElementById("connection-badge").innerHTML = result.session.private_checkpoint
+      ? "<span></span> Engine connected · private checkpoint"
+      : "<span></span> Engine connected · in memory";
+    document.getElementById("decision-help").textContent = result.session.private_checkpoint
+      ? `Validated by Python engine · ${result.session.event_count} session event(s) · private checkpoint saved; canonical Pack unchanged.`
+      : `Validated by Python engine · ${result.session.event_count} session event(s) · no canonical write.`;
     render();
+  }
+
+  function discoverResumableRun() {
+    fetch("/api/runs/resumable", { headers: { "Accept": "application/json" } })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Resume discovery failed.");
+        resumableRun = result.runs.at(-1) || null;
+        const button = document.getElementById("resume-run-button");
+        button.hidden = !resumableRun;
+        if (resumableRun) {
+          button.textContent = `Continue previous ${resumableRun.pack_id.replaceAll("_", "-")} review`;
+        }
+      })
+      .catch(() => {
+        resumableRun = null;
+        document.getElementById("resume-run-button").hidden = true;
+      });
   }
 
   fetch("/api/review", { headers: { "Accept": "application/json" } })
@@ -535,7 +575,10 @@
       if (!response.ok) throw new Error("Engine unavailable");
       return response.json();
     })
-    .then(acceptEnginePayload)
+    .then((result) => {
+      acceptEnginePayload(result);
+      if (result.run?.state === "not_started") discoverResumableRun();
+    })
     .catch(() => {
       document.getElementById("connection-badge").innerHTML = "<span></span> Standalone mock · no writes";
       render();

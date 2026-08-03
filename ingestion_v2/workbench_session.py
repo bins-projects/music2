@@ -116,7 +116,8 @@ class SyntheticWorkbenchSession:
         payload["capabilities"]["compare_isolated_candidate"] = True
         payload["session"] = {
             "mode": "synthetic_in_memory",
-            "persistent": False,
+            "persistent": self._lifecycle is not None,
+            "private_checkpoint": self._lifecycle is not None,
             "event_count": len(self._events),
             "events": [event.__dict__ for event in self._events],
         }

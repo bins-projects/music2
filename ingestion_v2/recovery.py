@@ -40,6 +40,43 @@ class RecoveredRun:
     comparison: ComparisonReport | None
 
 
+def list_recoverable_runs(workspace_root: Path, protected_pack_ids: set[str]) -> tuple[dict, ...]:
+    """Return source-neutral summaries of active runs that have safe checkpoints."""
+    root = Path(workspace_root)
+    if root.is_symlink() or not root.is_dir():
+        return ()
+    summaries = []
+    for run_directory in root.iterdir():
+        if run_directory.is_symlink() or not run_directory.is_dir():
+            continue
+        try:
+            lifecycle = RunLifecycle.open(run_directory)
+            manifest = lifecycle.manifest()
+            checkpoint = read_checkpoint(run_directory)
+            pack_id = checkpoint["target_pack_id"]
+            cleaned = run_directory / "artifacts" / "cleaned.txt"
+            if (
+                manifest.get("status") != "running"
+                or manifest.get("stage") in {"created", "staged", "extracted", "cleaned", "completed", "failed", "failed_cleaned"}
+                or pack_id not in protected_pack_ids
+                or cleaned.is_symlink()
+                or not cleaned.is_file()
+            ):
+                continue
+            summaries.append(
+                {
+                    "run_id": manifest["run_id"],
+                    "pack_id": pack_id,
+                    "stage": manifest["stage"],
+                    "parsed_records": manifest.get("parsed_records", 0),
+                    "finding_count": manifest.get("finding_count", 0),
+                }
+            )
+        except (DomainError, OSError):
+            continue
+    return tuple(sorted(summaries, key=lambda item: item["run_id"]))
+
+
 def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
     lifecycle = RunLifecycle.open(run_directory)
     manifest = lifecycle.manifest()

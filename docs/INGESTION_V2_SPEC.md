@@ -348,6 +348,13 @@ Pack, an identity action that no longer matches, a decision whose proposal canno
 be reproduced, or comparison totals that differ from the checkpoint. Resume does
 not write canonical data and does not turn a proposal into authorization.
 
+The local workbench discovers only validated, source-bearing active runs under
+its owned private run root. It exposes a source-neutral summary and a
+`Continue previous review` action; the browser never supplies a filesystem path.
+The server resolves the run ID inside that fixed root and reloads the selected
+protected Pack before recovery. The interface explicitly distinguishes the
+private checkpoint write from the unavailable canonical write.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

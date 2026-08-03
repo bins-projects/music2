@@ -355,6 +355,13 @@ The server resolves the run ID inside that fixed root and reloads the selected
 protected Pack before recovery. The interface explicitly distinguishes the
 private checkpoint write from the unavailable canonical write.
 
+The private workbench home offers new PDF intake, validated active-run resume,
+and content-free completed-run summaries. Starting a new book records the chosen
+protected comparison Pack before the interface advances to identity review.
+Completed summaries are shown only after owned source-bearing artifacts are
+confirmed removed. The public `web/` study runtime has an automated dependency
+boundary test and must not reference this engine or its local APIs.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

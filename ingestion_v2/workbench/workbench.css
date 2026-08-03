@@ -51,6 +51,23 @@ h2 { font-size: 18px; letter-spacing: -.015em; }
 .safety-badge span { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
 
 main { padding: 24px clamp(18px, 4vw, 64px) 48px; }
+.factory-home { margin-bottom: 18px; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: rgba(15, 24, 26, .96); }
+.factory-home[hidden] { display: none; }
+.home-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
+.home-heading h2 { margin-top: 6px; font-size: 25px; }
+.home-heading > p { max-width: 620px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.home-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.home-card { display: grid; align-content: start; gap: 10px; min-width: 0; padding: 17px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.home-card > span { display: grid; place-items: center; width: 25px; height: 25px; color: #071513; border-radius: 50%; background: var(--cyan); font-weight: 900; }
+.home-card h3 { margin: 0; font-size: 17px; }
+.home-card p, .home-card label { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.home-card label { margin-top: 5px; font-weight: 700; }
+.home-card select, .home-card button { width: 100%; padding: 10px 11px; color: var(--ink); border: 1px solid #405257; border-radius: 8px; background: #101b1d; }
+.home-card button { cursor: pointer; }
+.home-card button:disabled { color: #738083; cursor: not-allowed; }
+.home-card:first-child button { color: #071513; border-color: var(--cyan); background: var(--cyan); font-weight: 800; }
+.completed-runs { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }
+.completed-run { padding: 8px 9px; border: 1px solid var(--line); border-radius: 7px; background: #101b1d; }
 .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--line); }
 .summary > div { display: flex; flex-direction: column; gap: 4px; padding: 17px 20px; background: #0f181a; }
 .summary strong { font-size: 22px; }
@@ -151,6 +168,8 @@ dialog .check-row { display: flex; align-items: center; gap: 9px; }
 .dialog-actions button { padding: 10px 13px; color: var(--ink); border: 1px solid #405257; border-radius: 8px; background: #1b292c; cursor: pointer; }
 
 @media (max-width: 850px) {
+  .home-grid { grid-template-columns: 1fr; }
+  .home-heading { align-items: flex-start; flex-direction: column; }
   .workspace, .comparison-grid { grid-template-columns: 1fr; }
   .summary { grid-template-columns: 1fr 1fr; }
   .queue-panel { max-height: 320px; overflow: auto; }

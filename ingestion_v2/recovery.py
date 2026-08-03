@@ -77,6 +77,42 @@ def list_recoverable_runs(workspace_root: Path, protected_pack_ids: set[str]) ->
     return tuple(sorted(summaries, key=lambda item: item["run_id"]))
 
 
+def list_completed_runs(workspace_root: Path, protected_pack_ids: set[str]) -> tuple[dict, ...]:
+    """Return content-free summaries of successfully cleaned private runs."""
+    root = Path(workspace_root)
+    if root.is_symlink() or not root.is_dir():
+        return ()
+    summaries = []
+    for run_directory in root.iterdir():
+        if run_directory.is_symlink() or not run_directory.is_dir():
+            continue
+        try:
+            manifest = RunLifecycle.open(run_directory).manifest()
+            pack_id = manifest.get("identity_target_pack_id")
+            artifacts = run_directory / "artifacts"
+            if (
+                manifest.get("stage") != "completed"
+                or manifest.get("status") != "success"
+                or manifest.get("source_bearing_artifacts_removed") is not True
+                or pack_id not in protected_pack_ids
+                or any((artifacts / name).exists() for name in ("raw.txt", "cleaned.txt"))
+            ):
+                continue
+            summaries.append(
+                {
+                    "run_id": manifest["run_id"],
+                    "pack_id": pack_id,
+                    "stage": "completed",
+                    "parsed_records": manifest.get("parsed_records", 0),
+                    "candidate_questions": manifest.get("candidate_question_count", 0),
+                    "field_changes": manifest.get("comparison_field_changes", 0),
+                }
+            )
+        except (DomainError, OSError):
+            continue
+    return tuple(sorted(summaries, key=lambda item: item["run_id"], reverse=True))
+
+
 def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
     lifecycle = RunLifecycle.open(run_directory)
     manifest = lifecycle.manifest()

@@ -5,6 +5,7 @@
   let cases = payload.cases.map((item) => ({ ...item }));
   let selectedIndex = 0;
   let resumableRun = null;
+  let selectedNewRunPack = null;
 
   const labels = {
     approve: "Approve proposal",
@@ -293,6 +294,7 @@
     const pdfButton = document.querySelector("label[for='pdf-input']");
     const identityButtons = document.querySelectorAll(".identity-button");
     const materializeIdentity = document.getElementById("materialize-identity-button");
+    document.getElementById("factory-home").hidden = !["not_started", "completed"].includes(run.state);
     state.textContent = run.state.replaceAll("_", " ");
     if (["not_started", "completed"].includes(run.state)) {
       artifacts.textContent = "No disposable source or text artifacts.";
@@ -481,6 +483,10 @@
   }
 
   document.getElementById("start-run-button").addEventListener("click", () => runCommand("/api/run/start"));
+  document.getElementById("new-run-button").addEventListener("click", () => {
+    selectedNewRunPack = document.getElementById("new-run-pack").value;
+    document.getElementById("pdf-input").click();
+  });
   document.getElementById("resume-run-button").addEventListener("click", async () => {
     if (!resumableRun) return;
     try {
@@ -492,7 +498,7 @@
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Previous review could not be restored.");
       resumableRun = null;
-      document.getElementById("resume-run-button").hidden = true;
+      document.getElementById("resume-run-button").disabled = true;
       acceptEnginePayload(result);
     } catch (error) {
       document.getElementById("decision-help").textContent = error.message;
@@ -531,9 +537,20 @@
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "PDF intake failed.");
       acceptEnginePayload(result);
+      if (selectedNewRunPack) {
+        const packResponse = await fetch("/api/identity/existing-pack", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pack_id: selectedNewRunPack })
+        });
+        const packResult = await packResponse.json();
+        if (!packResponse.ok) throw new Error(packResult.error || "Pack comparison could not begin.");
+        acceptEnginePayload(packResult);
+      }
     } catch (error) {
       document.getElementById("decision-help").textContent = error.message;
     } finally {
+      selectedNewRunPack = null;
       event.target.value = "";
     }
   });
@@ -552,21 +569,35 @@
     render();
   }
 
-  function discoverResumableRun() {
-    fetch("/api/runs/resumable", { headers: { "Accept": "application/json" } })
+  function discoverPrivateRuns() {
+    fetch("/api/runs", { headers: { "Accept": "application/json" } })
       .then(async (response) => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Resume discovery failed.");
-        resumableRun = result.runs.at(-1) || null;
+        resumableRun = result.resumable.at(-1) || null;
         const button = document.getElementById("resume-run-button");
-        button.hidden = !resumableRun;
+        button.disabled = !resumableRun;
+        document.getElementById("resume-summary").textContent = resumableRun
+          ? `${resumableRun.pack_id.replaceAll("_", "-")} · ${resumableRun.stage.replaceAll("_", " ")} · ${resumableRun.parsed_records} parsed records`
+          : "No validated unfinished review was found.";
         if (resumableRun) {
           button.textContent = `Continue previous ${resumableRun.pack_id.replaceAll("_", "-")} review`;
+        } else {
+          button.textContent = "Nothing to continue";
         }
+        const completed = document.getElementById("completed-runs");
+        completed.replaceChildren();
+        if (!result.completed.length) completed.textContent = "No completed private runs yet.";
+        result.completed.forEach((run) => {
+          const summary = document.createElement("div");
+          summary.className = "completed-run";
+          summary.textContent = `${run.pack_id.replaceAll("_", "-")} · ${run.candidate_questions} candidate questions · ${run.field_changes} compared field changes`;
+          completed.append(summary);
+        });
       })
       .catch(() => {
         resumableRun = null;
-        document.getElementById("resume-run-button").hidden = true;
+        document.getElementById("resume-run-button").disabled = true;
       });
   }
 
@@ -577,7 +608,7 @@
     })
     .then((result) => {
       acceptEnginePayload(result);
-      if (result.run?.state === "not_started") discoverResumableRun();
+      if (["not_started", "completed"].includes(result.run?.state)) discoverPrivateRuns();
     })
     .catch(() => {
       document.getElementById("connection-badge").innerHTML = "<span></span> Standalone mock · no writes";

@@ -37,6 +37,10 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
         "comparison-changes",
         "start-run-button",
         "resume-run-button",
+        "factory-home",
+        "new-run-button",
+        "new-run-pack",
+        "completed-runs",
         "complete-run-button",
         "cleanup-run-button",
         "run-cleaning",
@@ -54,7 +58,8 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
     assert '"/api/run/complete"' in script
     assert '"/api/run/start-pdf"' in script
     assert '"/api/run/resume"' in script
-    assert '"/api/runs/resumable"' in script
+    assert '"/api/runs"' in script
+    assert "The public study app does not use this engine" in html
     assert '"/api/run/cleanup"' in script
     assert 'headers: { "Content-Type": "application/pdf" }' in script
     assert "FormData" not in script

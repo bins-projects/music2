@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from ingestion_v2.domain import DomainError
-from ingestion_v2.recovery import list_recoverable_runs
+from ingestion_v2.recovery import list_completed_runs, list_recoverable_runs
 from ingestion_v2.workbench_session import SyntheticWorkbenchSession
 from compiler.repair import load_pack
 
@@ -33,6 +33,15 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/runs/resumable":
             self._send_json(
                 {"runs": list(list_recoverable_runs(RUNS_DIRECTORY, set(IDENTITY_PACKS)))}
+            )
+            return
+        if self.path == "/api/runs":
+            protected = set(IDENTITY_PACKS)
+            self._send_json(
+                {
+                    "resumable": list(list_recoverable_runs(RUNS_DIRECTORY, protected)),
+                    "completed": list(list_completed_runs(RUNS_DIRECTORY, protected)),
+                }
             )
             return
         super().do_GET()

@@ -16,6 +16,32 @@
     </header>
 
     <main>
+      <section id="factory-home" class="factory-home" aria-label="Private factory start">
+        <div class="home-heading">
+          <div><p class="eyebrow">PRIVATE FACTORY</p><h2>What would you like to do?</h2></div>
+          <p>Source documents and review artifacts stay in this private workspace. The public study app does not use this engine.</p>
+        </div>
+        <div class="home-grid">
+          <article class="home-card">
+            <span>1</span><h3>Start a new book</h3>
+            <p>Create an isolated run and compare it with a protected existing Pack.</p>
+            <label for="new-run-pack">Comparison Pack</label>
+            <select id="new-run-pack"><option value="fundamentals">Fundamentals</option><option value="medical_surgical">Medical-Surgical</option></select>
+            <button id="new-run-button" type="button">Choose PDF and begin</button>
+          </article>
+          <article class="home-card">
+            <span>2</span><h3>Continue a review</h3>
+            <p id="resume-summary">No validated unfinished review was found.</p>
+            <button id="resume-run-button" type="button" disabled>Nothing to continue</button>
+          </article>
+          <article class="home-card">
+            <span>3</span><h3>Completed results</h3>
+            <p>Content-free audit summaries; source artifacts have already been removed.</p>
+            <div id="completed-runs" class="completed-runs">No completed private runs yet.</div>
+          </article>
+        </div>
+      </section>
+
       <section class="summary" aria-label="Review queue summary">
         <div><strong id="case-count">0</strong><span>review cases</span></div>
         <div><strong id="blocking-count">0</strong><span>blocking</span></div>
@@ -36,7 +62,6 @@
         </div>
         <div class="run-actions">
           <button id="start-run-button" type="button">Start synthetic run</button>
-          <button id="resume-run-button" type="button" hidden>Continue previous review</button>
           <label class="pdf-button" for="pdf-input">Choose PDF</label>
           <input id="pdf-input" type="file" accept="application/pdf,.pdf" hidden>
           <button id="complete-run-button" type="button" disabled>Complete and clean run</button>

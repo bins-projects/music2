@@ -11,6 +11,7 @@ from ingestion_v2.domain import DomainError, QUESTION_ID_RE
 RECORD_ID_RE = re.compile(r"^PFV2-REC-\d{6}$")
 REFERENCE_RE = re.compile(r"^PFV2-(?:PROP|FIND|DEC|VERIFY|DISP)-[A-Za-z0-9-]+$")
 FINGERPRINT_RE = re.compile(r"^[a-f0-9]{64}$")
+GROUP_ID_RE = re.compile(r"^PFV2-GROUP-[a-f0-9]{16}$")
 ACTIONS = {"approve", "reject", "defer", "exclude_record", "retain_blocker"}
 FORBIDDEN_KEYS = {
     "text", "stem", "choices", "rationale", "source_path", "filename",
@@ -85,6 +86,14 @@ def validate_checkpoint(payload: dict, *, run_id: str) -> dict:
             or not FINGERPRINT_RE.fullmatch(str(item.get("fingerprint") or ""))
         ):
             raise DomainError("Checkpoint contains an invalid proposal fingerprint")
+    group_decisions = payload.get("comparison_group_decisions", [])
+    if not isinstance(group_decisions, list) or any(
+        not isinstance(item, dict)
+        or not GROUP_ID_RE.fullmatch(str(item.get("group_id") or ""))
+        or item.get("action") != "approve_exact_group"
+        for item in group_decisions
+    ):
+        raise DomainError("Checkpoint contains an invalid comparison group decision")
     counts = payload.get("comparison_counts", {})
     if not isinstance(counts, dict) or any(not isinstance(value, int) or value < 0 for value in counts.values()):
         raise DomainError("Checkpoint comparison counts are invalid")

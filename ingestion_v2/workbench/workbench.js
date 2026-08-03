@@ -445,7 +445,15 @@
       const identityStatus = payload.comparison.stable_ids_exact ? "stable IDs exact" : "all ID differences documented";
       comparisonDetail.textContent = `Comparison complete · ${identityStatus} · ${payload.comparison.field_change_count} changed field(s).`;
       const contextById = new Map((payload.comparison.question_context || []).map((item) => [item.question_id, item]));
-      comparisonChanges.innerHTML = payload.comparison.field_changes.map((change) => {
+      const groupCards = (payload.comparison.exact_contaminant_groups || []).map((group) => (
+        `<section class="contaminant-group-card">
+          <b>Exact contaminant group · ${group.match_count} matches</b>
+          <code>${escapeHtml(group.contaminant)}</code>
+          <small>${group.occurrences.map((item) => `${escapeHtml(item.question_id)} · ${escapeHtml(item.field)}`).join("<br>")}</small>
+          <button type="button" data-group-id="${escapeHtml(group.group_id)}">Approve exact group correction</button>
+        </section>`
+      )).join("");
+      const changeCards = payload.comparison.field_changes.map((change) => {
         const context = contextById.get(change.question_id) || {};
         const chapter = context.candidate || context.benchmark || {};
         return `<section class="comparison-change-card">
@@ -457,11 +465,31 @@
           <div><em>Reference correct answer</em>${formatCorrectAnswerContext(context.benchmark)}</div>
         </section>`;
       }).join("");
+      comparisonChanges.innerHTML = groupCards + changeCards;
+      comparisonChanges.querySelectorAll("[data-group-id]").forEach((groupButton) => {
+        groupButton.addEventListener("click", () => approveExactGroup(groupButton.dataset.groupId));
+      });
       comparisonButton.textContent = "Run comparison again";
     } else {
       comparisonDetail.textContent = "Comparison has not run for this candidate.";
       comparisonChanges.replaceChildren();
       comparisonButton.textContent = "Compare with benchmark";
+    }
+  }
+
+  async function approveExactGroup(groupId) {
+    try {
+      const response = await fetch("/api/comparison/groups/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group_id: groupId })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Exact group correction was rejected.");
+      acceptEnginePayload(result);
+      document.getElementById("decision-help").textContent = "Exact group correction applied to the isolated candidate; full QA and comparison reran.";
+    } catch (error) {
+      document.getElementById("decision-help").textContent = error.message;
     }
   }
 

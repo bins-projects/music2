@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ingestion_v2.checkpoint import proposal_fingerprint, read_checkpoint
 from ingestion_v2.comparison import ComparisonReport, compare_candidate
+from ingestion_v2.comparison_groups import apply_exact_contaminant_group
 from ingestion_v2.domain import (
     Candidate, DispositionAction, DomainError, Finding, FindingDisposition,
     Proposal, QuestionRecord, ReviewAction, ReviewDecision, SourceVerification,
@@ -38,6 +39,8 @@ class RecoveredRun:
     qa_result: QaResult
     candidate: Candidate | None
     comparison: ComparisonReport | None
+    comparison_group_ids: tuple[str, ...] = ()
+    post_group_qa_result: QaResult | None = None
 
 
 def list_recoverable_runs(workspace_root: Path, protected_pack_ids: set[str]) -> tuple[dict, ...]:
@@ -212,6 +215,14 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
     counts = checkpoint["comparison_counts"]
     if manifest["stage"] in {"candidate_built", "compared"} or counts:
         candidate = build_candidate(questions, findings, proposals, decisions, verifications, dispositions)
+    comparison_group_ids = tuple(
+        item["group_id"] for item in checkpoint.get("comparison_group_decisions", [])
+    )
+    post_group_qa = None
+    for group_id in comparison_group_ids:
+        candidate, _ = apply_exact_contaminant_group(candidate, benchmark, group_id)
+    if comparison_group_ids:
+        post_group_qa = detect_candidate_damage(candidate.questions)
     if counts:
         comparison = compare_candidate(candidate, benchmark)
         expected = {
@@ -224,5 +235,5 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
     return RecoveredRun(
         lifecycle, batch, report, cases, identity_actions, mapping, questions,
         findings, proposals, decisions, verifications, dispositions, benchmark,
-        qa, candidate, comparison,
+        qa, candidate, comparison, comparison_group_ids, post_group_qa,
     )

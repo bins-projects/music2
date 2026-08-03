@@ -159,6 +159,10 @@ main { padding: 24px clamp(18px, 4vw, 64px) 48px; }
 .comparison-change-card > small { color: var(--muted); }
 .comparison-change-card > div { display: grid; gap: 4px; padding-top: 7px; color: #d8e2e3; border-top: 1px solid var(--line); font: 11px/1.45 ui-monospace, monospace; overflow-wrap: anywhere; }
 .comparison-change-card em { color: var(--amber); font-style: normal; font-weight: 800; text-transform: uppercase; }
+.contaminant-group-card { display: grid; gap: 9px; margin: 10px 0; padding: 13px; border: 1px solid #73592e; border-radius: 9px; background: #2a2113; }
+.contaminant-group-card code { padding: 8px; color: #ffe0a6; border-radius: 6px; background: #171006; overflow-wrap: anywhere; }
+.contaminant-group-card small { color: #cdbd9e; line-height: 1.5; }
+.contaminant-group-card button { justify-self: start; padding: 9px 11px; color: #071513; border: 1px solid var(--cyan); border-radius: 7px; background: var(--cyan); font-weight: 800; cursor: pointer; }
 .candidate-actions { display: flex; gap: 9px; }
 .candidate-panel button { padding: 10px 13px; color: #071513; border: 1px solid var(--cyan); border-radius: 8px; background: var(--cyan); font-weight: 800; cursor: pointer; }
 .candidate-panel #comparison-button { color: var(--ink); border-color: #405257; background: #1b292c; }

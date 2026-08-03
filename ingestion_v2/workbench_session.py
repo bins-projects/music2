@@ -17,6 +17,11 @@ from ingestion_v2.domain import (
 )
 from ingestion_v2.engine import build_candidate, promotion_readiness
 from ingestion_v2.comparison import compare_candidate, comparison_view
+from ingestion_v2.comparison_groups import (
+    apply_exact_contaminant_group,
+    contaminant_group_view,
+    detect_exact_contaminant_groups,
+)
 from ingestion_v2.review import ReviewStatus, build_review_queue
 from ingestion_v2.review_view import review_queue_view
 from ingestion_v2.run_lifecycle import RunLifecycle
@@ -72,6 +77,8 @@ class SyntheticWorkbenchSession:
         self._qa_result: QaResult | None = None
         self._source_pages: tuple[str, ...] = ()
         self._viewed_source_findings: set[str] = set()
+        self._approved_comparison_group_ids: set[str] = set()
+        self._post_group_qa_result: QaResult | None = None
         self._last_cleanup = None
 
     @classmethod
@@ -101,6 +108,8 @@ class SyntheticWorkbenchSession:
         }
         session._candidate = recovered.candidate
         session._comparison = recovered.comparison
+        session._approved_comparison_group_ids = set(recovered.comparison_group_ids)
+        session._post_group_qa_result = recovered.post_group_qa_result
         raw_path = Path(run_directory) / "artifacts" / "raw.txt"
         if raw_path.is_file() and not raw_path.is_symlink():
             session._source_pages = tuple(raw_path.read_text(encoding="utf-8").split("\n\f\n"))
@@ -560,6 +569,38 @@ class SyntheticWorkbenchSession:
         self._save_checkpoint()
         return self.view()
 
+    def approve_comparison_group(self, group_id: str) -> dict:
+        self._ensure_active_run_if_configured()
+        if self._candidate is None or self._comparison is None:
+            raise DomainError("Build and compare an isolated candidate before group review")
+        benchmark = self._benchmark_questions or self.questions
+        self._candidate, group = apply_exact_contaminant_group(
+            self._candidate, benchmark, group_id
+        )
+        self._approved_comparison_group_ids.add(group.group_id)
+        self._post_group_qa_result = detect_candidate_damage(self._candidate.questions)
+        self._comparison = compare_candidate(self._candidate, benchmark)
+        if self._lifecycle is not None:
+            self._lifecycle.return_to_review()
+            self._lifecycle.record_candidate(
+                question_count=len(self._candidate.questions),
+                unresolved_findings=len(self._post_group_qa_result.findings),
+            )
+            self._lifecycle.record_comparison(
+                field_changes=len(self._comparison.field_changes),
+                id_accounting_complete=self._comparison.id_accounting_complete,
+            )
+        event_number = len(self._events) + 1
+        self._events.append(
+            SessionEvent(
+                event_id=f"PFV2-EVENT-{event_number:06d}",
+                finding_id=group.group_id,
+                event_type="comparison_group:approved_exact_scope_and_rechecked",
+            )
+        )
+        self._save_checkpoint()
+        return self.view()
+
     def record_verification(self, finding_id: str) -> dict:
         self._ensure_active_run_if_configured()
         case = self._case(finding_id)
@@ -706,6 +747,8 @@ class SyntheticWorkbenchSession:
         blocking_reasons = list(readiness.blocking_reasons)
         if self._comparison is not None and self._comparison.field_changes:
             blocking_reasons.append("unreviewed_comparison_field_changes")
+        if self._post_group_qa_result is not None and self._post_group_qa_result.findings:
+            blocking_reasons.append("post_group_qa_findings")
         return {
             "state": "built_in_memory",
             "persistent": False,
@@ -734,6 +777,21 @@ class SyntheticWorkbenchSession:
             for question_id in sorted({item.question_id for item in self._comparison.field_changes})
         ]
         payload["field_changes_require_review"] = bool(self._comparison.field_changes)
+        payload["exact_contaminant_groups"] = [
+            contaminant_group_view(item)
+            for item in detect_exact_contaminant_groups(self._comparison)
+        ]
+        payload["approved_exact_group_ids"] = sorted(self._approved_comparison_group_ids)
+        payload["post_group_qa"] = (
+            {
+                "state": "complete",
+                "finding_count": len(self._post_group_qa_result.findings),
+                "detector_counts": dict(self._post_group_qa_result.detector_counts),
+                "automatic_repairs": self._post_group_qa_result.automatic_repairs,
+            }
+            if self._post_group_qa_result is not None
+            else {"state": "not_run"}
+        )
         return payload
 
     def _identity_view(self) -> dict:
@@ -831,6 +889,10 @@ class SyntheticWorkbenchSession:
                     for item in sorted(self._dispositions_by_finding.values(), key=lambda value: value.disposition_id)
                 ],
                 "comparison_counts": comparison_counts,
+                "comparison_group_decisions": [
+                    {"group_id": group_id, "action": "approve_exact_group"}
+                    for group_id in sorted(self._approved_comparison_group_ids)
+                ],
             },
         )
 
@@ -884,6 +946,8 @@ class SyntheticWorkbenchSession:
         self._qa_result = None
         self._source_pages = ()
         self._viewed_source_findings.clear()
+        self._approved_comparison_group_ids.clear()
+        self._post_group_qa_result = None
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()

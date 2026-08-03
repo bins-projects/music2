@@ -385,6 +385,17 @@ text from both records. Any remaining field difference adds an explicit
 `unreviewed_comparison_field_changes` readiness blocker until a later review
 decision layer accounts for it; comparison completion alone cannot clear it.
 
+Exact-contaminant grouping is available only after comparison has identified a
+candidate value formed by appending the same garbage fragment to an otherwise
+exact protected-Pack value. A group requires at least two exact occurrences and
+strong contaminant evidence such as a URL/domain or marketplace marker. The UI
+shows the literal fragment, match count, and every stable question ID and field.
+One explicit `approve_exact_group` decision authorizes only that exact fragment
+and exact target set. Application is candidate-only and stale-safe, is recorded
+in the candidate audit, and immediately reruns the full QA detector suite and
+comparison. Legitimate repeated suffixes, one-off garbage, partial matches, and
+changed target values do not enter the group.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

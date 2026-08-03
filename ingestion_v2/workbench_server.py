@@ -81,6 +81,11 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 payload = self.session.build_isolated_candidate()
             elif self.path == "/api/comparison":
                 payload = self.session.compare_isolated_candidate()
+            elif self.path == "/api/comparison/groups/approve":
+                group_id = body.get("group_id")
+                if not isinstance(group_id, str):
+                    raise DomainError("group_id is required")
+                payload = self.session.approve_comparison_group(group_id)
             elif self.path == "/api/run/start":
                 payload = self.session.start_run()
             elif self.path == "/api/run/complete":

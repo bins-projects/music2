@@ -17,6 +17,10 @@ from ingestion_v2.domain import (
 )
 from ingestion_v2.engine import build_candidate, promotion_readiness
 from ingestion_v2.comparison import compare_candidate, comparison_view
+from ingestion_v2.comparison_categories import (
+    categorize_comparison_changes,
+    comparison_category_view,
+)
 from ingestion_v2.comparison_groups import (
     apply_exact_contaminant_group,
     contaminant_group_view,
@@ -780,6 +784,10 @@ class SyntheticWorkbenchSession:
         payload["exact_contaminant_groups"] = [
             contaminant_group_view(item)
             for item in detect_exact_contaminant_groups(self._comparison)
+        ]
+        payload["review_categories"] = [
+            comparison_category_view(item)
+            for item in categorize_comparison_changes(self._comparison)
         ]
         payload["approved_exact_group_ids"] = sorted(self._approved_comparison_group_ids)
         payload["post_group_qa"] = (

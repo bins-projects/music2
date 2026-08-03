@@ -163,6 +163,10 @@ main { padding: 24px clamp(18px, 4vw, 64px) 48px; }
 .contaminant-group-card code { padding: 8px; color: #ffe0a6; border-radius: 6px; background: #171006; overflow-wrap: anywhere; }
 .contaminant-group-card small { color: #cdbd9e; line-height: 1.5; }
 .contaminant-group-card button { justify-self: start; padding: 9px 11px; color: #071513; border: 1px solid var(--cyan); border-radius: 7px; background: var(--cyan); font-weight: 800; cursor: pointer; }
+.comparison-category-card { display: grid; gap: 7px; margin: 8px 0; padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: #142023; }
+.comparison-category-card b { text-transform: capitalize; }
+.comparison-category-card small, .comparison-category-card span { color: var(--muted); font: 11px/1.5 ui-monospace, monospace; }
+.comparison-category-card[data-category="probable_single_contaminant"] { border-color: #73592e; background: #241d13; }
 .candidate-actions { display: flex; gap: 9px; }
 .candidate-panel button { padding: 10px 13px; color: #071513; border: 1px solid var(--cyan); border-radius: 8px; background: var(--cyan); font-weight: 800; cursor: pointer; }
 .candidate-panel #comparison-button { color: var(--ink); border-color: #405257; background: #1b292c; }

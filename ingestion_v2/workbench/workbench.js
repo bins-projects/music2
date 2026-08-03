@@ -453,6 +453,13 @@
           <button type="button" data-group-id="${escapeHtml(group.group_id)}">Approve exact group correction</button>
         </section>`
       )).join("");
+      const categoryCards = (payload.comparison.review_categories || []).map((category) => (
+        `<section class="comparison-category-card" data-category="${escapeHtml(category.classification)}">
+          <b>${escapeHtml(category.classification.replaceAll("_", " "))} · ${category.change_count}</b>
+          <small>${escapeHtml(category.explanation)}</small>
+          <span>${category.changes.slice(0, 6).map((item) => `${escapeHtml(item.question_id)} · ${escapeHtml(item.field)}`).join("<br>")}${category.change_count > 6 ? `<br>…and ${category.change_count - 6} more` : ""}</span>
+        </section>`
+      )).join("");
       const changeCards = payload.comparison.field_changes.map((change) => {
         const context = contextById.get(change.question_id) || {};
         const chapter = context.candidate || context.benchmark || {};
@@ -465,7 +472,7 @@
           <div><em>Reference correct answer</em>${formatCorrectAnswerContext(context.benchmark)}</div>
         </section>`;
       }).join("");
-      comparisonChanges.innerHTML = groupCards + changeCards;
+      comparisonChanges.innerHTML = groupCards + categoryCards + changeCards;
       comparisonChanges.querySelectorAll("[data-group-id]").forEach((groupButton) => {
         groupButton.addEventListener("click", () => approveExactGroup(groupButton.dataset.groupId));
       });

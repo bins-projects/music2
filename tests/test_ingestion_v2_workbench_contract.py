@@ -62,6 +62,8 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
     assert "Candidate correct answer" in script
     assert "Approve exact group correction" in script
     assert '"/api/comparison/groups/approve"' in script
+    assert "review_categories" in script
+    assert "comparison-category-card" in script
     assert '"/api/run/start"' in script
     assert '"/api/run/complete"' in script
     assert '"/api/run/start-pdf"' in script

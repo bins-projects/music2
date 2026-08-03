@@ -396,6 +396,13 @@ in the candidate audit, and immediately reruns the full QA detector suite and
 comparison. Legitimate repeated suffixes, one-off garbage, partial matches, and
 changed target values do not enter the group.
 
+Remaining comparison changes are categorized without authorization or mutation.
+Repeated chapter-title differences with identical before/after values become
+source-title metadata groups; one-off appended URL/domain text becomes probable
+single contamination; other appended text remains source-context review; and
+unclassified differences remain general content review. Category IDs are
+deterministic hashes of their exact classifications, targets, and values.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

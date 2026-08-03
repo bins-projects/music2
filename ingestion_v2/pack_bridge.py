@@ -15,6 +15,10 @@ def pack_questions_to_domain(pack: dict) -> tuple[QuestionRecord, ...]:
         raw_choices = item.get("choices")
         if raw_choices is None:
             raw_choices = []
+        elif raw_choices == {} and _question_type(item.get("type")) == "completion":
+            # Existing valid completion records use an empty object to express
+            # that no choices apply. Normalize that legacy empty shape only.
+            raw_choices = []
         if not isinstance(raw_choices, list):
             raise DomainError("Benchmark Pack choices must be a list")
         raw_answers = item.get("correct_answers")

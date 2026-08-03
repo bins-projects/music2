@@ -41,3 +41,22 @@ def test_pack_bridge_rejects_non_pack_and_malformed_choices() -> None:
                 ],
             }
         )
+
+
+def test_pack_bridge_accepts_legacy_empty_completion_choice_object_only() -> None:
+    questions = pack_questions_to_domain(
+        {
+            "format": "prepflow_pack",
+            "questions": [
+                {
+                    "id": "PFQ-test-000000001",
+                    "type": "completion",
+                    "stem": "Complete this statement.",
+                    "choices": {},
+                    "correct_answers": ["answer"],
+                }
+            ],
+        }
+    )
+
+    assert questions[0].choices == ()

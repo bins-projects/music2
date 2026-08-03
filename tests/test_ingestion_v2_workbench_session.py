@@ -762,3 +762,53 @@ def test_completed_run_manifest_survives_while_new_run_starts(tmp_path) -> None:
     assert prior_manifest["stage"] == "completed"
     assert not (completed_directory / "artifacts" / "raw.txt").exists()
     assert not (completed_directory / "artifacts" / "cleaned.txt").exists()
+
+
+def test_active_compared_pdf_run_resumes_to_exact_same_candidate_and_comparison(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(
+        [
+            "Chapter 1: Resume Test", "MULTIPLE CHOICE",
+            "1. Which option?", "a. First", "b. Second", "ANS: A", "First is correct.",
+        ]
+    )
+    target = {
+        "format": "prepflow_pack", "pack_id": "test",
+        "questions": [{
+            "id": "PFQ-test-000000001", "chapter": 1, "chapter_title": "Resume Test",
+            "type": "mc", "stem": "Which option?",
+            "choices": [{"label": "A", "text": "First"}, {"label": "B", "text": "Second"}],
+            "correct_answers": ["A"], "rationale": "First is correct.",
+        }],
+    }
+    original = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    original.start_pdf_run(pdf)
+    original.match_existing_pack(target)
+    original.materialize_identity_review()
+    original.build_isolated_candidate()
+    before = original.compare_isolated_candidate()
+    run_directory = original._lifecycle.run_directory
+
+    resumed = SyntheticWorkbenchSession.resume_run(run_directory, target)
+    after = resumed.view()
+
+    assert after["run"]["state"] == "compared"
+    assert after["candidate"] == before["candidate"]
+    assert after["comparison"] == before["comparison"]
+    assert resumed._source_pages
+
+
+def test_resume_rejects_target_pack_mismatch(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes([
+        "Chapter 1: Resume", "MULTIPLE CHOICE", "1. Which?", "a. First", "ANS: A", "First.",
+    ])
+    target = {
+        "format": "prepflow_pack", "pack_id": "test",
+        "questions": [{"id": "PFQ-test-000000001", "chapter": 1, "type": "mc", "stem": "Which?"}],
+    }
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    session.match_existing_pack(target)
+    wrong = {**target, "pack_id": "wrong"}
+
+    with pytest.raises(DomainError, match="target Pack"):
+        SyntheticWorkbenchSession.resume_run(session._lifecycle.run_directory, wrong)

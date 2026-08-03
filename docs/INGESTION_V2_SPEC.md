@@ -338,9 +338,15 @@ schema validates stable PrepFlow IDs, temporary record IDs, v2 references,
 allowed actions, non-negative counts, and exact run identity. It rejects known
 content-bearing keys recursively and refuses symbolic-link audit paths. Source
 cleanup retains this source-neutral checkpoint while removing disposable source
-and whole-document artifacts. A later resume layer may reconstruct deterministic
-engine records from the controlled cleaned artifact and these decisions; it must
-refuse reconstruction when a referenced proposal cannot be reproduced exactly.
+and whole-document artifacts.
+
+The active-run resume layer reconstructs deterministic parser, identity, QA,
+proposal, candidate, and comparison state from the controlled cleaned artifact,
+then replays only the recorded authorizations. It refuses a completed or failed
+run whose source-bearing artifacts have already been cleaned, a different target
+Pack, an identity action that no longer matches, a decision whose proposal cannot
+be reproduced, or comparison totals that differ from the checkpoint. Resume does
+not write canonical data and does not turn a proposal into authorization.
 
 ## First vertical slice
 

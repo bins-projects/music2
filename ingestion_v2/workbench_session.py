@@ -34,6 +34,7 @@ from ingestion_v2.parser_bridge import materialize_matched_batch
 from ingestion_v2.qa_adapter import QaResult, detect_candidate_damage
 from ingestion_v2.proposal_adapter import draft_benchmark_answer_proposals, draft_deterministic_proposals
 from ingestion_v2.checkpoint import write_checkpoint
+from ingestion_v2.recovery import recover_run
 
 
 @dataclass(frozen=True)
@@ -72,6 +73,41 @@ class SyntheticWorkbenchSession:
         self._source_pages: tuple[str, ...] = ()
         self._viewed_source_findings: set[str] = set()
         self._last_cleanup = None
+
+    @classmethod
+    def resume_run(cls, run_directory: Path, target_pack: dict) -> "SyntheticWorkbenchSession":
+        recovered = recover_run(Path(run_directory), target_pack)
+        session = cls(workspace_root=Path(run_directory).parent)
+        session._lifecycle = recovered.lifecycle
+        session._parse_batch = recovered.parse_batch
+        session._identity_report = recovered.identity_report
+        session._identity_cases = recovered.identity_cases
+        session._identity_actions = recovered.identity_actions
+        session._identity_mapping = recovered.identity_mapping
+        session._identity_target_pack = target_pack
+        session.questions = recovered.questions
+        session.findings = recovered.findings
+        session.proposals = recovered.proposals
+        session._benchmark_questions = recovered.benchmark
+        session._qa_result = recovered.qa_result
+        session._decisions_by_proposal = {
+            item.proposal_id: item for item in recovered.decisions
+        }
+        session._verifications_by_proposal = {
+            item.proposal_id: item for item in recovered.verifications
+        }
+        session._dispositions_by_finding = {
+            item.finding_id: item for item in recovered.dispositions
+        }
+        session._candidate = recovered.candidate
+        session._comparison = recovered.comparison
+        raw_path = Path(run_directory) / "artifacts" / "raw.txt"
+        if raw_path.is_file() and not raw_path.is_symlink():
+            session._source_pages = tuple(raw_path.read_text(encoding="utf-8").split("\n\f\n"))
+        session._events = [
+            SessionEvent("PFV2-EVENT-RECOVERED-000001", "PFV2-CHECKPOINT", "checkpoint:recovered")
+        ]
+        return session
 
     def view(self) -> dict:
         queue = self._queue()

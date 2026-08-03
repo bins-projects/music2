@@ -6,6 +6,10 @@ from pathlib import Path
 from ingestion_v2.checkpoint import proposal_fingerprint, read_checkpoint
 from ingestion_v2.comparison import ComparisonReport, compare_candidate
 from ingestion_v2.comparison_groups import apply_exact_contaminant_group
+from ingestion_v2.comparison_categories import (
+    apply_category_reference_values,
+    categorize_comparison_changes,
+)
 from ingestion_v2.domain import (
     Candidate, DispositionAction, DomainError, Finding, FindingDisposition,
     Proposal, QuestionRecord, ReviewAction, ReviewDecision, SourceVerification,
@@ -41,6 +45,7 @@ class RecoveredRun:
     comparison: ComparisonReport | None
     comparison_group_ids: tuple[str, ...] = ()
     post_group_qa_result: QaResult | None = None
+    comparison_category_decisions: tuple[tuple[str, str], ...] = ()
 
 
 def list_recoverable_runs(workspace_root: Path, protected_pack_ids: set[str]) -> tuple[dict, ...]:
@@ -221,7 +226,29 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
     post_group_qa = None
     for group_id in comparison_group_ids:
         candidate, _ = apply_exact_contaminant_group(candidate, benchmark, group_id)
-    if comparison_group_ids:
+    comparison_category_decisions = tuple(
+        (item["category_id"], item["action"])
+        for item in checkpoint.get("comparison_category_decisions", [])
+    )
+    for category_id, action in comparison_category_decisions:
+        current = compare_candidate(candidate, benchmark)
+        categories = {
+            item.category_id: item
+            for item in categorize_comparison_changes(current)
+        }
+        category = categories.get(category_id)
+        if category is None:
+            raise DomainError("Checkpoint comparison category cannot be reproduced exactly")
+        expected_action = (
+            "accept_candidate"
+            if category.classification == "repeated_metadata_difference"
+            else "use_reference"
+        )
+        if action != expected_action:
+            raise DomainError("Checkpoint comparison category action is invalid for its evidence")
+        if action == "use_reference":
+            candidate = apply_category_reference_values(candidate, category)
+    if comparison_group_ids or comparison_category_decisions:
         post_group_qa = detect_candidate_damage(candidate.questions)
     if counts:
         comparison = compare_candidate(candidate, benchmark)
@@ -236,4 +263,5 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
         lifecycle, batch, report, cases, identity_actions, mapping, questions,
         findings, proposals, decisions, verifications, dispositions, benchmark,
         qa, candidate, comparison, comparison_group_ids, post_group_qa,
+        comparison_category_decisions,
     )

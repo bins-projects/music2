@@ -18,6 +18,7 @@ from ingestion_v2.domain import (
 from ingestion_v2.engine import build_candidate, promotion_readiness
 from ingestion_v2.comparison import compare_candidate, comparison_view
 from ingestion_v2.comparison_categories import (
+    apply_category_reference_values,
     categorize_comparison_changes,
     comparison_category_view,
 )
@@ -83,6 +84,8 @@ class SyntheticWorkbenchSession:
         self._viewed_source_findings: set[str] = set()
         self._approved_comparison_group_ids: set[str] = set()
         self._post_group_qa_result: QaResult | None = None
+        self._comparison_category_decisions: dict[str, str] = {}
+        self._viewed_comparison_categories: set[str] = set()
         self._last_cleanup = None
 
     @classmethod
@@ -114,6 +117,7 @@ class SyntheticWorkbenchSession:
         session._comparison = recovered.comparison
         session._approved_comparison_group_ids = set(recovered.comparison_group_ids)
         session._post_group_qa_result = recovered.post_group_qa_result
+        session._comparison_category_decisions = dict(recovered.comparison_category_decisions)
         raw_path = Path(run_directory) / "artifacts" / "raw.txt"
         if raw_path.is_file() and not raw_path.is_symlink():
             session._source_pages = tuple(raw_path.read_text(encoding="utf-8").split("\n\f\n"))
@@ -605,6 +609,93 @@ class SyntheticWorkbenchSession:
         self._save_checkpoint()
         return self.view()
 
+    def approve_comparison_category(self, category_id: str, action: str) -> dict:
+        self._ensure_active_run_if_configured()
+        if self._candidate is None or self._comparison is None:
+            raise DomainError("Build and compare an isolated candidate before category review")
+        categories = {
+            item.category_id: item
+            for item in categorize_comparison_changes(self._comparison)
+        }
+        category = categories.get(category_id)
+        if category is None:
+            raise DomainError("Comparison category is missing or no longer current")
+        if category.classification == "repeated_metadata_difference":
+            if action != "accept_candidate":
+                raise DomainError("Repeated metadata requires an explicit accept-candidate decision")
+        else:
+            if action != "use_reference":
+                raise DomainError("Content correction requires an explicit use-reference decision")
+            if category_id not in self._viewed_comparison_categories:
+                raise DomainError("Open the temporary source page before approving this correction")
+            self._candidate = apply_category_reference_values(self._candidate, category)
+        self._comparison_category_decisions[category_id] = action
+        benchmark = self._benchmark_questions or self.questions
+        self._post_group_qa_result = detect_candidate_damage(self._candidate.questions)
+        self._comparison = compare_candidate(self._candidate, benchmark)
+        if self._lifecycle is not None:
+            self._lifecycle.return_to_review()
+            self._lifecycle.record_candidate(
+                question_count=len(self._candidate.questions),
+                unresolved_findings=len(self._post_group_qa_result.findings),
+            )
+            self._lifecycle.record_comparison(
+                field_changes=len(self._comparison.field_changes),
+                id_accounting_complete=self._comparison.id_accounting_complete,
+            )
+        event_number = len(self._events) + 1
+        self._events.append(
+            SessionEvent(
+                event_id=f"PFV2-EVENT-{event_number:06d}",
+                finding_id=category_id,
+                event_type=f"comparison_category:{action}_and_rechecked",
+            )
+        )
+        self._save_checkpoint()
+        return self.view()
+
+    def view_comparison_source(self, category_id: str) -> dict:
+        if self._lifecycle is None or self._lifecycle.manifest().get("source_type") != "pdf":
+            raise DomainError("A temporary source page is available only for an active PDF run")
+        if self._comparison is None:
+            raise DomainError("Run comparison before viewing category source evidence")
+        categories = {
+            item.category_id: item
+            for item in categorize_comparison_changes(self._comparison)
+        }
+        category = categories.get(category_id)
+        if category is None or len(category.changes) != 1:
+            raise DomainError("Individual source viewing requires one current comparison change")
+        question_id = category.changes[0].question_id
+        question = next(
+            (item for item in self._candidate.questions if item.question_id == question_id),
+            None,
+        )
+        if question is None or not self._source_pages:
+            raise DomainError("Temporary source evidence is unavailable")
+        change = category.changes[0]
+        source_anchor = (
+            change.benchmark_value
+            if change.field == "stem" and isinstance(change.benchmark_value, str)
+            else question.stem
+        )
+        needle = _source_search_text(source_anchor)
+        matches = [
+            index for index, page in enumerate(self._source_pages)
+            if needle and needle in _source_search_text(page)
+        ]
+        if len(matches) != 1:
+            raise DomainError("Temporary source page could not be located unambiguously")
+        self._viewed_comparison_categories.add(category_id)
+        page_index = matches[0]
+        return {
+            "category_id": category_id,
+            "page_number": page_index + 1,
+            "page_count": len(self._source_pages),
+            "text": self._source_pages[page_index],
+            "temporary": True,
+        }
+
     def record_verification(self, finding_id: str) -> dict:
         self._ensure_active_run_if_configured()
         case = self._case(finding_id)
@@ -749,7 +840,7 @@ class SyntheticWorkbenchSession:
             comparison_complete=bool(self._comparison and self._comparison.complete),
         )
         blocking_reasons = list(readiness.blocking_reasons)
-        if self._comparison is not None and self._comparison.field_changes:
+        if self._comparison is not None and self._unreviewed_comparison_change_count():
             blocking_reasons.append("unreviewed_comparison_field_changes")
         if self._post_group_qa_result is not None and self._post_group_qa_result.findings:
             blocking_reasons.append("post_group_qa_findings")
@@ -780,15 +871,24 @@ class SyntheticWorkbenchSession:
             }
             for question_id in sorted({item.question_id for item in self._comparison.field_changes})
         ]
-        payload["field_changes_require_review"] = bool(self._comparison.field_changes)
+        payload["field_changes_require_review"] = bool(
+            self._unreviewed_comparison_change_count()
+        )
         payload["exact_contaminant_groups"] = [
             contaminant_group_view(item)
             for item in detect_exact_contaminant_groups(self._comparison)
         ]
-        payload["review_categories"] = [
-            comparison_category_view(item)
-            for item in categorize_comparison_changes(self._comparison)
-        ]
+        payload["review_categories"] = []
+        for item in categorize_comparison_changes(self._comparison):
+            category = comparison_category_view(item)
+            category["decision"] = self._comparison_category_decisions.get(item.category_id)
+            category["source_viewed"] = item.category_id in self._viewed_comparison_categories
+            category["allowed_action"] = (
+                "accept_candidate"
+                if item.classification == "repeated_metadata_difference"
+                else "use_reference"
+            )
+            payload["review_categories"].append(category)
         payload["approved_exact_group_ids"] = sorted(self._approved_comparison_group_ids)
         payload["post_group_qa"] = (
             {
@@ -801,6 +901,20 @@ class SyntheticWorkbenchSession:
             else {"state": "not_run"}
         )
         return payload
+
+    def _unreviewed_comparison_change_count(self) -> int:
+        if self._comparison is None:
+            return 0
+        accounted = {
+            (change.question_id, change.field)
+            for category in categorize_comparison_changes(self._comparison)
+            if self._comparison_category_decisions.get(category.category_id) == "accept_candidate"
+            for change in category.changes
+        }
+        return sum(
+            (change.question_id, change.field) not in accounted
+            for change in self._comparison.field_changes
+        )
 
     def _identity_view(self) -> dict:
         if self._identity_report is None:
@@ -901,6 +1015,10 @@ class SyntheticWorkbenchSession:
                     {"group_id": group_id, "action": "approve_exact_group"}
                     for group_id in sorted(self._approved_comparison_group_ids)
                 ],
+                "comparison_category_decisions": [
+                    {"category_id": category_id, "action": action}
+                    for category_id, action in sorted(self._comparison_category_decisions.items())
+                ],
             },
         )
 
@@ -956,6 +1074,8 @@ class SyntheticWorkbenchSession:
         self._viewed_source_findings.clear()
         self._approved_comparison_group_ids.clear()
         self._post_group_qa_result = None
+        self._comparison_category_decisions.clear()
+        self._viewed_comparison_categories.clear()
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()

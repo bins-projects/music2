@@ -86,6 +86,17 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 if not isinstance(group_id, str):
                     raise DomainError("group_id is required")
                 payload = self.session.approve_comparison_group(group_id)
+            elif self.path == "/api/comparison/categories/approve":
+                category_id = body.get("category_id")
+                action = body.get("action")
+                if not isinstance(category_id, str) or not isinstance(action, str):
+                    raise DomainError("category_id and action are required")
+                payload = self.session.approve_comparison_category(category_id, action)
+            elif self.path == "/api/comparison/categories/source-page":
+                category_id = body.get("category_id")
+                if not isinstance(category_id, str):
+                    raise DomainError("category_id is required")
+                payload = self.session.view_comparison_source(category_id)
             elif self.path == "/api/run/start":
                 payload = self.session.start_run()
             elif self.path == "/api/run/complete":

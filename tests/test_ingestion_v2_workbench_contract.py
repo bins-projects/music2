@@ -64,6 +64,10 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
     assert '"/api/comparison/groups/approve"' in script
     assert "review_categories" in script
     assert "comparison-category-card" in script
+    assert '"/api/comparison/categories/source-page"' in script
+    assert '"/api/comparison/categories/approve"' in script
+    assert "Accept full source title" in script
+    assert "Use clean reference value" in script
     assert '"/api/run/start"' in script
     assert '"/api/run/complete"' in script
     assert '"/api/run/start-pdf"' in script

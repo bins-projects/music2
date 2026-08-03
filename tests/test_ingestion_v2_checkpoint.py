@@ -21,6 +21,7 @@ def payload(run_id: str) -> dict:
             "fingerprint": "a" * 64,
         }],
         "comparison_group_decisions": [],
+        "comparison_category_decisions": [],
         "dispositions": [{"disposition_id": "PFV2-DISP-SESSION-000003", "finding_id": "PFV2-FIND-QA-000001", "question_id": "PFQ-medical_surgical-000000060", "action": "exclude_record"}],
         "comparison_counts": {"field_changes": 73, "excluded_questions": 2},
     }
@@ -98,4 +99,16 @@ def test_checkpoint_accepts_only_exact_group_approval_records(tmp_path) -> None:
 
     value["comparison_group_decisions"][0]["action"] = "approve_everything"
     with pytest.raises(DomainError, match="comparison group"):
+        write_checkpoint(run.run_directory, value)
+
+
+def test_checkpoint_rejects_invalid_comparison_category_action(tmp_path) -> None:
+    run = RunLifecycle.create(tmp_path / "runs")
+    value = payload(run.run_directory.name)
+    value["comparison_category_decisions"] = [{
+        "category_id": "PFV2-CATEGORY-0123456789abcdef",
+        "action": "accept_everything",
+    }]
+
+    with pytest.raises(DomainError, match="comparison category"):
         write_checkpoint(run.run_directory, value)

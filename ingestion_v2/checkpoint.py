@@ -12,6 +12,7 @@ RECORD_ID_RE = re.compile(r"^PFV2-REC-\d{6}$")
 REFERENCE_RE = re.compile(r"^PFV2-(?:PROP|FIND|DEC|VERIFY|DISP)-[A-Za-z0-9-]+$")
 FINGERPRINT_RE = re.compile(r"^[a-f0-9]{64}$")
 GROUP_ID_RE = re.compile(r"^PFV2-GROUP-[a-f0-9]{16}$")
+CATEGORY_ID_RE = re.compile(r"^PFV2-CATEGORY-[a-f0-9]{16}$")
 ACTIONS = {"approve", "reject", "defer", "exclude_record", "retain_blocker"}
 FORBIDDEN_KEYS = {
     "text", "stem", "choices", "rationale", "source_path", "filename",
@@ -94,6 +95,14 @@ def validate_checkpoint(payload: dict, *, run_id: str) -> dict:
         for item in group_decisions
     ):
         raise DomainError("Checkpoint contains an invalid comparison group decision")
+    category_decisions = payload.get("comparison_category_decisions", [])
+    if not isinstance(category_decisions, list) or any(
+        not isinstance(item, dict)
+        or not CATEGORY_ID_RE.fullmatch(str(item.get("category_id") or ""))
+        or item.get("action") not in {"accept_candidate", "use_reference"}
+        for item in category_decisions
+    ):
+        raise DomainError("Checkpoint contains an invalid comparison category decision")
     counts = payload.get("comparison_counts", {})
     if not isinstance(counts, dict) or any(not isinstance(value, int) or value < 0 for value in counts.values()):
         raise DomainError("Checkpoint comparison counts are invalid")

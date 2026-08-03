@@ -167,6 +167,10 @@ main { padding: 24px clamp(18px, 4vw, 64px) 48px; }
 .comparison-category-card b { text-transform: capitalize; }
 .comparison-category-card small, .comparison-category-card span { color: var(--muted); font: 11px/1.5 ui-monospace, monospace; }
 .comparison-category-card[data-category="probable_single_contaminant"] { border-color: #73592e; background: #241d13; }
+.category-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.category-actions button { padding: 8px 10px; color: var(--ink); border: 1px solid #405257; border-radius: 7px; background: #1b292c; cursor: pointer; }
+.category-actions button:last-child { color: #071513; border-color: var(--cyan); background: var(--cyan); font-weight: 800; }
+.category-actions button:disabled { color: #738083; border-color: #344448; background: #1a2629; cursor: not-allowed; }
 .candidate-actions { display: flex; gap: 9px; }
 .candidate-panel button { padding: 10px 13px; color: #071513; border: 1px solid var(--cyan); border-radius: 8px; background: var(--cyan); font-weight: 800; cursor: pointer; }
 .candidate-panel #comparison-button { color: var(--ink); border-color: #405257; background: #1b292c; }

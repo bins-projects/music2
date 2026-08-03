@@ -7,6 +7,8 @@ import json
 
 from ingestion_v2.comparison import ComparisonReport, FieldChange
 from ingestion_v2.comparison_groups import GARBAGE_EVIDENCE_RE
+from ingestion_v2.domain import Candidate, DomainError, QuestionRecord, replace_question_field
+from dataclasses import replace
 
 
 @dataclass(frozen=True)
@@ -70,6 +72,27 @@ def comparison_category_view(category: ComparisonCategory) -> dict:
             for item in category.changes
         ],
     }
+
+
+def apply_category_reference_values(
+    candidate: Candidate,
+    category: ComparisonCategory,
+) -> Candidate:
+    question_by_id = {item.question_id: item for item in candidate.questions}
+    for change in category.changes:
+        question = question_by_id.get(change.question_id)
+        if question is None or getattr(question, change.field) != change.candidate_value:
+            raise DomainError("Comparison category became stale before correction")
+        question_by_id[change.question_id] = replace_question_field(
+            question, change.field, change.benchmark_value
+        )
+    return replace(
+        candidate,
+        questions=tuple(question_by_id[item.question_id] for item in candidate.questions),
+        audit_events=candidate.audit_events + (
+            f"{category.category_id}:reference_values_applied_after_explicit_approval",
+        ),
+    )
 
 
 def _category(classification: str, explanation: str, changes) -> ComparisonCategory:

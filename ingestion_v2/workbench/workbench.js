@@ -458,6 +458,10 @@
           <b>${escapeHtml(category.classification.replaceAll("_", " "))} · ${category.change_count}</b>
           <small>${escapeHtml(category.explanation)}</small>
           <span>${category.changes.slice(0, 6).map((item) => `${escapeHtml(item.question_id)} · ${escapeHtml(item.field)}`).join("<br>")}${category.change_count > 6 ? `<br>…and ${category.change_count - 6} more` : ""}</span>
+          <div class="category-actions">
+            ${category.allowed_action === "use_reference" ? `<button type="button" data-category-source="${escapeHtml(category.category_id)}">Open source page</button>` : ""}
+            <button type="button" data-category-approve="${escapeHtml(category.category_id)}" data-category-action="${escapeHtml(category.allowed_action)}" ${category.decision ? "disabled" : ""}>${category.decision ? "Decision recorded" : category.allowed_action === "accept_candidate" ? "Accept full source title" : "Use clean reference value"}</button>
+          </div>
         </section>`
       )).join("");
       const changeCards = payload.comparison.field_changes.map((change) => {
@@ -475,6 +479,15 @@
       comparisonChanges.innerHTML = groupCards + categoryCards + changeCards;
       comparisonChanges.querySelectorAll("[data-group-id]").forEach((groupButton) => {
         groupButton.addEventListener("click", () => approveExactGroup(groupButton.dataset.groupId));
+      });
+      comparisonChanges.querySelectorAll("[data-category-source]").forEach((sourceButton) => {
+        sourceButton.addEventListener("click", () => openComparisonSource(sourceButton.dataset.categorySource));
+      });
+      comparisonChanges.querySelectorAll("[data-category-approve]").forEach((categoryButton) => {
+        categoryButton.addEventListener("click", () => approveComparisonCategory(
+          categoryButton.dataset.categoryApprove,
+          categoryButton.dataset.categoryAction
+        ));
       });
       comparisonButton.textContent = "Run comparison again";
     } else {
@@ -495,6 +508,39 @@
       if (!response.ok) throw new Error(result.error || "Exact group correction was rejected.");
       acceptEnginePayload(result);
       document.getElementById("decision-help").textContent = "Exact group correction applied to the isolated candidate; full QA and comparison reran.";
+    } catch (error) {
+      document.getElementById("decision-help").textContent = error.message;
+    }
+  }
+
+  async function openComparisonSource(categoryId) {
+    try {
+      const response = await fetch("/api/comparison/categories/source-page", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category_id: categoryId })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Comparison source page is unavailable.");
+      document.getElementById("source-page-title").textContent = `Extracted PDF page ${result.page_number} of ${result.page_count}`;
+      document.getElementById("source-page-text").textContent = result.text;
+      document.getElementById("source-dialog").showModal();
+    } catch (error) {
+      document.getElementById("decision-help").textContent = error.message;
+    }
+  }
+
+  async function approveComparisonCategory(categoryId, action) {
+    try {
+      const response = await fetch("/api/comparison/categories/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category_id: categoryId, action })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Comparison decision was rejected.");
+      acceptEnginePayload(result);
+      document.getElementById("decision-help").textContent = "Comparison decision recorded; full QA and comparison reran.";
     } catch (error) {
       document.getElementById("decision-help").textContent = error.message;
     }

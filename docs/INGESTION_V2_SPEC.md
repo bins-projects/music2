@@ -403,6 +403,14 @@ single contamination; other appended text remains source-context review; and
 unclassified differences remain general content review. Category IDs are
 deterministic hashes of their exact classifications, targets, and values.
 
+Repeated source-title metadata groups may be explicitly accepted without
+changing candidate values; their exact changes then become accounted comparison
+evidence. Individual appended-text and probable-contaminant categories require
+the reviewer to open the uniquely located temporary source page before choosing
+the protected-Pack reference value. Category decisions are exact-scope,
+checkpointed, stale-safe, candidate-only, and followed immediately by full QA
+and comparison. Unreviewed categories continue to block readiness.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

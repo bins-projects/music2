@@ -123,6 +123,23 @@ def test_interleaving_severity_prioritizes_without_rewriting() -> None:
     ) == "fragment_review"
 
 
+def test_valid_contractions_dotted_abbreviations_and_uppercase_symbols_are_not_fragments() -> None:
+    valid = (
+        "I didn’t do it. For example (e.g., a normal tracing), "
+        "P, Q, R, S, and T are present and immunoglobulin E (IgE) is discussed."
+    )
+
+    assert audit_interleaving({"questions": [{"id": "Q1", "stem": valid}]}) == []
+
+
+def test_lowercase_fragment_run_remains_blocked_after_symbol_exemptions() -> None:
+    pack = {"questions": [{"id": "Q1", "stem": "Damaged g h j fragments"}]}
+
+    result = audit_interleaving(pack)
+
+    assert result[0].blocker_codes == ("fragment_density",)
+
+
 def test_choice_structure_audit_detects_choice_absorbed_into_stem() -> None:
     pack = {
         "questions": [

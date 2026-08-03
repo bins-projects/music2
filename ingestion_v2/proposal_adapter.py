@@ -41,3 +41,39 @@ def draft_deterministic_proposals(
             )
         )
     return tuple(proposals)
+
+
+def draft_benchmark_answer_proposals(
+    questions: tuple[QuestionRecord, ...],
+    benchmark: tuple[QuestionRecord, ...],
+    findings: tuple[Finding, ...],
+) -> tuple[Proposal, ...]:
+    """Use a valid benchmark answer only as a source-verification-required draft."""
+    question_by_id = {item.question_id: item for item in questions}
+    benchmark_by_id = {item.question_id: item for item in benchmark}
+    proposals = []
+    eligible = [item for item in findings if item.damage_type == "correct_answer_without_choice"]
+    for index, finding in enumerate(eligible, start=1):
+        question = question_by_id[finding.question_id]
+        reference = benchmark_by_id.get(finding.question_id)
+        labels = {label for label, _ in question.choices}
+        if (
+            reference is None
+            or not reference.correct_answers
+            or any(answer not in labels for answer in reference.correct_answers)
+            or reference.correct_answers == question.correct_answers
+        ):
+            continue
+        proposals.append(
+            Proposal(
+                proposal_id=f"PFV2-PROP-ANSWER-{index:06d}",
+                finding_id=finding.finding_id,
+                question_id=finding.question_id,
+                field="correct_answers",
+                expected_before=question.correct_answers,
+                proposed_after=reference.correct_answers,
+                explanation="The protected benchmark supplies a structurally valid answer candidate; temporary source-page verification is required.",
+                requires_source_verification=True,
+            )
+        )
+    return tuple(proposals)

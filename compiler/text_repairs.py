@@ -70,6 +70,9 @@ WORD_RE = re.compile(r"\b[A-Za-z]+\b")
 CLINICAL_UNIT_RE = re.compile(
     r"\b(?:mEq|mmol|mg|mcg|g|mL|L)/(?:L|dL|kg|min)\b"
 )
+DOTTED_ABBREVIATION_RE = re.compile(r"\b(?:[A-Za-z]\.){2,}")
+UPPERCASE_ENUMERATION_RE = re.compile(r"\b(?:[A-Z],\s*){2,}(?:and\s+)?[A-Z]\b")
+IMMUNOGLOBULIN_SYMBOL_RE = re.compile(r"\bimmunoglobulin\s+E\b", re.IGNORECASE)
 APOSTROPHE_MARKS = {"'", "‘", "’"}
 
 
@@ -106,6 +109,12 @@ def interleaving_blockers(text: str) -> tuple[str, ...]:
         lambda match: " " * len(match.group(0)),
         text,
     )
+    analysis_text = DOTTED_ABBREVIATION_RE.sub(
+        lambda match: " " * len(match.group(0)),
+        analysis_text,
+    )
+    for protected in (UPPERCASE_ENUMERATION_RE, IMMUNOGLOBULIN_SYMBOL_RE):
+        analysis_text = protected.sub(lambda match: " " * len(match.group(0)), analysis_text)
     word_matches = tuple(WORD_RE.finditer(analysis_text))
     words = [match.group(0) for match in word_matches]
     singleton_fragments = [
@@ -114,8 +123,7 @@ def interleaving_blockers(text: str) -> tuple[str, ...]:
         if len(match.group(0)) == 1
         and match.group(0).lower() not in {"a", "i"}
         and not (
-            match.group(0).lower() == "s"
-            and match.start() > 0
+            match.start() > 0
             and analysis_text[match.start() - 1] in APOSTROPHE_MARKS
         )
     ]

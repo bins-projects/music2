@@ -1,6 +1,6 @@
 from ingestion_v2.domain import QuestionRecord, ReviewAction, ReviewDecision
 from ingestion_v2.engine import build_candidate
-from ingestion_v2.proposal_adapter import draft_deterministic_proposals
+from ingestion_v2.proposal_adapter import draft_benchmark_answer_proposals, draft_deterministic_proposals
 from ingestion_v2.qa_adapter import detect_candidate_damage
 
 
@@ -67,3 +67,16 @@ def test_ambiguous_vitamin_prose_drafts_no_proposal() -> None:
     qa = detect_candidate_damage(questions)
 
     assert draft_deterministic_proposals(questions, qa.findings) == ()
+
+
+def test_benchmark_answer_draft_always_requires_source_verification() -> None:
+    damaged = embedded_question()
+    damaged = QuestionRecord(**{**damaged.__dict__, "choices": (("A", "First"), ("B", "Second")), "correct_answers": ("C", "A", "E")})
+    benchmark = QuestionRecord(**{**damaged.__dict__, "correct_answers": ("A",)})
+    from ingestion_v2.domain import Finding, FindingSeverity
+    finding = Finding("PFV2-FIND-ANSWER-1", damaged.question_id, "correct_answers", "correct_answer_without_choice", FindingSeverity.BLOCKING, "Parsed answers reference missing choices.")
+
+    proposals = draft_benchmark_answer_proposals((damaged,), (benchmark,), (finding,))
+
+    assert proposals[0].proposed_after == ("A",)
+    assert proposals[0].requires_source_verification is True

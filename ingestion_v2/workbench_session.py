@@ -32,7 +32,7 @@ from ingestion_v2.identity_review import (
 from ingestion_v2.pack_bridge import pack_questions_to_domain
 from ingestion_v2.parser_bridge import materialize_matched_batch
 from ingestion_v2.qa_adapter import QaResult, detect_candidate_damage
-from ingestion_v2.proposal_adapter import draft_deterministic_proposals
+from ingestion_v2.proposal_adapter import draft_benchmark_answer_proposals, draft_deterministic_proposals
 
 
 @dataclass(frozen=True)
@@ -266,12 +266,28 @@ class SyntheticWorkbenchSession:
             self._parse_batch, self._identity_mapping
         )
         qa_result = detect_candidate_damage(questions)
+        parser_answer_ids = {
+            item.question_id for item in findings if item.damage_type == "correct_answer_without_choice"
+        }
+        qa_result = QaResult(
+            findings=tuple(
+                item for item in qa_result.findings
+                if not (
+                    item.question_id in parser_answer_ids
+                    and item.damage_type == "choice_structure__correct_answer_without_choice"
+                )
+            ),
+            detector_counts=qa_result.detector_counts,
+        )
         benchmark = pack_questions_to_domain(self._identity_target_pack)
         if {item.question_id for item in questions} != {item.question_id for item in benchmark}:
             raise DomainError("Materialized stable IDs do not exactly match the benchmark Pack")
         self.questions = questions
         self.findings = findings + qa_result.findings
-        self.proposals = draft_deterministic_proposals(questions, self.findings)
+        self.proposals = (
+            draft_deterministic_proposals(questions, self.findings)
+            + draft_benchmark_answer_proposals(questions, benchmark, self.findings)
+        )
         self._benchmark_questions = benchmark
         self._qa_result = qa_result
         self._lifecycle.record_identity_materialized(

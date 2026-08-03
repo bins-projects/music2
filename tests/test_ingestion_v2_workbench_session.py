@@ -249,6 +249,9 @@ def test_comparison_explains_verified_candidate_delta_and_clears_stale_gate() ->
             "candidate_value": ("B",),
         }
     ]
+    assert payload["comparison"]["field_changes_require_review"] is True
+    assert payload["comparison"]["question_context"][0]["candidate"]["correct_answer_text"]
+    assert "unreviewed_comparison_field_changes" in payload["candidate"]["blocking_reasons"]
     assert "candidate_comparison_incomplete" not in payload["candidate"]["blocking_reasons"]
     assert payload["candidate"]["promotion_ready"] is False
 

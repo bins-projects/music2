@@ -371,6 +371,20 @@ checkpoints. A SHA-256 fingerprint over the deterministic proposal identity and
 values permits exact regenerated proposals to recover prior decisions while
 still refusing any proposal whose content cannot be reproduced.
 
+Answer-field review never presents a bare label without context. The preserved
+side shows the complete broken parsed label sequence and the available choice
+text for each distinct label, explicitly marking labels for which no choice was
+parsed. The proposal side shows the corrected label together with its choice
+text. Text-field repairs continue to display the complete damaged and proposed
+versions side by side.
+
+Candidate comparison differences are not evidence of readiness by themselves.
+Every changed field is displayed with the broken candidate value, the protected
+Pack reference value, source chapter context, and the full correct-answer choice
+text from both records. Any remaining field difference adds an explicit
+`unreviewed_comparison_field_changes` readiness blocker until a later review
+decision layer accounts for it; comparison completion alone cannot clear it.
+
 ## First vertical slice
 
 The first slice is complete when synthetic tests prove that:

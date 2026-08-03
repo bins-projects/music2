@@ -26,6 +26,11 @@ def review_queue_view(queue: ReviewQueue) -> dict:
                 "severity": case.finding.severity.value,
                 "explanation": case.finding.explanation,
                 "preserved_value": getattr(case.question, case.finding.field),
+                "answer_choice_context": (
+                    [list(choice) for choice in case.question.choices]
+                    if case.finding.field == "correct_answers"
+                    else None
+                ),
                 "proposal": (
                     {
                         "proposal_id": case.proposal.proposal_id,

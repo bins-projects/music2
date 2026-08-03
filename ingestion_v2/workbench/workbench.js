@@ -37,6 +37,24 @@
     return escapeHtml(String(value ?? "Not available"));
   }
 
+  function formatReviewValue(value, item, corrected = false) {
+    if (item.field !== "correct_answers" || !Array.isArray(value)) return formatValue(value);
+    const choiceByLabel = new Map((item.answer_choice_context || []).map(([label, text]) => [label, text]));
+    const uniqueLabels = [...new Set(value)];
+    const rows = uniqueLabels.map((label) => {
+      const text = choiceByLabel.get(label);
+      return `<div class="answer-context-row"><b>${escapeHtml(label)}</b><span>${text ? escapeHtml(text) : "No matching choice was parsed"}</span></div>`;
+    }).join("");
+    return `<div class="answer-labels"><small>${corrected ? "Corrected answer" : "Broken parsed answer"}</small><strong>${escapeHtml(value.join(", "))}</strong></div>${rows}`;
+  }
+
+  function formatCorrectAnswerContext(context) {
+    if (!context?.correct_answer_text?.length) return "No answer context available";
+    return context.correct_answer_text.map((item) => (
+      `${escapeHtml(item.label)} — ${escapeHtml(item.text || "No matching choice was parsed")}`
+    )).join("<br>");
+  }
+
   function escapeHtml(value) {
     const node = document.createElement("span");
     node.textContent = value;
@@ -252,12 +270,12 @@
     pill.textContent = statusLabels[item.status];
     pill.dataset.status = item.status;
     document.getElementById("finding-explanation").textContent = item.explanation;
-    document.getElementById("preserved-value").innerHTML = formatValue(item.preserved_value);
+    document.getElementById("preserved-value").innerHTML = formatReviewValue(item.preserved_value, item);
     if (item.damage_type === "complete_duplicate_record" && item.related_question) {
       document.getElementById("proposed-value").innerHTML = `<b>${escapeHtml(item.related_question.question_id)}</b><br>${escapeHtml(chapterLabel(item.related_question))}${escapeHtml(sourceRecordLabel(item.related_question))}<br><br>${escapeHtml(item.related_question.stem)}`;
       document.getElementById("proposal-explanation").textContent = "These are two preserved records. Explicitly choose the stable ID to exclude; the other remains unchanged.";
     } else {
-      document.getElementById("proposed-value").innerHTML = item.proposal ? formatValue(item.proposal.proposed_value) : "No correction proposed";
+      document.getElementById("proposed-value").innerHTML = item.proposal ? formatReviewValue(item.proposal.proposed_value, item, true) : "No correction proposed";
       document.getElementById("proposal-explanation").textContent = item.proposal?.explanation || "The record remains blocked until a justified proposal exists.";
     }
     const verificationCard = document.getElementById("verification-card");
@@ -426,9 +444,19 @@
     if (payload.comparison?.state === "complete") {
       const identityStatus = payload.comparison.stable_ids_exact ? "stable IDs exact" : "all ID differences documented";
       comparisonDetail.textContent = `Comparison complete · ${identityStatus} · ${payload.comparison.field_change_count} changed field(s).`;
-      comparisonChanges.innerHTML = payload.comparison.field_changes.map((change) => (
-        `<span><b>${escapeHtml(change.question_id.replace("PFQ-synthetic-", "Question "))} · ${escapeHtml(change.field)}</b> ${formatValue(change.benchmark_value)} → ${formatValue(change.candidate_value)}</span>`
-      )).join("");
+      const contextById = new Map((payload.comparison.question_context || []).map((item) => [item.question_id, item]));
+      comparisonChanges.innerHTML = payload.comparison.field_changes.map((change) => {
+        const context = contextById.get(change.question_id) || {};
+        const chapter = context.candidate || context.benchmark || {};
+        return `<section class="comparison-change-card">
+          <b>${escapeHtml(change.question_id)} · ${escapeHtml(change.field)}</b>
+          <small>${escapeHtml(chapterLabel(chapter))}</small>
+          <div><em>Broken candidate value</em>${formatValue(change.candidate_value)}</div>
+          <div><em>Existing Pack reference</em>${formatValue(change.benchmark_value)}</div>
+          <div><em>Candidate correct answer</em>${formatCorrectAnswerContext(context.candidate)}</div>
+          <div><em>Reference correct answer</em>${formatCorrectAnswerContext(context.benchmark)}</div>
+        </section>`;
+      }).join("");
       comparisonButton.textContent = "Run comparison again";
     } else {
       comparisonDetail.textContent = "Comparison has not run for this candidate.";

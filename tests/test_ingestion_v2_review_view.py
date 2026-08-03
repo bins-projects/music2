@@ -43,8 +43,44 @@ def test_review_view_is_source_neutral_and_explicitly_non_promoting() -> None:
     assert payload["cases"][0]["status"] == "awaiting_decision"
     assert payload["cases"][0]["chapter_title"] == "Source Chapter Name"
     assert payload["cases"][0]["source_record_id"] == "PFV2-REC-000001"
+    assert payload["cases"][0]["answer_choice_context"] is None
     assert payload["capabilities"]["promote_canonical"] is False
     assert "source_path" not in serialized
     assert "filename" not in serialized
     assert "page_number" not in serialized
     assert "original_document" not in serialized
+
+
+def test_answer_review_includes_choice_text_for_broken_and_corrected_context() -> None:
+    question = QuestionRecord(
+        question_id="PFQ-synthetic-000000002",
+        chapter=2,
+        chapter_title="Context Chapter",
+        question_type="mc",
+        stem="Which finding is expected?",
+        choices=(("A", "First finding"), ("C", "Correct finding")),
+        correct_answers=("C", "A", "E"),
+    )
+    finding = Finding(
+        finding_id="PFV2-FIND-ANSWER-0002",
+        question_id=question.question_id,
+        field="correct_answers",
+        damage_type="correct_answer_without_choice",
+        severity=FindingSeverity.BLOCKING,
+        explanation="The parsed answer contains damaged extra labels.",
+    )
+    proposal = Proposal(
+        proposal_id="PFV2-PROP-ANSWER-0002",
+        finding_id=finding.finding_id,
+        question_id=question.question_id,
+        field="correct_answers",
+        expected_before=question.correct_answers,
+        proposed_after=("C",),
+        explanation="Source verification supports C.",
+    )
+
+    item = review_queue_view(build_review_queue((question,), (finding,), (proposal,)))["cases"][0]
+
+    assert item["preserved_value"] == ("C", "A", "E")
+    assert item["proposal"]["proposed_value"] == ("C",)
+    assert item["answer_choice_context"] == [["A", "First finding"], ["C", "Correct finding"]]

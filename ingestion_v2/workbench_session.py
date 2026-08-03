@@ -175,7 +175,7 @@ class SyntheticWorkbenchSession:
         }
         payload["candidate"] = self._candidate_view()
         payload["comparison"] = (
-            comparison_view(self._comparison)
+            self._comparison_view()
             if self._comparison is not None
             else {"state": "not_run"}
         )
@@ -703,6 +703,9 @@ class SyntheticWorkbenchSession:
             self.findings,
             comparison_complete=bool(self._comparison and self._comparison.complete),
         )
+        blocking_reasons = list(readiness.blocking_reasons)
+        if self._comparison is not None and self._comparison.field_changes:
+            blocking_reasons.append("unreviewed_comparison_field_changes")
         return {
             "state": "built_in_memory",
             "persistent": False,
@@ -710,9 +713,28 @@ class SyntheticWorkbenchSession:
             "applied_proposal_ids": list(self._candidate.applied_proposal_ids),
             "unresolved_finding_ids": list(self._candidate.unresolved_finding_ids),
             "excluded_question_ids": list(self._candidate.excluded_question_ids),
-            "promotion_ready": readiness.ready,
-            "blocking_reasons": list(readiness.blocking_reasons),
+            "promotion_ready": readiness.ready and not blocking_reasons,
+            "blocking_reasons": blocking_reasons,
         }
+
+    def _comparison_view(self) -> dict:
+        payload = comparison_view(self._comparison)
+        candidate_by_id = {
+            item.question_id: item for item in self._candidate.questions
+        } if self._candidate else {}
+        benchmark_by_id = {
+            item.question_id: item for item in (self._benchmark_questions or self.questions)
+        }
+        payload["question_context"] = [
+            {
+                "question_id": question_id,
+                "candidate": _question_comparison_context(candidate_by_id.get(question_id)),
+                "benchmark": _question_comparison_context(benchmark_by_id.get(question_id)),
+            }
+            for question_id in sorted({item.question_id for item in self._comparison.field_changes})
+        ]
+        payload["field_changes_require_review"] = bool(self._comparison.field_changes)
+        return payload
 
     def _identity_view(self) -> dict:
         if self._identity_report is None:
@@ -870,3 +892,19 @@ class SyntheticWorkbenchSession:
 
 def _source_search_text(value: str) -> str:
     return " ".join(value.split()).casefold()
+
+
+def _question_comparison_context(question) -> dict | None:
+    if question is None:
+        return None
+    choice_by_label = dict(question.choices)
+    return {
+        "chapter": question.chapter,
+        "chapter_title": question.chapter_title,
+        "stem": question.stem,
+        "correct_answers": list(question.correct_answers),
+        "correct_answer_text": [
+            {"label": label, "text": choice_by_label.get(label)}
+            for label in question.correct_answers
+        ],
+    }

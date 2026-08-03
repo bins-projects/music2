@@ -54,6 +54,12 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
         assert f'id="{required_id}"' in html
     for action in ("approve", "reject", "defer", "leave_blocked", "exclude_record"):
         assert action in script
+    assert "Broken parsed answer" in script
+    assert "Corrected answer" in script
+    assert "answer_choice_context" in script
+    assert "Broken candidate value" in script
+    assert "Existing Pack reference" in script
+    assert "Candidate correct answer" in script
     assert '"/api/run/start"' in script
     assert '"/api/run/complete"' in script
     assert '"/api/run/start-pdf"' in script

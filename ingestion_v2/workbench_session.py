@@ -272,7 +272,7 @@ class SyntheticWorkbenchSession:
         case = next((item for item in self._identity_cases if item.record_id == record_id), None)
         if case is None:
             raise DomainError("Unknown identity review record")
-        if action not in {"approve", "exclude_parser_debris", "exclude_duplicate", "defer"}:
+        if action not in {"approve", "retain_new_question", "exclude_parser_debris", "exclude_duplicate", "defer"}:
             raise DomainError("Unknown identity review action")
         if action == "approve":
             allowed = {item.target_question_id for item in case.suggestions}
@@ -289,6 +289,11 @@ class SyntheticWorkbenchSession:
                 "action": action,
                 "target_question_id": target_question_id,
             }
+        elif action == "retain_new_question":
+            self._identity_actions[record_id] = {
+                "action": action,
+                "target_question_id": self._allocate_new_question_id(record_id),
+            }
         elif action in {"exclude_parser_debris", "exclude_duplicate", "defer"}:
             self._identity_actions[record_id] = {"action": action, "target_question_id": ""}
 
@@ -301,17 +306,23 @@ class SyntheticWorkbenchSession:
             key for key, value in self._identity_actions.items()
             if value["action"] in {"exclude_parser_debris", "exclude_duplicate"}
         }
-        completed = set(approvals) | exclusions
+        new_questions = {
+            key: value["target_question_id"]
+            for key, value in self._identity_actions.items()
+            if value["action"] == "retain_new_question"
+        }
+        completed = set(approvals) | exclusions | set(new_questions)
         if (
             len(completed) == len(self._identity_cases)
-            and len(self._identity_report.matches) + len(approvals) + len(exclusions) == self._identity_report.parsed_count
+            and len(self._identity_report.matches) + len(approvals) + len(exclusions) + len(new_questions) == self._identity_report.parsed_count
             and len(self._identity_report.matches) + len(approvals) == self._identity_report.target_count
         ):
             self._identity_mapping = authorize_reviewed_identity(
-                self._identity_report, self._identity_cases, approvals, exclusions
+                self._identity_report, self._identity_cases, approvals, exclusions, new_questions
             )
             self._lifecycle.record_identity_resolution(
-                approved_matches=len(approvals), excluded_records=len(exclusions)
+                approved_matches=len(approvals), excluded_records=len(exclusions),
+                retained_new_questions=len(new_questions),
             )
         self._save_checkpoint()
         return self.view()
@@ -356,8 +367,10 @@ class SyntheticWorkbenchSession:
             detector_counts=qa_result.detector_counts,
         )
         benchmark = pack_questions_to_domain(self._identity_target_pack)
-        if {item.question_id for item in questions} != {item.question_id for item in benchmark}:
-            raise DomainError("Materialized stable IDs do not exactly match the benchmark Pack")
+        if not {item.question_id for item in benchmark}.issubset(
+            {item.question_id for item in questions}
+        ):
+            raise DomainError("Materialized identity is missing protected stable IDs")
         self.questions = questions
         self.findings = findings + qa_result.findings
         self.proposals = (
@@ -965,6 +978,27 @@ class SyntheticWorkbenchSession:
         view["reviewed_id_assignments_authorized"] = bool(resolved and self._identity_cases)
         return view
 
+    def _allocate_new_question_id(self, record_id: str) -> str:
+        """Allocate a deterministic run-local ID without renumbering old questions."""
+        if self._identity_target_pack is None or self._identity_report is None:
+            raise DomainError("New identity allocation requires a protected identity target")
+        existing_ids = {
+            str(item.get("id") or "")
+            for item in self._identity_target_pack.get("questions", [])
+        }
+        try:
+            highest = max(int(item.rsplit("-", 1)[1]) for item in existing_ids)
+            record_number = int(record_id.rsplit("-", 1)[1])
+        except (ValueError, IndexError):
+            raise DomainError("Stable identity allocation inputs are malformed")
+        question_id = (
+            f"PFQ-{self._identity_report.target_pack_id}-"
+            f"{highest + record_number:09d}"
+        )
+        if question_id in existing_ids:
+            raise DomainError("Allocated stable question ID collides with the protected Pack")
+        return question_id
+
     def _save_checkpoint(self) -> None:
         if self._lifecycle is None or self._identity_report is None:
             return
@@ -989,7 +1023,7 @@ class SyntheticWorkbenchSession:
                         "target_question_id": value["target_question_id"],
                     }
                     for record_id, value in sorted(self._identity_actions.items())
-                    if value["action"] in {"approve", "exclude_parser_debris", "exclude_duplicate"}
+                    if value["action"] in {"approve", "retain_new_question", "exclude_parser_debris", "exclude_duplicate", "defer"}
                 ],
                 "review_decisions": [
                     {

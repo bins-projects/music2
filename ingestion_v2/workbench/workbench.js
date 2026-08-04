@@ -322,6 +322,7 @@
     actions.replaceChildren();
     [
       ["approve", "Match selected ID", "primary"],
+      ["retain_new_question", "Keep as new question", "primary"],
       ["exclude_parser_debris", "Exclude parser debris", "danger"],
       ["exclude_duplicate", "Exclude duplicate record", "danger"],
       ["defer", "Leave unresolved", "secondary"]

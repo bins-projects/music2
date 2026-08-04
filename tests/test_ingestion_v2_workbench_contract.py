@@ -92,6 +92,7 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert "Unknown protected Pack selection" in server
     assert "/api/identity/actions" in script
     assert "Match selected ID" in script
+    assert "Keep as new question" in script
     assert "Exclude parser debris" in script
     assert "Exclude duplicate record" in script
     assert "Leave unresolved" in script

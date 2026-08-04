@@ -102,3 +102,26 @@ def test_explicit_exclusion_can_complete_extra_parsed_record_accounting() -> Non
     assert mapping == {"PFV2-REC-000001": "PFQ-test-000000001"}
     with pytest.raises(DomainError, match="incomplete"):
         authorize_reviewed_identity(report, cases, {}, set())
+
+
+def test_explicit_new_identity_preserves_question_missing_from_old_pack() -> None:
+    batch = ParseBatch(
+        (
+            record("PFV2-REC-000001", "Exact anchor"),
+            record("PFV2-REC-000002", "Legitimate new source question"),
+        ),
+        (), "test",
+    )
+    pack = {
+        "format": "prepflow_pack", "pack_id": "test",
+        "questions": [question(1, "Exact anchor")],
+    }
+    report = match_existing_pack_identity(batch, pack)
+    cases = build_identity_review_cases(batch, pack, report)
+
+    mapping = authorize_reviewed_identity(
+        report, cases, {}, set(),
+        {"PFV2-REC-000002": "PFQ-test-000000004"},
+    )
+
+    assert mapping["PFV2-REC-000002"] == "PFQ-test-000000004"

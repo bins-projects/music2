@@ -60,3 +60,17 @@ def test_documented_exclusion_is_accounted_but_not_called_exact() -> None:
     assert report.documented_excluded_question_ids == (
         "PFQ-synthetic-000000002",
     )
+
+
+def test_reviewed_candidate_addition_is_reported_for_replacement_pack() -> None:
+    benchmark = (question(1),)
+    candidate = Candidate((question(1), question(4)))
+
+    report = compare_candidate(candidate, benchmark)
+
+    assert report.stable_ids_exact is False
+    assert report.id_accounting_complete is True
+    assert report.documented_added_question_ids == (
+        "PFQ-synthetic-000000004",
+    )
+    assert report.field_changes == ()

@@ -34,6 +34,7 @@ class ComparisonReport:
     documented_excluded_question_ids: tuple[str, ...]
     field_changes: tuple[FieldChange, ...]
     complete: bool
+    documented_added_question_ids: tuple[str, ...] = ()
 
 
 def compare_candidate(
@@ -44,7 +45,8 @@ def compare_candidate(
     candidate_map = _question_map(candidate.questions, "candidate")
     benchmark_map = _question_map(benchmark_questions, "benchmark")
     accounted_candidate_ids = set(candidate_map) | set(candidate.excluded_question_ids)
-    if accounted_candidate_ids != set(benchmark_map):
+    added_ids = set(candidate_map) - set(benchmark_map)
+    if accounted_candidate_ids - added_ids != set(benchmark_map):
         missing = len(set(benchmark_map) - accounted_candidate_ids)
         added = len(set(candidate_map) - set(benchmark_map))
         raise DomainError(
@@ -53,6 +55,8 @@ def compare_candidate(
 
     changes = []
     for question_id in sorted(candidate_map):
+        if question_id in added_ids:
+            continue
         candidate_question = candidate_map[question_id]
         benchmark_question = benchmark_map[question_id]
         for field in COMPARISON_FIELDS:
@@ -70,11 +74,12 @@ def compare_candidate(
     return ComparisonReport(
         benchmark_question_count=len(benchmark_map),
         candidate_question_count=len(candidate_map),
-        stable_ids_exact=not candidate.excluded_question_ids,
+        stable_ids_exact=not candidate.excluded_question_ids and not added_ids,
         id_accounting_complete=True,
         documented_excluded_question_ids=tuple(sorted(candidate.excluded_question_ids)),
         field_changes=tuple(changes),
         complete=True,
+        documented_added_question_ids=tuple(sorted(added_ids)),
     )
 
 
@@ -86,6 +91,7 @@ def comparison_view(report: ComparisonReport) -> dict:
         "stable_ids_exact": report.stable_ids_exact,
         "id_accounting_complete": report.id_accounting_complete,
         "documented_excluded_question_ids": list(report.documented_excluded_question_ids),
+        "documented_added_question_ids": list(report.documented_added_question_ids),
         "field_change_count": len(report.field_changes),
         "field_changes": [
             {

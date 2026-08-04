@@ -579,6 +579,38 @@ def test_identity_exclusion_is_explicit_auditable_and_materializes_only_retained
     }]
 
 
+def test_identity_can_keep_source_question_missing_from_old_pack(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes([
+        "Chapter 1: Existing", "MULTIPLE CHOICE", "1. Exact anchor",
+        "a. First", "b. Second", "ANS: A", "Reason.",
+        "Chapter 2: New Source Content", "MULTIPLE CHOICE", "1. New question?",
+        "a. First", "b. Second", "ANS: B", "Reason.",
+    ])
+    target = {
+        "format": "prepflow_pack", "pack_id": "test", "questions": [{
+            "id": "PFQ-test-000000001", "chapter": 1, "chapter_title": "Existing",
+            "type": "mc", "stem": "Exact anchor",
+            "choices": [{"label": "A", "text": "First"}, {"label": "B", "text": "Second"}],
+            "correct_answers": ["A"], "rationale": "Reason.",
+        }],
+    }
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    reviewed = session.match_existing_pack(target)
+    extra = reviewed["pipeline"]["identity"]["review_cases"][0]
+
+    resolved = session.record_identity_action(extra["record_id"], "retain_new_question")
+
+    assert resolved["run"]["state"] == "identity_matched"
+    new_id = resolved["pipeline"]["identity"]["review_cases"][0]["selected_target_question_id"]
+    assert new_id == "PFQ-test-000000003"
+    session.materialize_identity_review()
+    session.build_isolated_candidate()
+    compared = session.compare_isolated_candidate()
+    assert compared["comparison"]["candidate_question_count"] == 2
+    assert compared["comparison"]["documented_added_question_ids"] == [new_id]
+
+
 def test_incomplete_identity_review_resumes_with_content_free_decisions(tmp_path) -> None:
     pdf = synthetic_pdf_bytes([
         "Chapter 1: First", "MULTIPLE CHOICE", "1. Changed first?",

@@ -201,15 +201,19 @@ class RunLifecycle:
         self._write_manifest(manifest)
         return manifest
 
-    def record_identity_resolution(self, *, approved_matches: int, excluded_records: int = 0) -> dict:
+    def record_identity_resolution(
+        self, *, approved_matches: int, excluded_records: int = 0,
+        retained_new_questions: int = 0,
+    ) -> dict:
         manifest = self._require_stage("identity_review")
-        if approved_matches < 0 or excluded_records < 0 or approved_matches + excluded_records < 1:
+        if any(value < 0 for value in (approved_matches, excluded_records, retained_new_questions)) or approved_matches + excluded_records + retained_new_questions < 1:
             raise DomainError("Resolved identity review requires reviewed records")
         manifest.update(
             stage="identity_matched",
             identity_complete=True,
             identity_review_approved_matches=approved_matches,
             identity_review_excluded_records=excluded_records,
+            identity_review_retained_new_questions=retained_new_questions,
             identity_finding_count=0,
             identity_target_only_records=0,
         )

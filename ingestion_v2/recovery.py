@@ -152,6 +152,11 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
         record_id for record_id, item in identity_actions.items()
         if item["action"] in {"exclude_parser_debris", "exclude_duplicate"}
     }
+    new_questions = {
+        record_id: item["target_question_id"]
+        for record_id, item in identity_actions.items()
+        if item["action"] == "retain_new_question"
+    }
     if report.complete:
         mapping = report.stable_id_by_record_id
     elif manifest.get("stage") == "identity_review":
@@ -163,7 +168,9 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
             None, None,
         )
     else:
-        mapping = authorize_reviewed_identity(report, cases, approvals, exclusions)
+        mapping = authorize_reviewed_identity(
+            report, cases, approvals, exclusions, new_questions
+        )
 
     retained_batch = ParseBatch(
         records=tuple(item for item in batch.records if item.record_id in mapping),

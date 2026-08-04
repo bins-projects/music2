@@ -76,14 +76,23 @@ def authorize_reviewed_identity(
     cases: tuple[IdentityReviewCase, ...],
     approvals: dict[str, str],
     exclusions: set[str] | frozenset[str] = frozenset(),
+    new_questions: dict[str, str] | None = None,
 ) -> dict[str, str]:
+    new_questions = new_questions or {}
     mapping = {item.record_id: item.target_question_id for item in report.matches}
     case_by_record = {item.record_id: item for item in cases}
-    reviewed = set(approvals) | set(exclusions)
+    reviewed = set(approvals) | set(exclusions) | set(new_questions)
     if not reviewed.issubset(case_by_record):
         raise DomainError("Identity decision references an unknown review case")
-    if set(approvals) & set(exclusions):
-        raise DomainError("A parsed record cannot be both matched and excluded")
+    if any(
+        left & right
+        for left, right in (
+            (set(approvals), set(exclusions)),
+            (set(approvals), set(new_questions)),
+            (set(exclusions), set(new_questions)),
+        )
+    ):
+        raise DomainError("A parsed record can have only one identity decision")
     used = set(mapping.values())
     for record_id, target_id in approvals.items():
         allowed = {item.target_question_id for item in case_by_record[record_id].suggestions}
@@ -93,9 +102,23 @@ def authorize_reviewed_identity(
             raise DomainError("A stable question ID cannot be assigned twice")
         mapping[record_id] = target_id
         used.add(target_id)
+    for record_id, question_id in new_questions.items():
+        from ingestion_v2.domain import QUESTION_ID_RE
+
+        if not QUESTION_ID_RE.fullmatch(question_id) or question_id in used:
+            raise DomainError("New question identity must be a unique stable ID")
+        mapping[record_id] = question_id
+        used.add(question_id)
     if reviewed != set(case_by_record):
         raise DomainError("Identity review remains incomplete")
-    if len(mapping) + len(exclusions) != report.parsed_count or len(used) != report.target_count:
+    expected_target_ids = {
+        item.target_question_id for item in report.matches
+    } | set(report.target_only_question_ids)
+    if (
+        len(mapping) + len(exclusions) != report.parsed_count
+        or not expected_target_ids.issubset(used)
+        or len(used) != report.target_count + len(new_questions)
+    ):
         raise DomainError("Identity review remains incomplete")
     return mapping
 

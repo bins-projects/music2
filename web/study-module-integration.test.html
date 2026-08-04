@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>PrepFlow Study Module Integration Test</title></head>
+<body>
+  <h1>PrepFlow Study Module Integration Test</h1>
+  <pre id="results">Running…</pre>
+  <script src="study-module-rules.js"></script>
+  <script src="quiz-rules.js"></script>
+  <script src="order-rules.js"></script>
+  <script src="saved-session-rules.js"></script>
+  <script>
+    (async () => {
+      const lines = [];
+      function check(name, condition) {
+        lines.push(`${condition ? "PASS" : "FAIL"}: ${name}`);
+        if (!condition) throw new Error(name);
+      }
+      const manifest = await fetch("data/study-modules/combined-nursing-final-review.json").then(r => r.json());
+      const totals = PrepFlowStudyModuleRules.validateManifest(manifest);
+      check("loads all 325 module questions", totals.questionCount === 325);
+      check("loads all 39 module chapters", totals.chapterCount === 39);
+      const group = manifest.groups[0];
+      const chapter = group.chapters[0];
+      const packPath = "../packs/fundamentals.prepflow.json";
+      const pack = await fetch(packPath).then(r => r.json());
+      const references = PrepFlowStudyModuleRules.resolveChapter(group, chapter, pack, packPath);
+      check("launch resolves only the selected chapter", references.length === chapter.expected_question_count);
+      const shuffled = PrepFlowOrderRules.orderQuestions(references, true, () => .25);
+      const saved = { version: 3, sessionQuestions: shuffled, currentSessionContext: {
+        kind: "study-module", moduleId: manifest.module_id, chapter: chapter.source_chapter
+      }};
+      const restored = PrepFlowSavedSessionRules.parseSavedSession(JSON.stringify(saved), 3).saved;
+      check("save and resume preserve shuffled order", JSON.stringify(restored.sessionQuestions) === JSON.stringify(shuffled));
+      check("save and resume preserve module context", restored.currentSessionContext.moduleId === manifest.module_id);
+      const first = pack.questions.find(question => question.id === shuffled[0].questionId);
+      check("resolved question uses canonical scoring", PrepFlowQuizRules.evaluateAnswer(first, first.correct_answers).isCorrect);
+      document.querySelector("#results").textContent = `${lines.join("\n")}\n\nAll tests passed.`;
+    })().catch(error => {
+      document.querySelector("#results").textContent = `FAIL: ${error.message}`;
+    });
+  </script>
+</body>
+</html>

@@ -45,11 +45,8 @@ class QuestionRecord:
     def __post_init__(self) -> None:
         if not QUESTION_ID_RE.fullmatch(self.question_id):
             raise DomainError("Question ID must be a stable PrepFlow ID")
-        labels = tuple(label for label, _ in self.choices)
-        if any(not label or not text for label, text in self.choices):
-            raise DomainError("Choices require non-empty labels and text")
-        if len(labels) != len(set(labels)):
-            raise DomainError("Choice labels must be unique")
+        # Damaged choice structures are valid workbench input. QA owns the
+        # finding and promotion block; the domain preserves the evidence.
         if self.source_record_id is not None and not re.fullmatch(r"PFV2-REC-\d{6}", self.source_record_id):
             raise DomainError("Source record ID must be a temporary v2 record ID")
 

@@ -60,3 +60,22 @@ def test_pack_bridge_accepts_legacy_empty_completion_choice_object_only() -> Non
     )
 
     assert questions[0].choices == ()
+
+
+def test_pack_bridge_preserves_duplicate_choice_labels_for_qa() -> None:
+    questions = pack_questions_to_domain(
+        {
+            "format": "prepflow_pack",
+            "questions": [{
+                "id": "PFQ-test-000000001", "chapter": 1, "type": "mc",
+                "stem": "Damaged structure",
+                "choices": [
+                    {"label": "A", "text": "First"},
+                    {"label": "A", "text": "Second"},
+                ],
+                "correct_answers": ["A"],
+            }],
+        }
+    )
+
+    assert questions[0].choices == (("A", "First"), ("A", "Second"))

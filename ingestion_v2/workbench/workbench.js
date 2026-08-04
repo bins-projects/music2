@@ -89,6 +89,14 @@
   function renderActions(item) {
     const actions = document.getElementById("actions");
     actions.replaceChildren();
+    if (["needs_proposal", "awaiting_decision", "deferred", "rejected"].includes(item.status)) {
+      const source = document.createElement("button");
+      source.type = "button";
+      source.className = "secondary";
+      source.textContent = "Open temporary source page";
+      source.addEventListener("click", () => openFindingSource(item));
+      actions.append(source);
+    }
     if (item.damage_type === "complete_duplicate_record" && item.related_question) {
       if (item.status === "excluded_record") {
         const restore = document.createElement("button");
@@ -147,11 +155,11 @@
   function openProposalEditor(item) {
     const dialog = document.getElementById("proposal-dialog");
     dialog.dataset.findingId = item.finding_id;
-    document.getElementById("proposal-value").value = JSON.stringify(
-      item.proposal?.proposed_value ?? item.preserved_value,
-      null,
-      2
-    );
+    const value = item.proposal?.proposed_value ?? item.preserved_value;
+    dialog.dataset.valueType = typeof value === "string" ? "text" : "json";
+    document.getElementById("proposal-value").value = typeof value === "string"
+      ? value
+      : JSON.stringify(value, null, 2);
     document.getElementById("proposal-reason").value = item.proposal?.explanation || "";
     document.getElementById("proposal-verification").checked = Boolean(item.proposal?.requires_source_verification);
     document.getElementById("proposal-error").textContent = "";
@@ -167,7 +175,10 @@
     const dialog = document.getElementById("proposal-dialog");
     const errorNode = document.getElementById("proposal-error");
     try {
-      const proposedAfter = JSON.parse(document.getElementById("proposal-value").value);
+      const rawValue = document.getElementById("proposal-value").value;
+      const proposedAfter = dialog.dataset.valueType === "text"
+        ? rawValue
+        : JSON.parse(rawValue);
       const response = await fetch("/api/proposals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,6 +199,23 @@
         : error.message;
     }
   });
+
+  async function openFindingSource(item) {
+    try {
+      const response = await fetch("/api/source-page", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ finding_id: item.finding_id })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Temporary source page is unavailable.");
+      document.getElementById("source-page-title").textContent = `Extracted PDF page ${result.page_number} of ${result.page_count}`;
+      document.getElementById("source-page-text").textContent = result.text;
+      document.getElementById("source-dialog").showModal();
+    } catch (error) {
+      document.getElementById("decision-help").textContent = error.message;
+    }
+  }
 
   async function takeAction(item, action) {
     if (payload.session?.mode === "synthetic_in_memory") {
@@ -581,20 +609,7 @@
 
   document.getElementById("view-source-button").addEventListener("click", async () => {
     const item = cases[selectedIndex];
-    try {
-      const response = await fetch("/api/source-page", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ finding_id: item.finding_id })
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Temporary source page is unavailable.");
-      document.getElementById("source-page-title").textContent = `Extracted PDF page ${result.page_number} of ${result.page_count}`;
-      document.getElementById("source-page-text").textContent = result.text;
-      document.getElementById("source-dialog").showModal();
-    } catch (error) {
-      document.getElementById("decision-help").textContent = error.message;
-    }
+    await openFindingSource(item);
   });
 
   document.getElementById("source-close").addEventListener("click", () => {

@@ -688,6 +688,9 @@ def test_materialized_pdf_runs_qa_detectors_without_repairs_or_proposals(tmp_pat
     qa_cases = [item for item in payload["cases"] if item["finding_id"].startswith("PFV2-FIND-QA-")]
     assert any(item["field"] == "choices" for item in qa_cases)
     assert all(item["proposal"] is None for item in qa_cases)
+    source = session.view_source_page(qa_cases[0]["finding_id"])
+    assert source["temporary"] is True
+    assert "Which action is expected?" in source["text"]
 
 
 def test_materialized_embedded_choice_is_proposed_but_not_applied(tmp_path) -> None:

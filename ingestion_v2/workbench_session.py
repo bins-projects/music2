@@ -766,8 +766,14 @@ class SyntheticWorkbenchSession:
         if self._lifecycle is None or self._lifecycle.manifest().get("source_type") != "pdf":
             raise DomainError("A temporary source page is available only for an active PDF run")
         case = self._case(finding_id)
-        if case.status is not ReviewStatus.AWAITING_SOURCE_VERIFICATION:
-            raise DomainError("Source page viewing is available only for pending verification")
+        if case.status not in {
+            ReviewStatus.NEEDS_PROPOSAL,
+            ReviewStatus.AWAITING_DECISION,
+            ReviewStatus.DEFERRED,
+            ReviewStatus.REJECTED,
+            ReviewStatus.AWAITING_SOURCE_VERIFICATION,
+        }:
+            raise DomainError("Source page viewing is unavailable for this review state")
         if not self._source_pages:
             raise DomainError("Temporary source pages are no longer available")
         needle = _source_search_text(case.question.stem)

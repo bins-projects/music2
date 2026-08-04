@@ -106,6 +106,8 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert 'id="proposal-value"' in html
     assert "/api/proposals" in script
     assert "Saving this draft does not approve or apply it" in html
+    assert "Edit ordinary text directly" in html
+    assert "Open temporary source page" in script
     assert 'id="view-source-button"' in html
     assert 'id="source-dialog"' in html
     assert "/api/source-page" in script

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>PrepFlow Study Module Rules Test</title></head>
+<body>
+  <h1>PrepFlow Study Module Rules Test</h1>
+  <pre id="results">Running…</pre>
+  <script src="study-module-rules.js"></script>
+  <script>
+    const lines = [];
+    function check(name, condition) {
+      lines.push(`${condition ? "PASS" : "FAIL"}: ${name}`);
+      if (!condition) throw new Error(name);
+    }
+    function moduleWith(ids = ["PFQ-test-1"]) {
+      return {
+        format: "prepflow_module_selection", version: "1.0", module_id: "test",
+        title: "Test", expected_question_count: ids.length,
+        behavior: { navigation: "subject_then_chapter", delivery: "one_question_at_a_time",
+          scoring: "first_attempt_by_chapter", shuffle: "once_per_chapter",
+          reuse_existing_quiz_engine: true },
+        groups: [{ subject: "Test", source_pack_id: "test",
+          chapters: [{ source_chapter: 1, title: "Chapter", expected_question_count: ids.length,
+            question_ids: ids }] }],
+      };
+    }
+    const rules = window.PrepFlowStudyModuleRules;
+    check("validates a module", rules.validateManifest(moduleWith()).questionCount === 1);
+    try { rules.validateManifest(moduleWith(["PFQ-test-1", "PFQ-test-1"])); check("rejects duplicate references", false); }
+    catch (error) { check("rejects duplicate references", /duplicate question reference/.test(error.message)); }
+    const group = moduleWith().groups[0];
+    const pack = { pack_id: "test", questions: [{ id: "PFQ-test-1", chapter: 1, chapter_title: "Chapter" }] };
+    check("resolves lightweight canonical references",
+      JSON.stringify(rules.resolveChapter(group, group.chapters[0], pack, "pack.json"))
+        === JSON.stringify([{ packPath: "pack.json", questionId: "PFQ-test-1" }]));
+    try { rules.resolveChapter(group, group.chapters[0], { pack_id: "test", questions: [] }, "pack.json"); check("rejects missing references", false); }
+    catch (error) { check("rejects missing references", /missing question reference/.test(error.message)); }
+    document.querySelector("#results").textContent = `${lines.join("\n")}\n\nAll tests passed.`;
+  </script>
+</body>
+</html>

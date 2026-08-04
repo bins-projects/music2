@@ -91,7 +91,10 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert "IDENTITY_PACKS" in server
     assert "Unknown protected Pack selection" in server
     assert "/api/identity/actions" in script
-    assert "Approve selected match" in script
+    assert "Match selected ID" in script
+    assert "Exclude parser debris" in script
+    assert "Exclude duplicate record" in script
+    assert "Leave unresolved" in script
     assert "Ranked suggestion only" in script
     assert "identity-target-preview" in script
     assert "selected?.target_stem" in script

@@ -136,20 +136,42 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
     batch = ExistingParserAdapter().parse(cleaned_path.read_text(encoding="utf-8"))
     report = match_existing_pack_identity(batch, target_pack)
     cases = build_identity_review_cases(batch, target_pack, report)
-    approvals = {
-        item["record_id"]: item["target_question_id"]
+    identity_actions = {
+        item["record_id"]: {
+            "action": item.get("action", "approve"),
+            "target_question_id": item.get("target_question_id", ""),
+        }
         for item in checkpoint["identity_actions"]
+    }
+    approvals = {
+        record_id: item["target_question_id"]
+        for record_id, item in identity_actions.items()
+        if item["action"] == "approve"
+    }
+    exclusions = {
+        record_id for record_id, item in identity_actions.items()
+        if item["action"] in {"exclude_parser_debris", "exclude_duplicate"}
     }
     if report.complete:
         mapping = report.stable_id_by_record_id
+    elif manifest.get("stage") == "identity_review":
+        # An incomplete identity review is a valid resumable state. Preserve
+        # its content-free decisions without attempting to materialize data.
+        return RecoveredRun(
+            lifecycle, batch, report, cases, identity_actions, {}, (), (), (),
+            (), (), (), (), QaResult(findings=(), detector_counts={}),
+            None, None,
+        )
     else:
-        mapping = authorize_reviewed_identity(report, cases, approvals)
-    identity_actions = {
-        record_id: {"action": "approve", "target_question_id": target_id}
-        for record_id, target_id in approvals.items()
-    }
+        mapping = authorize_reviewed_identity(report, cases, approvals, exclusions)
 
-    questions, parser_findings = materialize_matched_batch(batch, mapping)
+    retained_batch = ParseBatch(
+        records=tuple(item for item in batch.records if item.record_id in mapping),
+        findings=tuple(item for item in batch.findings if item.record_id in mapping),
+        parser_name=batch.parser_name,
+        automatic_repairs=batch.automatic_repairs,
+    )
+    questions, parser_findings = materialize_matched_batch(retained_batch, mapping)
     benchmark = pack_questions_to_domain(target_pack)
     qa = detect_candidate_damage(questions)
     parser_answer_ids = {

@@ -13,7 +13,7 @@ def payload(run_id: str) -> dict:
         "version": "1.0",
         "run_id": run_id,
         "target_pack_id": "medical_surgical",
-        "identity_actions": [{"record_id": "PFV2-REC-000001", "target_question_id": "PFQ-medical_surgical-000000001"}],
+        "identity_actions": [{"record_id": "PFV2-REC-000001", "action": "approve", "target_question_id": "PFQ-medical_surgical-000000001"}],
         "review_decisions": [{"decision_id": "PFV2-DEC-SESSION-000001", "proposal_id": "PFV2-PROP-ANSWER-000001", "action": "approve"}],
         "verifications": [{"verification_id": "PFV2-VERIFY-SESSION-000002", "proposal_id": "PFV2-PROP-ANSWER-000001", "verified": True}],
         "proposal_fingerprints": [{

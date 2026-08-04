@@ -32,7 +32,7 @@ from ingestion_v2.review_view import review_queue_view
 from ingestion_v2.run_lifecycle import RunLifecycle
 from ingestion_v2.cleaning import GuardedPageAwareCleaner
 from ingestion_v2.extraction import extract_disposable_copy
-from ingestion_v2.parser import ExistingParserAdapter
+from ingestion_v2.parser import ExistingParserAdapter, ParseBatch
 from ingestion_v2.identity import IdentityReport, match_existing_pack_identity
 from ingestion_v2.identity_review import (
     IdentityReviewCase,
@@ -272,7 +272,7 @@ class SyntheticWorkbenchSession:
         case = next((item for item in self._identity_cases if item.record_id == record_id), None)
         if case is None:
             raise DomainError("Unknown identity review record")
-        if action not in {"approve", "reject", "defer"}:
+        if action not in {"approve", "exclude_parser_debris", "exclude_duplicate", "defer"}:
             raise DomainError("Unknown identity review action")
         if action == "approve":
             allowed = {item.target_question_id for item in case.suggestions}
@@ -289,7 +289,7 @@ class SyntheticWorkbenchSession:
                 "action": action,
                 "target_question_id": target_question_id,
             }
-        else:
+        elif action in {"exclude_parser_debris", "exclude_duplicate", "defer"}:
             self._identity_actions[record_id] = {"action": action, "target_question_id": ""}
 
         approvals = {
@@ -297,15 +297,22 @@ class SyntheticWorkbenchSession:
             for key, value in self._identity_actions.items()
             if value["action"] == "approve"
         }
+        exclusions = {
+            key for key, value in self._identity_actions.items()
+            if value["action"] in {"exclude_parser_debris", "exclude_duplicate"}
+        }
+        completed = set(approvals) | exclusions
         if (
-            len(approvals) == len(self._identity_cases)
-            and len(self._identity_report.matches) + len(approvals) == self._identity_report.parsed_count
+            len(completed) == len(self._identity_cases)
+            and len(self._identity_report.matches) + len(approvals) + len(exclusions) == self._identity_report.parsed_count
             and len(self._identity_report.matches) + len(approvals) == self._identity_report.target_count
         ):
             self._identity_mapping = authorize_reviewed_identity(
-                self._identity_report, self._identity_cases, approvals
+                self._identity_report, self._identity_cases, approvals, exclusions
             )
-            self._lifecycle.record_identity_resolution(approved_matches=len(approvals))
+            self._lifecycle.record_identity_resolution(
+                approved_matches=len(approvals), excluded_records=len(exclusions)
+            )
         self._save_checkpoint()
         return self.view()
 
@@ -319,8 +326,20 @@ class SyntheticWorkbenchSession:
             raise DomainError("A complete authorized identity map is required")
         if self._lifecycle.manifest()["stage"] != "identity_matched":
             raise DomainError("Identity materialization is not available at this stage")
+        retained_batch = ParseBatch(
+            records=tuple(
+                item for item in self._parse_batch.records
+                if item.record_id in self._identity_mapping
+            ),
+            findings=tuple(
+                item for item in self._parse_batch.findings
+                if item.record_id in self._identity_mapping
+            ),
+            parser_name=self._parse_batch.parser_name,
+            automatic_repairs=self._parse_batch.automatic_repairs,
+        )
         questions, findings = materialize_matched_batch(
-            self._parse_batch, self._identity_mapping
+            retained_batch, self._identity_mapping
         )
         qa_result = detect_candidate_damage(questions)
         parser_answer_ids = {
@@ -966,10 +985,11 @@ class SyntheticWorkbenchSession:
                 "identity_actions": [
                     {
                         "record_id": record_id,
+                        "action": value["action"],
                         "target_question_id": value["target_question_id"],
                     }
                     for record_id, value in sorted(self._identity_actions.items())
-                    if value["action"] == "approve"
+                    if value["action"] in {"approve", "exclude_parser_debris", "exclude_duplicate"}
                 ],
                 "review_decisions": [
                     {

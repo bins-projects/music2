@@ -287,11 +287,11 @@
   function renderIdentityCase(item) {
     document.getElementById("queue-position").textContent = `${item.record_id} · ${item.status}`;
     document.getElementById("question-meta").textContent = `${item.record_id} · ${chapterLabel(item)}`;
-    document.getElementById("damage-title").textContent = "Confirm stable question identity";
+    document.getElementById("damage-title").textContent = "Identity review required";
     const pill = document.getElementById("status-pill");
     pill.textContent = item.status === "pending" ? "Review required" : item.status;
     pill.dataset.status = item.status;
-    document.getElementById("finding-explanation").textContent = "PrepFlow found possible existing-Pack matches, but similarity is evidence only. You must authorize the identity explicitly.";
+    document.getElementById("finding-explanation").textContent = "Parsing succeeded, but PrepFlow cannot safely decide whether this is a question, parser debris, or a duplicate. The protected Pack supplies identity evidence only—not corrected content.";
     document.getElementById("preserved-value").textContent = item.parsed_stem;
     const proposed = document.getElementById("proposed-value");
     proposed.replaceChildren();
@@ -314,11 +314,16 @@
     select.addEventListener("change", showSelectedSuggestion);
     proposed.append(select, preview);
     showSelectedSuggestion();
-    document.getElementById("proposal-explanation").textContent = "Ranked suggestion only. No stable ID is attached until you approve it.";
+    document.getElementById("proposal-explanation").textContent = "Ranked suggestion only; this is identity evidence. Matching does not copy the Pack's wording or answer into this record.";
     document.getElementById("verification-card").hidden = true;
     const actions = document.getElementById("actions");
     actions.replaceChildren();
-    [["approve", "Approve selected match", "primary"], ["defer", "Decide later", "secondary"], ["reject", "Reject suggestions", "danger"]].forEach(([action, label, style]) => {
+    [
+      ["approve", "Match selected ID", "primary"],
+      ["exclude_parser_debris", "Exclude parser debris", "danger"],
+      ["exclude_duplicate", "Exclude duplicate record", "danger"],
+      ["defer", "Leave unresolved", "secondary"]
+    ].forEach(([action, label, style]) => {
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = label;

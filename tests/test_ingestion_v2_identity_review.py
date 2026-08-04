@@ -76,3 +76,29 @@ def test_suggestions_never_cross_chapters_and_order_is_stable() -> None:
         "PFQ-test-000000002",
         "PFQ-test-000000003",
     ]
+
+
+def test_explicit_exclusion_can_complete_extra_parsed_record_accounting() -> None:
+    batch = ParseBatch(
+        (
+            record("PFV2-REC-000001", "Exact anchor"),
+            record("PFV2-REC-000002", "DIF:"),
+        ),
+        (),
+        "test",
+    )
+    pack = {
+        "format": "prepflow_pack",
+        "pack_id": "test",
+        "questions": [question(1, "Exact anchor")],
+    }
+    report = match_existing_pack_identity(batch, pack)
+    cases = build_identity_review_cases(batch, pack, report)
+
+    mapping = authorize_reviewed_identity(
+        report, cases, {}, {"PFV2-REC-000002"}
+    )
+
+    assert mapping == {"PFV2-REC-000001": "PFQ-test-000000001"}
+    with pytest.raises(DomainError, match="incomplete"):
+        authorize_reviewed_identity(report, cases, {}, set())

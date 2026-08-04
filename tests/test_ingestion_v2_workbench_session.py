@@ -476,7 +476,7 @@ def test_changed_pdf_stem_stops_in_identity_review_without_guessed_id(tmp_path) 
 
     materialized = session.materialize_identity_review()
     assert materialized["run"]["state"] == "review_ready"
-    assert materialized["pipeline"]["parsed_records"] == 1
+    assert materialized["run"]["parsed_records"] == 1
     assert materialized["candidate"]["state"] == "not_built"
 
     built = session.build_isolated_candidate()
@@ -494,6 +494,7 @@ def test_changed_pdf_stem_stops_in_identity_review_without_guessed_id(tmp_path) 
     )
     assert checkpoint["identity_actions"] == [
         {
+            "action": "approve",
             "record_id": "PFV2-REC-000001",
             "target_question_id": "PFQ-test-000000001",
         }
@@ -531,6 +532,84 @@ def test_identity_defer_keeps_run_blocked_and_invalid_selection_is_rejected(tmp_
         session.record_identity_action(
             "PFV2-REC-000001", "approve", "PFQ-test-999999999"
         )
+
+
+def test_identity_exclusion_is_explicit_auditable_and_materializes_only_retained_records(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(
+        [
+            "Chapter 1: Synthetic PDF",
+            "MULTIPLE CHOICE",
+            "1. Exact anchor",
+            "a. First",
+            "b. Second",
+            "ANS: A",
+            "Rationale.",
+            "Chapter 2: Artifacts",
+            "MULTIPLE CHOICE",
+            "1. Extra parser artifact?",
+            "a. Artifact",
+            "b. Noise",
+            "ANS: A",
+            "Metadata fragment.",
+        ]
+    )
+    target = {
+        "format": "prepflow_pack",
+        "pack_id": "test",
+        "questions": [{"id": "PFQ-test-000000001", "chapter": 1, "type": "mc", "stem": "Exact anchor"}],
+    }
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    reviewed = session.match_existing_pack(target)
+    extra = reviewed["pipeline"]["identity"]["review_cases"][0]["record_id"]
+
+    resolved = session.record_identity_action(extra, "exclude_parser_debris")
+
+    assert resolved["run"]["state"] == "identity_matched"
+    assert resolved["pipeline"]["identity"]["review_cases"][0]["status"] == "exclude_parser_debris"
+    materialized = session.materialize_identity_review()
+    assert materialized["run"]["parsed_records"] == 1
+    checkpoint = json.loads(
+        (session._lifecycle.run_directory / "audit" / "checkpoint.json").read_text()
+    )
+    assert checkpoint["identity_actions"] == [{
+        "action": "exclude_parser_debris",
+        "record_id": extra,
+        "target_question_id": "",
+    }]
+
+
+def test_incomplete_identity_review_resumes_with_content_free_decisions(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes([
+        "Chapter 1: First", "MULTIPLE CHOICE", "1. Changed first?",
+        "a. One", "b. Two", "ANS: A", "Reason.",
+        "Chapter 2: Second", "MULTIPLE CHOICE", "1. Changed second?",
+        "a. One", "b. Two", "ANS: B", "Reason.",
+    ])
+    target = {
+        "format": "prepflow_pack", "pack_id": "test", "questions": [
+            {
+                "id": "PFQ-test-000000001", "chapter": 1, "stem": "Original first?",
+                "choices": [{"label": "A", "text": "One"}, {"label": "A", "text": "Damaged duplicate label"}],
+            },
+            {"id": "PFQ-test-000000002", "chapter": 2, "stem": "Original second?"},
+        ],
+    }
+    original = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    original.start_pdf_run(pdf)
+    payload = original.match_existing_pack(target)
+    first = payload["pipeline"]["identity"]["review_cases"][0]
+    original.record_identity_action(
+        first["record_id"], "approve", first["suggestions"][0]["target_question_id"]
+    )
+
+    resumed = SyntheticWorkbenchSession.resume_run(original._lifecycle.run_directory, target)
+    view = resumed.view()
+
+    assert view["run"]["state"] == "identity_review"
+    statuses = {item["record_id"]: item["status"] for item in view["pipeline"]["identity"]["review_cases"]}
+    assert statuses[first["record_id"]] == "approve"
+    assert list(statuses.values()).count("pending") == 1
 
 
 def test_materialized_pdf_runs_qa_detectors_without_repairs_or_proposals(tmp_path) -> None:

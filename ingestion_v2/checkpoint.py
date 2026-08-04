@@ -62,8 +62,14 @@ def validate_checkpoint(payload: dict, *, run_id: str) -> dict:
     for item in payload.get("identity_actions", []):
         if not isinstance(item, dict) or not RECORD_ID_RE.fullmatch(str(item.get("record_id") or "")):
             raise DomainError("Checkpoint contains an invalid temporary record ID")
-        if not QUESTION_ID_RE.fullmatch(str(item.get("target_question_id") or "")):
+        action = item.get("action", "approve")
+        if action not in {"approve", "exclude_parser_debris", "exclude_duplicate"}:
+            raise DomainError("Checkpoint contains an invalid identity action")
+        target_id = str(item.get("target_question_id") or "")
+        if action == "approve" and not QUESTION_ID_RE.fullmatch(target_id):
             raise DomainError("Checkpoint contains an invalid stable question ID")
+        if action != "approve" and target_id:
+            raise DomainError("Excluded identity records cannot carry a stable question ID")
     for group in ("review_decisions", "verifications", "dispositions"):
         if not isinstance(payload.get(group, []), list):
             raise DomainError(f"Checkpoint {group} must be a list")

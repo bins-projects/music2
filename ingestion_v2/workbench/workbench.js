@@ -229,7 +229,9 @@
   function render() {
     const item = cases[selectedIndex];
     const identityCases = payload.pipeline?.identity?.review_cases || [];
-    const identityCase = identityCases.find((entry) => entry.status === "pending" || entry.status === "defer") || identityCases[0];
+    // Advance past deliberately unresolved cases while any untouched cases
+    // remain. Once all cases have a decision, keep one visible for review.
+    const identityCase = identityCases.find((entry) => entry.status === "pending") || identityCases[0];
     const blocking = cases.filter((entry) => entry.severity === "blocking" && !["approved", "excluded_record"].includes(entry.status)).length;
     document.getElementById("case-count").textContent = cases.length;
     document.getElementById("blocking-count").textContent = blocking;

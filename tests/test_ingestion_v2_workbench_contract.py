@@ -95,6 +95,7 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert "Exclude parser debris" in script
     assert "Exclude duplicate record" in script
     assert "Leave unresolved" in script
+    assert 'entry.status === "pending") || identityCases[0]' in script
     assert "Ranked suggestion only" in script
     assert "identity-target-preview" in script
     assert "selected?.target_stem" in script

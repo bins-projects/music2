@@ -19,6 +19,10 @@ from ingestion_v2.identity import IdentityReport, match_existing_pack_identity
 from ingestion_v2.identity_review import IdentityReviewCase, authorize_reviewed_identity, build_identity_review_cases
 from ingestion_v2.pack_bridge import pack_questions_to_domain
 from ingestion_v2.parser import ExistingParserAdapter, ParseBatch
+from ingestion_v2.private_proposals import (
+    proposal_fingerprints as private_proposal_fingerprints,
+    read_private_user_proposals,
+)
 from ingestion_v2.parser_bridge import materialize_matched_batch
 from ingestion_v2.proposal_adapter import draft_benchmark_answer_proposals, draft_deterministic_proposals
 from ingestion_v2.qa_adapter import QaResult, detect_candidate_damage
@@ -200,6 +204,24 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
         draft_deterministic_proposals(questions, findings)
         + draft_benchmark_answer_proposals(questions, benchmark, findings)
     )
+    private_proposals = read_private_user_proposals(run_directory)
+    finding_ids = {item.finding_id for item in findings}
+    question_ids = {item.question_id for item in questions}
+    if any(
+        item.finding_id not in finding_ids or item.question_id not in question_ids
+        for item in private_proposals
+    ):
+        raise DomainError("Private proposal cannot be matched to the reconstructed run")
+    checkpoint_fingerprints = {
+        item["proposal_id"]: item["fingerprint"]
+        for item in checkpoint.get("proposal_fingerprints", [])
+    }
+    if any(
+        checkpoint_fingerprints.get(proposal_id) != fingerprint
+        for proposal_id, fingerprint in private_proposal_fingerprints(private_proposals).items()
+    ):
+        raise DomainError("Private proposal does not match its content-free checkpoint fingerprint")
+    proposals += private_proposals
     proposal_ids = {item.proposal_id for item in proposals}
     proposal_by_fingerprint = {
         proposal_fingerprint(
@@ -223,13 +245,13 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
     decisions = tuple(
         ReviewDecision(item["decision_id"], proposal_id(item["proposal_id"]), ReviewAction(item["action"]), "Recovered from private checkpoint.")
         for item in checkpoint["review_decisions"]
+        if proposal_id(item["proposal_id"]) in proposal_ids
     )
     verifications = tuple(
         SourceVerification(item["verification_id"], proposal_id(item["proposal_id"]), item["verified"], "Recovered verified checkpoint event.")
         for item in checkpoint["verifications"]
+        if proposal_id(item["proposal_id"]) in proposal_ids
     )
-    if any(item.proposal_id not in proposal_ids for item in decisions + verifications):
-        raise DomainError("Checkpoint references a proposal that cannot be reproduced exactly")
     dispositions = []
     for item in checkpoint["dispositions"]:
         finding = finding_by_id.get(item["finding_id"])

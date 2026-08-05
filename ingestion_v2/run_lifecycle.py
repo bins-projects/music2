@@ -282,6 +282,7 @@ class RunLifecycle:
         manifest = self._require_stage("compared")
         self._unlink_owned("artifacts", "raw.txt")
         self._unlink_owned("artifacts", "cleaned.txt")
+        self._unlink_owned("artifacts", "user_proposals.private.json")
         self._unlink_owned("incoming", "source.bin")
         manifest.update(
             stage="completed",
@@ -318,6 +319,7 @@ class RunLifecycle:
         self._unlink_owned("incoming", "source.bin")
         self._unlink_owned("artifacts", "raw.txt")
         self._unlink_owned("artifacts", "cleaned.txt")
+        self._unlink_owned("artifacts", "user_proposals.private.json")
         manifest.update(
             stage="failed_cleaned",
             staged_copy_present=False,
@@ -351,6 +353,7 @@ class RunLifecycle:
             ("incoming", "source.bin"),
             ("artifacts", "raw.txt"),
             ("artifacts", "cleaned.txt"),
+            ("artifacts", "user_proposals.private.json"),
         }
         if (directory, filename) not in allowed:
             raise DomainError("Unknown run artifact name")

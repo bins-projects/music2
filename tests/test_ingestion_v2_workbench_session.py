@@ -810,10 +810,19 @@ def test_pdf_source_verification_requires_opening_temporary_page_first(tmp_path)
     assert checkpoint["proposal_fingerprints"][0]["fingerprint"]
     manifest = (session._lifecycle.run_directory / "run.json").read_text()
     assert "Which action is expected?" not in manifest
+    private_proposals = session._lifecycle.run_directory / "artifacts" / "user_proposals.private.json"
+    assert private_proposals.is_file()
+    assert "Source-verified choice" in private_proposals.read_text()
 
-    session.cleanup_run()
-    assert session._source_pages == ()
-    assert session._viewed_source_findings == set()
+    resumed = SyntheticWorkbenchSession.resume_run(session._lifecycle.run_directory, target)
+    resumed_case = case(resumed.view(), qa_case["finding_id"])
+    assert resumed_case["status"] == "approved"
+    assert resumed_case["proposal"]["proposed_value"][0] == ["A", "Source-verified choice"]
+
+    resumed.cleanup_run()
+    assert resumed._source_pages == ()
+    assert resumed._viewed_source_findings == set()
+    assert not private_proposals.exists()
 
 
 def test_pdf_run_rejects_empty_selection_before_creating_workspace(tmp_path) -> None:

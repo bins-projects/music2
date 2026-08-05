@@ -41,6 +41,7 @@ from ingestion_v2.identity_review import (
 )
 from ingestion_v2.pack_bridge import pack_questions_to_domain
 from ingestion_v2.parser_bridge import materialize_matched_batch
+from ingestion_v2.private_proposals import write_private_user_proposals
 from ingestion_v2.qa_adapter import QaResult, detect_candidate_damage
 from ingestion_v2.proposal_adapter import draft_benchmark_answer_proposals, draft_deterministic_proposals
 from ingestion_v2.checkpoint import proposal_fingerprint, write_checkpoint
@@ -1008,6 +1009,7 @@ class SyntheticWorkbenchSession:
     def _save_checkpoint(self) -> None:
         if self._lifecycle is None or self._identity_report is None:
             return
+        write_private_user_proposals(self._lifecycle.run_directory, self.proposals)
         comparison_counts = {}
         if self._comparison is not None:
             comparison_counts = {

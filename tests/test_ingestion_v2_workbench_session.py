@@ -18,8 +18,11 @@ def case(payload: dict, finding_id: str) -> dict:
 
 
 def synthetic_pdf_bytes(lines: list[str]) -> bytes:
+    return synthetic_pdf_pages_bytes([lines])
+
+
+def synthetic_pdf_pages_bytes(pages: list[list[str]]) -> bytes:
     writer = PdfWriter()
-    page = writer.add_blank_page(width=612, height=792)
     font = DictionaryObject(
         {
             NameObject("/Type"): NameObject("/Font"),
@@ -27,17 +30,19 @@ def synthetic_pdf_bytes(lines: list[str]) -> bytes:
             NameObject("/BaseFont"): NameObject("/Helvetica"),
         }
     )
-    page[NameObject("/Resources")] = DictionaryObject(
-        {NameObject("/Font"): DictionaryObject({NameObject("/F1"): font})}
-    )
-    commands = ["BT /F1 11 Tf 72 740 Td"]
-    for line in lines:
-        escaped = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-        commands.append(f"({escaped}) Tj 0 -14 Td")
-    commands.append("ET")
-    stream = DecodedStreamObject()
-    stream.set_data("\n".join(commands).encode("latin-1"))
-    page[NameObject("/Contents")] = stream
+    for lines in pages:
+        page = writer.add_blank_page(width=612, height=792)
+        page[NameObject("/Resources")] = DictionaryObject(
+            {NameObject("/Font"): DictionaryObject({NameObject("/F1"): font})}
+        )
+        commands = ["BT /F1 11 Tf 72 740 Td"]
+        for line in lines:
+            escaped = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+            commands.append(f"({escaped}) Tj 0 -14 Td")
+        commands.append("ET")
+        stream = DecodedStreamObject()
+        stream.set_data("\n".join(commands).encode("latin-1"))
+        page[NameObject("/Contents")] = stream
     output = BytesIO()
     writer.write(output)
     return output.getvalue()
@@ -502,6 +507,55 @@ def test_changed_pdf_stem_stops_in_identity_review_without_guessed_id(tmp_path) 
     ]
     assert checkpoint["comparison_counts"]["candidate_questions"] == 1
     assert "Changed stem?" not in json.dumps(checkpoint)
+
+
+def test_identity_source_context_includes_adjacent_pages_without_exposing_them_in_run_state(tmp_path) -> None:
+    pdf = synthetic_pdf_pages_bytes(
+        [
+            ["Previous-page-only note."],
+            [
+                "Chapter 1: Context",
+                "MULTIPLE CHOICE",
+                "1. Changed stem?",
+                "a. First option",
+                "b. Second option",
+                "ANS: B",
+                "Rationale.",
+            ],
+            ["Next-page-only note."],
+        ]
+    )
+    target = {
+        "format": "prepflow_pack",
+        "pack_id": "test",
+        "questions": [
+            {
+                "id": "PFQ-test-000000001",
+                "chapter": 1,
+                "type": "mc",
+                "stem": "Original stem?",
+            }
+        ],
+    }
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    reviewed = session.match_existing_pack(target)
+    record_id = reviewed["pipeline"]["identity"]["review_cases"][0]["record_id"]
+
+    context = session.view_identity_source_context(record_id)
+
+    assert context["temporary"] is True
+    assert context["canonical_write_available"] is False
+    assert context["page_count"] == 3
+    assert context["focus_page_number"] == 2
+    assert [(item["page_number"], item["role"]) for item in context["pages"]] == [
+        (1, "previous"),
+        (2, "current"),
+        (3, "next"),
+    ]
+    assert "Changed stem?" in context["pages"][1]["text"]
+    assert "Previous-page-only note." not in json.dumps(session.view())
+    assert "Next-page-only note." not in json.dumps(session.view())
 
 
 def test_identity_defer_keeps_run_blocked_and_invalid_selection_is_rejected(tmp_path) -> None:

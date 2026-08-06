@@ -17,12 +17,27 @@ def main() -> None:
     parser.add_argument("source_pdf", type=Path)
     parser.add_argument("--pack", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument(
+        "--strategies",
+        nargs="+",
+        default=None,
+        help=(
+            "One or more extraction strategies to run. Defaults to all: "
+            "pypdf_plain_v1, pypdf_layout_v1, pymupdf_sorted_v1."
+        ),
+    )
     args = parser.parse_args()
 
     manifest = write_extraction_benchmark(
         args.source_pdf,
         args.pack,
         args.output_dir,
+        strategies=tuple(args.strategies) if args.strategies else (
+            "pypdf_plain_v1",
+            "pypdf_layout_v1",
+            "pymupdf_sorted_v1",
+        ),
+        reporter=print,
     )
 
     print("PrepFlow private extraction benchmark complete")

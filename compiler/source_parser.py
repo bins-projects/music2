@@ -347,6 +347,13 @@ def number_unnumbered_questions(lines: list[str]) -> list[str]:
             synthetic_number = 1
             continue
 
+        if line == PAGE_BREAK_MARKER:
+            # A page boundary is never a possible unnumbered-question stem.
+            # Reset the answer-block scan so an answer key on the new page
+            # cannot synthesize a record from the marker itself.
+            previous_answer = index
+            continue
+
         if chapter_start is None or not ANSWER_RE.match(line):
             continue
 

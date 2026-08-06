@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
@@ -16,6 +18,7 @@ EXTRACTOR_NAMES = (
     "pypdf_plain_v1",
     "pypdf_layout_v1",
     "pymupdf_sorted_v1",
+    "tesseract_ocr_v1",
 )
 
 
@@ -88,6 +91,48 @@ def _pymupdf_sorted_pages(
         document.close()
 
 
+def _tesseract_ocr_pages(
+    source_path: Path,
+    reporter: ProgressReporter | None = None,
+) -> tuple[str, ...]:
+    """
+    OCR rendered PDF pages so the benchmark reads the visible page, not its
+    potentially damaged or overlaid internal text layer.
+    """
+
+    if not shutil.which("tesseract"):
+        raise ModuleNotFoundError("tesseract")
+
+    import fitz
+
+    document = fitz.open(source_path)
+    try:
+        pages: list[str] = []
+        total = len(document)
+        matrix = fitz.Matrix(2, 2)
+
+        for page_number, page in enumerate(document, start=1):
+            _report_page_progress(
+                reporter,
+                "tesseract_ocr_v1",
+                page_number,
+                total,
+            )
+            image = page.get_pixmap(matrix=matrix, alpha=False)
+            completed = subprocess.run(
+                ("tesseract", "stdin", "stdout", "--psm", "6"),
+                input=image.tobytes("png"),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+            )
+            pages.append(completed.stdout.decode("utf-8"))
+
+        return tuple(pages)
+    finally:
+        document.close()
+
+
 def _audit_summary(report: dict[str, Any]) -> dict[str, int]:
     return {
         "page_count": report["source"]["page_count"],
@@ -126,6 +171,7 @@ def run_extraction_benchmark(
         "pypdf_plain_v1": _pypdf_plain_pages,
         "pypdf_layout_v1": _pypdf_layout_pages,
         "pymupdf_sorted_v1": _pymupdf_sorted_pages,
+        "tesseract_ocr_v1": _tesseract_ocr_pages,
     }
     candidates: dict[str, dict[str, Any]] = {}
 

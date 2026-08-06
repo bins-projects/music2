@@ -132,7 +132,7 @@ def _clean_page(
     for line in lines:
         stripped_line = line
         for noise in sorted(removable, key=len, reverse=True):
-            suffix = re.compile(r"(?:\\s+|\\s*[-|:]\\s*)" + re.escape(noise) + r"\\s*$")
+            suffix = re.compile(r"(?:\s+|\s*[-|:]\s*)" + re.escape(noise) + r"\s*$")
             candidate = suffix.sub("", stripped_line)
             if candidate != stripped_line and candidate.strip():
                 stripped_line = candidate.rstrip()
@@ -145,10 +145,10 @@ def _clean_page(
 def _is_educational_shape(value: str) -> bool:
     lowered = value.casefold()
     return bool(
-        re.match(r"^(?:chapter|section)\\s+\\d+\\b", value, re.IGNORECASE)
-        or re.match(r"^\\d+[.)]\\s+", value)
-        or re.match(r"^[a-z][.)]\\s+", value, re.IGNORECASE)
-        or re.match(r"^(?:ans(?:wer)?|correct(?:\\s+answer)?)\\s*:", value, re.IGNORECASE)
-        or re.match(r"^(?:dif|obj|msc|top|not)\\s*:", value, re.IGNORECASE)
+        re.match(r"^(?:chapter|section)\s+\d+\b", value, re.IGNORECASE)
+        or re.match(r"^\d+[.)]\s+", value)
+        or re.match(r"^[a-z][.)]\s+", value, re.IGNORECASE)
+        or re.match(r"^(?:ans(?:wer)?|correct(?:\s+answer)?)\s*:", value, re.IGNORECASE)
+        or re.match(r"^(?:dif|obj|msc|top|not)\s*:", value, re.IGNORECASE)
         or "rationale" in lowered
     )

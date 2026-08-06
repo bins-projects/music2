@@ -944,3 +944,30 @@ Status epilepticus can cause brain damage.
     assert questions[1]["rationale"] == (
         "Status epilepticus can cause brain damage."
     )
+
+
+def test_page_break_after_complete_final_choice_starts_rationale_without_answer_key() -> None:
+    text = """Chapter 7: Nursing Diagnosis
+MULTIPLE CHOICE
+9. Which action does the nurse perform next?
+a. Exclude all subjective data in favor of objective data.
+b. Focus on data gathered during the physical assessment.
+c. Evaluate the data looking for patterns and related data.
+d. Dismiss family members input as ―hearsay.‖
+\f
+After collecting and reviewing all of the assessment data, the nurse looks for patterns and related data to support specific nursing diagnoses.
+DIF: Applying OBJ: 7.5 TOP: Implementation
+"""
+
+    questions = parse_source_questions(text, allow_missing_a_recovery=False)
+
+    assert len(questions) == 1
+    assert questions[0]["choices"][-1] == {
+        "label": "D",
+        "text": "Dismiss family members input as ―hearsay.‖",
+    }
+    assert questions[0]["correct_answers"] == []
+    assert questions[0]["rationale"] == (
+        "After collecting and reviewing all of the assessment data, the nurse "
+        "looks for patterns and related data to support specific nursing diagnoses."
+    )

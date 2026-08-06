@@ -370,7 +370,35 @@
     pill.textContent = item.status === "pending" ? "Review required" : item.status;
     pill.dataset.status = item.status;
     document.getElementById("finding-explanation").textContent = "Parsing succeeded, but PrepFlow cannot safely decide whether this is a question, parser debris, or a duplicate. The protected Pack supplies identity evidence only—not corrected content.";
-    document.getElementById("preserved-value").textContent = item.parsed_stem;
+    const preserved = document.getElementById("preserved-value");
+    preserved.replaceChildren();
+    const stem = document.createElement("div");
+    stem.textContent = item.parsed_stem || "No question stem was parsed.";
+    preserved.append(stem);
+    if (item.parsed_choices?.length) {
+      const choiceLabel = document.createElement("small");
+      choiceLabel.textContent = "Parsed choices";
+      preserved.append(choiceLabel);
+      item.parsed_choices.forEach(([label, text]) => {
+        const row = document.createElement("div");
+        row.className = "choice-row";
+        const labelNode = document.createElement("b");
+        labelNode.textContent = label;
+        const textNode = document.createElement("span");
+        textNode.textContent = text;
+        row.append(labelNode, textNode);
+        preserved.append(row);
+      });
+    }
+    if (item.parsed_correct_answers?.length) {
+      const answerLabel = document.createElement("small");
+      answerLabel.textContent = `Parsed answer: ${item.parsed_correct_answers.join(", ")}`;
+      preserved.append(answerLabel);
+    } else {
+      const missingAnswer = document.createElement("small");
+      missingAnswer.textContent = "No answer key was parsed.";
+      preserved.append(missingAnswer);
+    }
     const proposed = document.getElementById("proposed-value");
     proposed.replaceChildren();
     const select = document.createElement("select");

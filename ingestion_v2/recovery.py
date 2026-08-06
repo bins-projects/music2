@@ -76,17 +76,26 @@ def list_recoverable_runs(workspace_root: Path, protected_pack_ids: set[str]) ->
             ):
                 continue
             summaries.append(
-                {
-                    "run_id": manifest["run_id"],
-                    "pack_id": pack_id,
-                    "stage": manifest["stage"],
-                    "parsed_records": manifest.get("parsed_records", 0),
-                    "finding_count": manifest.get("finding_count", 0),
-                }
+                (
+                    run_directory.stat().st_mtime_ns,
+                    {
+                        "run_id": manifest["run_id"],
+                        "pack_id": pack_id,
+                        "stage": manifest["stage"],
+                        "parsed_records": manifest.get("parsed_records", 0),
+                        "finding_count": manifest.get("finding_count", 0),
+                    },
+                )
             )
         except (DomainError, OSError):
             continue
-    return tuple(sorted(summaries, key=lambda item: item["run_id"]))
+    return tuple(
+        item
+        for _, item in sorted(
+            summaries,
+            key=lambda value: (value[0], value[1]["run_id"]),
+        )
+    )
 
 
 def list_completed_runs(workspace_root: Path, protected_pack_ids: set[str]) -> tuple[dict, ...]:

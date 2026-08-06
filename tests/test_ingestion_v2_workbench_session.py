@@ -470,6 +470,12 @@ def test_changed_pdf_stem_stops_in_identity_review_without_guessed_id(tmp_path) 
     assert "matches" not in payload["pipeline"]["identity"]
     assert payload["pipeline"]["identity"]["findings"][0]["candidate_question_ids"] == []
     assert payload["pipeline"]["identity"]["automatic_id_assignments_authorized"] is False
+    identity_case = payload["pipeline"]["identity"]["review_cases"][0]
+    assert identity_case["parsed_choices"] == [
+        ["A", "First option"],
+        ["B", "Second option"],
+    ]
+    assert identity_case["parsed_correct_answers"] == ["B"]
 
     reviewed = session.record_identity_action(
         "PFV2-REC-000001", "approve", "PFQ-test-000000001"

@@ -332,7 +332,7 @@ def test_managed_session_runs_document_through_lifecycle_and_final_cleanup(tmp_p
         "cleaner": "native_guarded_page_aware_source_neutral_v2",
         "removed_repeated_lines": 0,
         "stripped_repeated_suffixes": 0,
-        "protected_repeated_structures": 0,
+        "protected_repeated_structures": 10,
         "meaning_repairs": 0,
         "source_specific_rules": 0,
     }

@@ -70,3 +70,46 @@ def test_stable_id_mapping_must_cover_every_record_exactly() -> None:
 def test_parser_rejects_empty_input() -> None:
     with pytest.raises(DomainError, match="non-empty"):
         ExistingParserAdapter().parse("\n\n")
+
+
+def test_adapter_reassembles_a_question_split_across_pdf_pages() -> None:
+    text = """Chapter 1: Nursing Theory
+MULTIPLE CHOICE
+8. The student nurse is planning care for a patient who believes that Western
+medicine is effective but not always accurate and recognizes which nursing theory
+would best explain the patient's health practices?
+a. Nursing: Human Science and Human Care
+b. Theory of Cultural Care Diversity and Universality
+Document shared on https://example.invalid/source
+\f
+c. Theory of Nursing as Caring
+d. Five caring processes
+ANS: B
+Leininger describes patient care and its relationship to cultural diversity.
+Swanson's five caring processes include maintaining belief, knowing, being with,
+doing for, and enabling.
+DIF: Understanding OBJ: 2.4 TOP: Diagnosis
+
+9. The nurse identifies which nursing theorist describes the nurse-patient relationship?
+a. First choice
+b. Second choice
+c. Third choice
+d. Fourth choice
+ANS: A
+The rationale for question nine.
+"""
+
+    batch = ExistingParserAdapter().parse(text)
+
+    assert len(batch.records) == 2
+    question_eight = batch.records[0]
+    assert question_eight.source_question_number == 8
+    assert question_eight.choices == (
+        ("A", "Nursing: Human Science and Human Care"),
+        ("B", "Theory of Cultural Care Diversity and Universality Document shared on https://example.invalid/source"),
+        ("C", "Theory of Nursing as Caring"),
+        ("D", "Five caring processes"),
+    )
+    assert question_eight.correct_answers == ("B",)
+    assert "Leininger describes patient care" in question_eight.rationale
+    assert batch.records[1].source_question_number == 9

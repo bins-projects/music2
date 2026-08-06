@@ -48,6 +48,21 @@
     return `<div class="answer-labels"><small>${corrected ? "Corrected answer" : "Broken parsed answer"}</small><strong>${escapeHtml(value.join(", "))}</strong></div>${rows}`;
   }
 
+  function formatQuestionPacket(packet) {
+    if (!packet) return "No complete correction proposed";
+    const field = (label, value, key) => {
+      const changed = packet.changed_fields?.includes(key) ? " packet-field-changed" : "";
+      return `<section class="packet-field${changed}"><small>${label}</small><div>${value}</div></section>`;
+    };
+    const choices = packet.choices?.length
+      ? packet.choices.map(([label, text]) => `<div class="choice-row"><b>${escapeHtml(label)}</b><span>${escapeHtml(text)}</span></div>`).join("")
+      : "<em>No choices parsed</em>";
+    const answers = packet.correct_answers?.length
+      ? escapeHtml(packet.correct_answers.join(", "))
+      : "<em>No answer key parsed</em>";
+    return `<div class="question-packet">${field("Stem", escapeHtml(packet.stem || "No stem parsed"), "stem")}${field("Choices", choices, "choices")}${field("Correct answer(s)", answers, "correct_answers")}${field("Rationale", escapeHtml(packet.rationale || "No rationale parsed"), "rationale")}</div>`;
+  }
+
   function formatCorrectAnswerContext(context) {
     if (!context?.correct_answer_text?.length) return "No answer context available";
     return context.correct_answer_text.map((item) => (
@@ -253,7 +268,7 @@
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Engine rejected the action.");
-        acceptEnginePayload(result);
+        acceptEnginePayload(result, action === "reject" ? item.question_id : null);
       } catch (error) {
         document.getElementById("decision-help").textContent = error.message;
       }
@@ -348,12 +363,18 @@
     pill.textContent = statusLabels[item.status];
     pill.dataset.status = item.status;
     document.getElementById("finding-explanation").textContent = item.explanation;
-    document.getElementById("preserved-value").innerHTML = formatReviewValue(item.preserved_value, item);
+    document.getElementById("preserved-card-label").innerHTML = '<span class="dot amber"></span>Preserved complete question';
+    document.getElementById("proposed-card-label").innerHTML = '<span class="dot blue"></span>Proposed complete question';
+    document.getElementById("preserved-value").innerHTML = item.preserved_question
+      ? formatQuestionPacket(item.preserved_question)
+      : formatReviewValue(item.preserved_value, item);
     if (item.damage_type === "complete_duplicate_record" && item.related_question) {
       document.getElementById("proposed-value").innerHTML = `<b>${escapeHtml(item.related_question.question_id)}</b><br>${escapeHtml(chapterLabel(item.related_question))}${escapeHtml(sourceRecordLabel(item.related_question))}<br><br>${escapeHtml(item.related_question.stem)}`;
       document.getElementById("proposal-explanation").textContent = "These are two preserved records. Explicitly choose the stable ID to exclude; the other remains unchanged.";
     } else {
-      document.getElementById("proposed-value").innerHTML = item.proposal ? formatReviewValue(item.proposal.proposed_value, item, true) : "No correction proposed";
+      document.getElementById("proposed-value").innerHTML = item.proposed_question
+        ? formatQuestionPacket(item.proposed_question)
+        : "No complete correction proposed";
       document.getElementById("proposal-explanation").textContent = item.proposal?.explanation || "The record remains blocked until a justified proposal exists.";
     }
     const verificationCard = document.getElementById("verification-card");
@@ -363,6 +384,8 @@
   }
 
   function renderIdentityCase(item) {
+    document.getElementById("preserved-card-label").innerHTML = '<span class="dot amber"></span>Preserved parsed structure';
+    document.getElementById("proposed-card-label").innerHTML = '<span class="dot blue"></span>Identity evidence';
     document.getElementById("queue-position").textContent = `${item.record_id} · ${item.status}`;
     document.getElementById("question-meta").textContent = `${item.record_id} · ${chapterLabel(item)}`;
     document.getElementById("damage-title").textContent = "Identity review required";
@@ -822,11 +845,16 @@
     }
   });
 
-  function acceptEnginePayload(result) {
+  function acceptEnginePayload(result, advanceQuestionId = null) {
     const selectedFinding = cases[selectedIndex]?.finding_id;
     payload = result;
     cases = result.cases.map((item) => ({ ...item }));
-    selectedIndex = Math.max(0, cases.findIndex((item) => item.finding_id === selectedFinding));
+    const nextInPacket = advanceQuestionId
+      ? cases.findIndex((item) => item.question_id === advanceQuestionId && !["approved", "excluded_record", "rejected"].includes(item.status))
+      : -1;
+    selectedIndex = nextInPacket >= 0
+      ? nextInPacket
+      : Math.max(0, cases.findIndex((item) => item.finding_id === selectedFinding));
     document.getElementById("connection-badge").innerHTML = result.session.private_checkpoint
       ? "<span></span> Engine connected · private checkpoint"
       : "<span></span> Engine connected · in memory";

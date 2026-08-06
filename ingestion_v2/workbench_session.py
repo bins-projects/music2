@@ -328,6 +328,45 @@ class SyntheticWorkbenchSession:
         self._save_checkpoint()
         return self.view()
 
+    def view_identity_source_context(self, record_id: str) -> dict:
+        """Return a private three-page source window for one identity record."""
+        if self._lifecycle is None or self._lifecycle.manifest().get("source_type") != "pdf":
+            raise DomainError("Temporary source context is available only for an active PDF run")
+        if self._lifecycle.manifest().get("stage") not in {"identity_review", "identity_matched"}:
+            raise DomainError("Source context is available only during identity review")
+        case = next((item for item in self._identity_cases if item.record_id == record_id), None)
+        if case is None:
+            raise DomainError("Unknown identity review record")
+        if not self._source_pages:
+            raise DomainError("Temporary source pages are no longer available")
+
+        page_index = _locate_source_page(case.parsed_stem, self._source_pages)
+        first = max(0, page_index - 1)
+        last = min(len(self._source_pages), page_index + 2)
+        return {
+            "format": "prepflow_v2_temporary_source_context",
+            "version": "1.0",
+            "record_id": record_id,
+            "focus_page_number": page_index + 1,
+            "page_count": len(self._source_pages),
+            "pages": [
+                {
+                    "page_number": index + 1,
+                    "role": (
+                        "current"
+                        if index == page_index
+                        else "previous"
+                        if index < page_index
+                        else "next"
+                    ),
+                    "text": self._source_pages[index],
+                }
+                for index in range(first, last)
+            ],
+            "temporary": True,
+            "canonical_write_available": False,
+        }
+
     def materialize_identity_review(self) -> dict:
         if (
             self._lifecycle is None
@@ -1142,6 +1181,31 @@ class SyntheticWorkbenchSession:
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()
         self._dispositions_by_finding.clear()
+
+
+def _locate_source_page(value: str, pages: tuple[str, ...]) -> int:
+    needle = _source_search_text(value)
+    if not needle:
+        raise DomainError("Identity record has no searchable source text")
+    matches = [
+        index
+        for index, page in enumerate(pages)
+        if needle in _source_search_text(page)
+    ]
+    if len(matches) == 1:
+        return matches[0]
+
+    # A parsed stem may cross a page boundary. In that case, use only its
+    # opening words as a temporary page anchor; ambiguity remains blocked.
+    anchor = " ".join(needle.split()[:12])
+    matches = [
+        index
+        for index, page in enumerate(pages)
+        if anchor and anchor in _source_search_text(page)
+    ]
+    if len(matches) != 1:
+        raise DomainError("PrepFlow could not locate one unambiguous temporary source page")
+    return matches[0]
 
 
 def _source_search_text(value: str) -> str:

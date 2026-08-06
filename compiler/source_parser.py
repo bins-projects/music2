@@ -354,10 +354,9 @@ def number_unnumbered_questions(lines: list[str]) -> list[str]:
             continue
 
         if line == PAGE_BREAK_MARKER:
-            # A page boundary is never a possible unnumbered-question stem.
-            # Reset the answer-block scan so an answer key on the new page
-            # cannot synthesize a record from the marker itself.
-            previous_answer = index
+            # Preserve the answer-block scan across pages: a question can
+            # start before the break and finish with choices or its key after
+            # it. The marker itself is excluded from every candidate block.
             continue
 
         if chapter_start is None or not ANSWER_RE.match(line):
@@ -368,9 +367,16 @@ def number_unnumbered_questions(lines: list[str]) -> list[str]:
             if previous_answer is not None
             else chapter_start + 1
         )
-        block = lines[block_start:index]
+        block = [
+            candidate
+            for candidate in lines[block_start:index]
+            if candidate != PAGE_BREAK_MARKER
+        ]
 
         previous_answer = index
+
+        if not block:
+            continue
 
         if any(
             QUESTION_RE.match(candidate)

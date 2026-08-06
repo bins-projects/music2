@@ -106,7 +106,7 @@ The rationale for question nine.
     assert question_eight.source_question_number == 8
     assert question_eight.choices == (
         ("A", "Nursing: Human Science and Human Care"),
-        ("B", "Theory of Cultural Care Diversity and Universality Document shared on https://example.invalid/source"),
+        ("B", "Theory of Cultural Care Diversity and Universality"),
         ("C", "Theory of Nursing as Caring"),
         ("D", "Five caring processes"),
     )

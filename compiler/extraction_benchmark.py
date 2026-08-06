@@ -10,32 +10,80 @@ from pypdf import PdfReader
 from compiler.source_audit import audit_private_source
 
 
-Extractor = Callable[[Path], tuple[str, ...]]
+ProgressReporter = Callable[[str], None]
+Extractor = Callable[[Path, ProgressReporter | None], tuple[str, ...]]
+EXTRACTOR_NAMES = (
+    "pypdf_plain_v1",
+    "pypdf_layout_v1",
+    "pymupdf_sorted_v1",
+)
 
 
 def _joined_pages(pages: tuple[str, ...]) -> str:
     return "\n\f\n".join(pages)
 
 
-def _pypdf_plain_pages(source_path: Path) -> tuple[str, ...]:
+def _report_page_progress(
+    reporter: ProgressReporter | None,
+    name: str,
+    current: int,
+    total: int,
+) -> None:
+    if reporter and (current == 1 or current % 25 == 0 or current == total):
+        reporter(f"{name}: extracting page {current}/{total}")
+
+
+def _pypdf_plain_pages(
+    source_path: Path,
+    reporter: ProgressReporter | None = None,
+) -> tuple[str, ...]:
     reader = PdfReader(source_path)
-    return tuple(page.extract_text() or "" for page in reader.pages)
+    pages: list[str] = []
+    total = len(reader.pages)
+
+    for page_number, page in enumerate(reader.pages, start=1):
+        _report_page_progress(reporter, "pypdf_plain_v1", page_number, total)
+        pages.append(page.extract_text() or "")
+
+    return tuple(pages)
 
 
-def _pypdf_layout_pages(source_path: Path) -> tuple[str, ...]:
+def _pypdf_layout_pages(
+    source_path: Path,
+    reporter: ProgressReporter | None = None,
+) -> tuple[str, ...]:
     reader = PdfReader(source_path)
-    return tuple(
-        page.extract_text(extraction_mode="layout") or ""
-        for page in reader.pages
-    )
+    pages: list[str] = []
+    total = len(reader.pages)
+
+    for page_number, page in enumerate(reader.pages, start=1):
+        _report_page_progress(reporter, "pypdf_layout_v1", page_number, total)
+        pages.append(page.extract_text(extraction_mode="layout") or "")
+
+    return tuple(pages)
 
 
-def _pymupdf_sorted_pages(source_path: Path) -> tuple[str, ...]:
+def _pymupdf_sorted_pages(
+    source_path: Path,
+    reporter: ProgressReporter | None = None,
+) -> tuple[str, ...]:
     import fitz
 
     document = fitz.open(source_path)
     try:
-        return tuple(page.get_text("text", sort=True) for page in document)
+        pages: list[str] = []
+        total = len(document)
+
+        for page_number, page in enumerate(document, start=1):
+            _report_page_progress(
+                reporter,
+                "pymupdf_sorted_v1",
+                page_number,
+                total,
+            )
+            pages.append(page.get_text("text", sort=True))
+
+        return tuple(pages)
     finally:
         document.close()
 
@@ -55,6 +103,9 @@ def _audit_summary(report: dict[str, Any]) -> dict[str, int]:
 def run_extraction_benchmark(
     source_path: str | Path,
     target_pack: dict[str, Any],
+    *,
+    strategies: tuple[str, ...] = EXTRACTOR_NAMES,
+    reporter: ProgressReporter | None = None,
 ) -> dict[str, Any]:
     """
     Compare private PDF text extraction strategies without mutating any Pack.
@@ -63,18 +114,28 @@ def run_extraction_benchmark(
     installed or silently substituted.
     """
 
+    unknown = set(strategies).difference(EXTRACTOR_NAMES)
+    if unknown:
+        raise ValueError(
+            f"Unknown extraction strategy: {', '.join(sorted(unknown))}"
+        )
+
     source = Path(source_path)
     source_bytes = source.read_bytes()
-    extractors: tuple[tuple[str, Extractor], ...] = (
-        ("pypdf_plain_v1", _pypdf_plain_pages),
-        ("pypdf_layout_v1", _pypdf_layout_pages),
-        ("pymupdf_sorted_v1", _pymupdf_sorted_pages),
-    )
+    available_extractors: dict[str, Extractor] = {
+        "pypdf_plain_v1": _pypdf_plain_pages,
+        "pypdf_layout_v1": _pypdf_layout_pages,
+        "pymupdf_sorted_v1": _pymupdf_sorted_pages,
+    }
     candidates: dict[str, dict[str, Any]] = {}
 
-    for name, extractor in extractors:
+    for name in strategies:
+        extractor = available_extractors[name]
+        if reporter:
+            reporter(f"{name}: starting")
+
         try:
-            pages = extractor(source)
+            pages = extractor(source, reporter)
         except ModuleNotFoundError as error:
             candidates[name] = {
                 "status": "unavailable",
@@ -89,6 +150,8 @@ def run_extraction_benchmark(
             continue
 
         raw_text = _joined_pages(pages)
+        if reporter:
+            reporter(f"{name}: auditing extracted text")
         audit = audit_private_source(raw_text, target_pack)
         candidates[name] = {
             "status": "completed",
@@ -99,7 +162,7 @@ def run_extraction_benchmark(
 
     return {
         "format": "prepflow_private_extraction_benchmark",
-        "version": "1.0",
+        "version": "1.1",
         "safety": {
             "source_private_only": True,
             "pack_write_available": False,
@@ -118,13 +181,21 @@ def write_extraction_benchmark(
     source_path: str | Path,
     target_pack_path: str | Path,
     output_directory: str | Path,
+    *,
+    strategies: tuple[str, ...] = EXTRACTOR_NAMES,
+    reporter: ProgressReporter | None = None,
 ) -> dict[str, Any]:
     source = Path(source_path)
     pack = json.loads(Path(target_pack_path).read_text(encoding="utf-8"))
     output = Path(output_directory)
     output.mkdir(parents=True, exist_ok=True)
 
-    benchmark = run_extraction_benchmark(source, pack)
+    benchmark = run_extraction_benchmark(
+        source,
+        pack,
+        strategies=strategies,
+        reporter=reporter,
+    )
     manifest_candidates: dict[str, dict[str, Any]] = {}
 
     for name, candidate in benchmark["candidates"].items():

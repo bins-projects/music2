@@ -1002,6 +1002,7 @@ c. Imogene King
 d. Hildegard Peplau
 ANS: D NURSINGTB.COM
 The interpersonal process is therapeutic.
+DIF: Understanding OBJ: 1.1 TOP: Theory
 14. Select the valid goals. (Select all that apply.)
 a. First
 b. Second

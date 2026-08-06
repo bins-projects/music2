@@ -137,6 +137,9 @@ def test_user_authored_proposal_requires_separate_approval_and_verification() ->
     assert drafted_case["status"] == "awaiting_decision"
     assert drafted_case["preserved_value"] == original
     assert drafted_case["proposal"]["proposed_value"][0] == ("A", "First option")
+    assert drafted_case["preserved_question"]["choices"][0] == ["B", "Second option"]
+    assert drafted_case["proposed_question"]["choices"][0] == ["A", "First option"]
+    assert drafted_case["proposed_question"]["changed_fields"] == ["choices"]
     assert drafted_case["proposal"]["requires_source_verification"] is True
     unapproved = session.build_isolated_candidate()
     assert unapproved["candidate"]["applied_proposal_ids"] == []

@@ -207,3 +207,29 @@ dialog .check-row { display: flex; align-items: center; gap: 9px; }
   .explanation { grid-template-columns: 1fr; gap: 8px; }
   .record-heading { align-items: flex-start; flex-direction: column; }
 }
+
+
+.question-packet {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.packet-field {
+  border-left: 2px solid rgba(122, 164, 180, 0.42);
+  padding: 0.45rem 0 0.45rem 0.7rem;
+}
+
+.packet-field small {
+  display: block;
+  color: var(--muted, #90aab1);
+  font-weight: 700;
+  margin-bottom: 0.28rem;
+  text-transform: uppercase;
+}
+
+.packet-field-changed {
+  background: rgba(75, 209, 193, 0.12);
+  border-left-color: #4bd1c1;
+  border-radius: 0.3rem;
+  padding-right: 0.45rem;
+}

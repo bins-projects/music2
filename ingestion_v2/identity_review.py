@@ -20,6 +20,8 @@ class IdentitySuggestion:
 class IdentityReviewCase:
     record_id: str
     parsed_stem: str
+    parsed_choices: tuple[tuple[str, str], ...]
+    parsed_correct_answers: tuple[str, ...]
     chapter: int | None
     finding_code: str
     suggestions: tuple[IdentitySuggestion, ...]
@@ -62,6 +64,8 @@ def build_identity_review_cases(
             IdentityReviewCase(
                 record_id=record.record_id,
                 parsed_stem=record.stem,
+                parsed_choices=record.choices,
+                parsed_correct_answers=record.correct_answers,
                 chapter=record.chapter,
                 finding_code=finding.finding_code,
                 suggestions=tuple(ranked[:limit]),

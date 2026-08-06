@@ -39,6 +39,7 @@ INLINE_METADATA_RE = re.compile(
     re.IGNORECASE,
 )
 PAGE_BREAK_MARKER = "[PREPFLOW_PAGE_BREAK]"
+SOURCE_SHARE_FOOTER_RE = re.compile(r"^Document shared on https?://", re.IGNORECASE)
 CHOICE_SENTENCE_END_RE = re.compile(r"[.!?][)\\\"'”’‖]*$")
 
 def strip_inline_metadata(text: str) -> str:
@@ -345,6 +346,11 @@ def number_unnumbered_questions(lines: list[str]) -> list[str]:
             chapter_start = index
             previous_answer = None
             synthetic_number = 1
+            continue
+
+        # A sharing URL printed at the foot of an extracted page is transport
+        # metadata, never a choice continuation or educational content.
+        if SOURCE_SHARE_FOOTER_RE.match(line):
             continue
 
         if line == PAGE_BREAK_MARKER:

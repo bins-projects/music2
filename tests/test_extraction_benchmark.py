@@ -1,4 +1,9 @@
-from compiler.extraction_benchmark import _audit_summary
+import pytest
+
+from compiler.extraction_benchmark import (
+    _audit_summary,
+    run_extraction_benchmark,
+)
 
 
 def test_extraction_benchmark_summary_uses_the_same_audit_metrics() -> None:
@@ -21,3 +26,12 @@ def test_extraction_benchmark_summary_uses_the_same_audit_metrics() -> None:
         "source_review_required": 19,
         "pack_only_records": 16,
     }
+
+
+def test_extraction_benchmark_rejects_unknown_strategy_before_reading_source() -> None:
+    with pytest.raises(ValueError, match="Unknown extraction strategy"):
+        run_extraction_benchmark(
+            "not-needed.pdf",
+            {},
+            strategies=("unknown",),
+        )

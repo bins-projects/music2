@@ -13,6 +13,10 @@ def _question_packet(question, *, changed_field: str | None = None, proposed_val
     }
     if changed_field is not None:
         values[changed_field] = proposed_value
+    if isinstance(values["choices"], (list, tuple)):
+        values["choices"] = [list(choice) for choice in values["choices"]]
+    if isinstance(values["correct_answers"], tuple):
+        values["correct_answers"] = list(values["correct_answers"])
     return {
         "question_id": question.question_id,
         "question_type": question.question_type,

@@ -22,8 +22,9 @@ def main() -> None:
         nargs="+",
         default=None,
         help=(
-            "One or more extraction strategies to run. Defaults to all: "
-            "pypdf_plain_v1, pypdf_layout_v1, pymupdf_sorted_v1."
+            "One or more extraction strategies to run. Defaults to the "
+            "three text-layer strategies; rendered OCR runs only when "
+            "tesseract_ocr_v1 is named explicitly."
         ),
     )
     args = parser.parse_args()

@@ -45,6 +45,24 @@ CHOICE_SENTENCE_END_RE = re.compile(r"[.!?][)\\\"'”’‖]*$")
 def strip_inline_metadata(text: str) -> str:
     return INLINE_METADATA_RE.sub("", text).rstrip()
 
+def extract_answer_labels(answer_text: str) -> list[str]:
+    """
+    Extract answer labels only from standalone label tokens.
+
+    A PDF watermark such as NURSINGTB.COM must not become the spurious
+    labels G, B, and C. Compact multi-answer keys such as ACE remain
+    supported when the entire token is made of labels.
+    """
+
+    labels: list[str] = []
+
+    for token in re.findall(r"[A-Z]+", answer_text.upper()):
+        if re.fullmatch(r"[A-G]+", token):
+            labels.extend(token)
+
+    return labels
+
+
 def recover_missing_a_choice(question: dict) -> dict:
     """
     Recover an A choice lost during PDF extraction.
@@ -744,10 +762,7 @@ def parse_source_questions(
                 question["question_type"] = "ordered_response"
 
                 if answer_text:
-                    question["correct_answers"] = re.findall(
-                        r"[A-G]",
-                        answer_text.upper(),
-                    )
+                    question["correct_answers"] = extract_answer_labels(answer_text)
                     reading_rationale = True
                 else:
                     awaiting_completion_answer = True
@@ -762,10 +777,7 @@ def parse_source_questions(
                     awaiting_completion_answer = True
                 continue
 
-            question["correct_answers"] = re.findall(
-                r"[A-G]",
-                answer_text.upper(),
-            )
+            question["correct_answers"] = extract_answer_labels(answer_text)
             reading_rationale = True
             continue
 

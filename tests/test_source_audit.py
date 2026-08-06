@@ -9,6 +9,7 @@ a. First
 b. Second
 ANS: B
 Explanation.
+DIF: Understanding
 2. Which answer is incomplete?
 b. Second
 ANS: A

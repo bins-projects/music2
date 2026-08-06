@@ -1011,6 +1011,8 @@ class SyntheticWorkbenchSession:
                 "chapter_title": case.chapter_title,
                 "finding_code": case.finding_code,
                 "parsed_stem": case.parsed_stem,
+                "parsed_choices": [list(item) for item in case.parsed_choices],
+                "parsed_correct_answers": list(case.parsed_correct_answers),
                 "status": self._identity_actions.get(case.record_id, {}).get("action", "pending"),
                 "selected_target_question_id": self._identity_actions.get(case.record_id, {}).get("target_question_id") or None,
                 "suggestions": [item.__dict__ for item in case.suggestions],

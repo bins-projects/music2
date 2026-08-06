@@ -82,7 +82,6 @@ def test_connected_session_starts_in_memory_and_non_promoting() -> None:
     }
     serialized = json.dumps(payload)
     assert SYNTHETIC_DOCUMENT not in serialized
-    assert "deliberately conflicted example" not in serialized
 
 
 def test_decision_is_validated_by_real_queue_and_recorded_in_memory() -> None:

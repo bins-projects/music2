@@ -217,6 +217,31 @@
     }
   }
 
+  async function openIdentitySourceContext(item) {
+    try {
+      const response = await fetch("/api/identity/source-context", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ record_id: item.record_id })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Temporary source context is unavailable.");
+      const first = result.pages[0]?.page_number;
+      const last = result.pages.at(-1)?.page_number;
+      document.getElementById("source-page-title").textContent =
+        "Extracted PDF context · pages " + first + "–" + last + " of " + result.page_count;
+      document.getElementById("source-page-text").textContent = result.pages
+        .map((page) => {
+          const marker = page.role === "current" ? " ← selected record" : "";
+          return "PAGE " + page.page_number + marker + "\n\n" + page.text;
+        })
+        .join("\n\n════════════════════════════════════════\n\n");
+      document.getElementById("source-dialog").showModal();
+    } catch (error) {
+      document.getElementById("decision-help").textContent = error.message;
+    }
+  }
+
   async function takeAction(item, action) {
     if (payload.session?.mode === "synthetic_in_memory") {
       try {
@@ -254,6 +279,31 @@
     render();
   }
 
+  function renderSummaryCounts(identityCases, blocking) {
+    const identity = payload.pipeline?.identity;
+    const identityReview = ["identity_review", "identity_matched"].includes(payload.run?.state);
+    const set = (countId, labelId, value, label) => {
+      document.getElementById(countId).textContent = value;
+      document.getElementById(labelId).textContent = label;
+    };
+    if (identityReview && identity?.state !== "not_run") {
+      set("case-count", "case-count-label", identity.parsed_count, "parsed records");
+      set("blocking-count", "blocking-count-label", identity.matched_count, "exact ID matches");
+      set("verified-count", "verified-count-label", identity.finding_count, "source records to classify");
+      set("summary-tail-count", "summary-tail-label", identity.target_only_count, "Pack-only records");
+      return;
+    }
+    set("case-count", "case-count-label", cases.length, "review cases");
+    set("blocking-count", "blocking-count-label", blocking, "blocking");
+    set(
+      "verified-count",
+      "verified-count-label",
+      cases.filter((entry) => entry.source_verification_recorded).length,
+      "source verified"
+    );
+    set("summary-tail-count", "summary-tail-label", "Locked", "canonical promotion");
+  }
+
   function render() {
     const item = cases[selectedIndex];
     const identityCases = payload.pipeline?.identity?.review_cases || [];
@@ -261,9 +311,7 @@
     // remain. Once all cases have a decision, keep one visible for review.
     const identityCase = identityCases.find((entry) => entry.status === "pending") || identityCases[0];
     const blocking = cases.filter((entry) => entry.severity === "blocking" && !["approved", "excluded_record"].includes(entry.status)).length;
-    document.getElementById("case-count").textContent = cases.length;
-    document.getElementById("blocking-count").textContent = blocking;
-    document.getElementById("verified-count").textContent = cases.filter((entry) => entry.source_verification_recorded).length;
+    renderSummaryCounts(identityCases, blocking);
     document.getElementById("queue-position").textContent = `${selectedIndex + 1} / ${cases.length}`;
     renderRun();
     renderCandidate();
@@ -348,6 +396,12 @@
     document.getElementById("verification-card").hidden = true;
     const actions = document.getElementById("actions");
     actions.replaceChildren();
+    const source = document.createElement("button");
+    source.type = "button";
+    source.textContent = "View source context";
+    source.className = "secondary";
+    source.addEventListener("click", () => openIdentitySourceContext(item));
+    actions.append(source);
     [
       ["approve", "Match selected ID", "primary"],
       ["retain_new_question", "Keep as new question", "primary"],

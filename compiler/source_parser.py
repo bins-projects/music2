@@ -39,7 +39,7 @@ INLINE_METADATA_RE = re.compile(
     re.IGNORECASE,
 )
 PAGE_BREAK_MARKER = "[PREPFLOW_PAGE_BREAK]"
-CHOICE_SENTENCE_END_RE = re.compile(r'[.!?][)"\'”’‖]*
+CHOICE_SENTENCE_END_RE = re.compile(r"[.!?][)\\\"'”’‖]*$")
 
 def strip_inline_metadata(text: str) -> str:
     return INLINE_METADATA_RE.sub("", text).rstrip()

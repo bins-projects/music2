@@ -3,6 +3,27 @@ from __future__ import annotations
 from ingestion_v2.review import ReviewQueue
 
 
+def _question_packet(question, *, changed_field: str | None = None, proposed_value=None) -> dict:
+    """Expose the complete reviewable record without mutating engine evidence."""
+    values = {
+        "stem": question.stem,
+        "choices": [list(choice) for choice in question.choices],
+        "correct_answers": list(question.correct_answers),
+        "rationale": question.rationale,
+    }
+    if changed_field is not None:
+        values[changed_field] = proposed_value
+    return {
+        "question_id": question.question_id,
+        "question_type": question.question_type,
+        "stem": values["stem"],
+        "choices": values["choices"],
+        "correct_answers": values["correct_answers"],
+        "rationale": values["rationale"],
+        "changed_fields": [changed_field] if changed_field is not None else [],
+    }
+
+
 def review_queue_view(queue: ReviewQueue) -> dict:
     """Return the source-neutral, read-only payload consumed by the workbench UI."""
     return {
@@ -29,6 +50,16 @@ def review_queue_view(queue: ReviewQueue) -> dict:
                 "answer_choice_context": (
                     [list(choice) for choice in case.question.choices]
                     if case.finding.field == "correct_answers"
+                    else None
+                ),
+                "preserved_question": _question_packet(case.question),
+                "proposed_question": (
+                    _question_packet(
+                        case.question,
+                        changed_field=case.proposal.field,
+                        proposed_value=case.proposal.proposed_after,
+                    )
+                    if case.proposal
                     else None
                 ),
                 "proposal": (

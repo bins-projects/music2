@@ -367,11 +367,7 @@ def number_unnumbered_questions(lines: list[str]) -> list[str]:
             if previous_answer is not None
             else chapter_start + 1
         )
-        block = [
-            candidate
-            for candidate in lines[block_start:index]
-            if candidate != PAGE_BREAK_MARKER
-        ]
+        block = lines[block_start:index]
 
         previous_answer = index
 
@@ -383,6 +379,25 @@ def number_unnumbered_questions(lines: list[str]) -> list[str]:
             or SYNTHETIC_QUESTION_RE.match(candidate)
             for candidate in block
         ):
+            continue
+
+        # Do not synthesize a question from a bare page break, a trailing
+        # rationale, or a second answer key. A genuine unnumbered block has
+        # either its first choice, a question cue, or a completion blank.
+        has_choice_a = any(
+            re.match(r"^A\.\s+", candidate, re.IGNORECASE)
+            for candidate in block
+        )
+        has_question_cue = any(
+            re.match(
+                r"^(?:what|which|when|where|who|why|how)\b",
+                candidate.strip(),
+                re.IGNORECASE,
+            )
+            for candidate in block
+        )
+        has_completion_blank = any("_____" in candidate for candidate in block)
+        if not (has_choice_a or has_question_cue or has_completion_blank):
             continue
 
         choice_a_offset = next(
@@ -403,6 +418,7 @@ def number_unnumbered_questions(lines: list[str]) -> list[str]:
             stem_end >= block_start
             and (
                 not lines[stem_end]
+                or lines[stem_end] == PAGE_BREAK_MARKER
                 or is_source_header(lines[stem_end])
                 or lines[stem_end].upper() in SECTION_HEADERS
             )
@@ -426,6 +442,7 @@ def number_unnumbered_questions(lines: list[str]) -> list[str]:
             stem_start <= stem_end
             and (
                 not lines[stem_start]
+                or lines[stem_start] == PAGE_BREAK_MARKER
                 or is_source_header(lines[stem_start])
                 or lines[stem_start].upper() in SECTION_HEADERS
             )
@@ -533,6 +550,11 @@ def parse_source_questions(
 
     for line in lines:
         if not line:
+            continue
+
+        # A sharing URL printed at the foot of an extracted page is transport
+        # metadata, never a choice continuation or educational content.
+        if SOURCE_SHARE_FOOTER_RE.match(line):
             continue
 
         if line == PAGE_BREAK_MARKER:

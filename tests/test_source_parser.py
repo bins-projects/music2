@@ -1018,3 +1018,57 @@ The listed goals are valid.
     assert len(questions) == 2
     assert questions[0]["correct_answers"] == ["D"]
     assert questions[1]["correct_answers"] == ["A", "B", "D"]
+
+
+def test_parser_splits_inline_first_choice_after_watermark_noise() -> None:
+    text = """Chapter 3: Communication
+MULTIPLE CHOICE
+10. Which appearance conveys professional competence? NURSINGTB.COM a. Clean uniform
+b. Bright acrylic nails
+c. Covered tattoos
+d. Large jewelry
+ANS: A
+A clean uniform conveys professional competence.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert len(questions) == 1
+    assert questions[0]["stem"] == (
+        "Which appearance conveys professional competence?"
+    )
+    assert [choice["label"] for choice in questions[0]["choices"]] == [
+        "A",
+        "B",
+        "C",
+        "D",
+    ]
+
+
+def test_parser_keeps_choice_continuations_after_page_artifacts() -> None:
+    text = """Chapter 8: Planning
+MULTIPLE RESPONSE
+2. Which actions occur during planning? (Select all that apply.)
+a. Prioritize nursing diagnoses.
+\f
+Fundamentals of Nursing 2nd Edition Yoost Test Bank
+NURSINGTB.COM
+b. Determine long-term goals.
+c. Identify outcome indicators.
+d. List nursing interventions.
+e. Gather assessment data.
+ANS: A, B, C, D
+Planning follows assessment.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert len(questions) == 1
+    assert [choice["label"] for choice in questions[0]["choices"]] == [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+    ]
+    assert questions[0]["correct_answers"] == ["A", "B", "C", "D"]

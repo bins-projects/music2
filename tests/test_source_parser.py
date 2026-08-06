@@ -971,3 +971,22 @@ DIF: Applying OBJ: 7.5 TOP: Implementation
         "After collecting and reviewing all of the assessment data, the nurse "
         "looks for patterns and related data to support specific nursing diagnoses."
     )
+
+
+def test_page_break_marker_never_becomes_a_synthetic_question() -> None:
+    text = """Chapter 15: Nursing Informatics
+MULTIPLE CHOICE
+1. First question?
+a. First choice
+b. Second choice
+ANS: A
+First rationale.
+\f
+ANS: A
+"""
+
+    questions = parse_source_questions(text, allow_missing_a_recovery=False)
+
+    assert len(questions) == 1
+    assert questions[0]["stem"] == "First question?"
+    assert all(question["stem"] != "[PREPFLOW_PAGE_BREAK]" for question in questions)

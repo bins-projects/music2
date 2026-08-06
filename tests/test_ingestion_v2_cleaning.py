@@ -48,10 +48,12 @@ def test_cleaner_rejects_empty_input() -> None:
 
 def test_cleaner_removes_only_repeated_non_educational_page_edge_lines() -> None:
     source = "\n\f\n".join(
-        (
-            f"Question body {index}.",
-            "This sentence is repeated in the middle of every page.",
-            "Shared non-educational footer",
+        "\n".join(
+            (
+                f"Question body {index}.",
+                "This sentence is repeated in the middle of every page.",
+                "Shared non-educational footer",
+            )
         )
         for index in range(3)
     )
@@ -65,11 +67,13 @@ def test_cleaner_removes_only_repeated_non_educational_page_edge_lines() -> None
 
 def test_cleaner_preserves_repeated_answer_shapes_even_at_page_edges() -> None:
     source = "\n\f\n".join(
-        (
-            "ANS: D",
-            f"{index + 1}. Question {index}?",
-            "a. First choice",
-            "b. Second choice",
+        "\n".join(
+            (
+                "ANS: D",
+                f"{index + 1}. Question {index}?",
+                "a. First choice",
+                "b. Second choice",
+            )
         )
         for index in range(3)
     )

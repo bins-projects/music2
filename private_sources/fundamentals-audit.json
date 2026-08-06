@@ -1,0 +1,3140 @@
+{
+  "format": "prepflow_private_source_audit",
+  "version": "1.0",
+  "safety": {
+    "source_private_only": true,
+    "pack_write_available": false,
+    "automatic_repairs_applied": 0
+  },
+  "source": {
+    "raw_characters": 1163146,
+    "page_count": 433,
+    "document_share_footer_lines": 428,
+    "watermark_lines": 364
+  },
+  "cleaning": {
+    "cleaner": "native_guarded_page_aware_source_neutral_v2",
+    "removed_repeated_lines": 785,
+    "stripped_repeated_suffixes": 5,
+    "protected_repeated_structures": 6209
+  },
+  "parse": {
+    "parser": "existing_source_parser_without_broad_missing_a_recovery",
+    "parsed_records": 1043,
+    "parser_finding_count": 69,
+    "parser_findings_by_type": {
+      "correct_answer_without_choice": 52,
+      "missing_correct_answer": 2,
+      "noncanonical_choice_sequence": 15
+    },
+    "records_with_parser_findings": [
+      {
+        "record_id": "PFV2-REC-000013",
+        "chapter": 1,
+        "source_question_number": 13,
+        "question_type": "multiple_choice",
+        "stem": "The nurse recognizes which nursing theorist who described the relationship between the nurse and the patient as an interpersonal and therapeutic process?",
+        "choices": [
+          [
+            "A",
+            "Virginia Henderson"
+          ],
+          [
+            "B",
+            "Betty Neuman"
+          ],
+          [
+            "C",
+            "Imogene King"
+          ],
+          [
+            "D",
+            "Hildegard Peplau"
+          ]
+        ],
+        "correct_answers": [
+          "D",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000001",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000022",
+        "chapter": 1,
+        "source_question_number": 2,
+        "question_type": "multiple_response",
+        "stem": "The Institute of Medicine (IOM) Report identified several goals for nursing in the United States. The nurse identifies that the IOM offered which suggestions? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Nurses should practice to the full extent of their education."
+          ],
+          [
+            "B",
+            "Nursing education should demonstrate seamless progression."
+          ],
+          [
+            "C",
+            "Nurses should continue to be subservient to physicians in the hospital setting."
+          ],
+          [
+            "D",
+            "Policy making requires better data collection and information infrastructure."
+          ],
+          [
+            "E",
+            "Higher levels of education will not be needed by practicing nurses."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "B",
+          "D",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000002",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000024",
+        "chapter": 1,
+        "source_question_number": 4,
+        "question_type": "multiple_response",
+        "stem": "The nurse is conducting a health assessment on a patient from a foreign country. Which concepts should be addressed by the nurse during the interview? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Food preferences"
+          ],
+          [
+            "B",
+            "Religious practices"
+          ],
+          [
+            "C",
+            "Health beliefs"
+          ],
+          [
+            "D",
+            "Family orientation"
+          ],
+          [
+            "E",
+            "Politics"
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000003",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000044",
+        "chapter": 2,
+        "source_question_number": 19,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient with lung disease. The patient tells the nurse that the most important thing to do during the shift is to walk down to the nurses‘ station and back without having shortness of breath. The patient‘s request is an example of which nursing theory?",
+        "choices": [
+          [
+            "A",
+            "Leininger‘s Cultural Care Theory"
+          ],
+          [
+            "B",
+            "Boykin & Schoenhofer‘s Theory of Nursing as Caring"
+          ],
+          [
+            "C",
+            "Swanson‘s Theory of Caring"
+          ],
+          [
+            "D",
+            "Watson‘s Human Science and Human Care Theory"
+          ]
+        ],
+        "correct_answers": [
+          "C",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000004",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000060",
+        "chapter": 3,
+        "source_question_number": 10,
+        "question_type": "multiple_choice",
+        "stem": "The nurse understands that based on a patient‘s perception of professional competence and car i n g, t h e n ur s e s ho u ld w ea rNwUhRi cSh Ii t Ne mG?TB.C OM a. Large, dangling, hoop earrings",
+        "choices": [
+          [
+            "B",
+            "Bright, multicolored acrylic fingernails"
+          ],
+          [
+            "C",
+            "Clean, neatly pressed uniform"
+          ],
+          [
+            "D",
+            "Offensive tattoos that cannot be covered"
+          ]
+        ],
+        "correct_answers": [
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000005",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (3 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000066",
+        "chapter": 3,
+        "source_question_number": 16,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is collaborating with a patient to determine interventions to ensure compliance with medication administration after the pending discharge. The nurse understands that the goals and nursing interventions would be agreed upon in which phase of the nurse–patient relationship?",
+        "choices": [
+          [
+            "A",
+            "Preinteraction phase"
+          ],
+          [
+            "B",
+            "Orientation phase"
+          ],
+          [
+            "C",
+            "Working phase"
+          ],
+          [
+            "D",
+            "Termination phase"
+          ]
+        ],
+        "correct_answers": [
+          "D",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000006",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000093",
+        "chapter": 4,
+        "source_question_number": 19,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is preparing to teach indwelling urinary catheter insertion techniques to a group of graduate nurses. Which teaching-learning strategy would the nurse find most useful in teaching this skill?",
+        "choices": [
+          [
+            "A",
+            "Concept mapping"
+          ],
+          [
+            "B",
+            "Simulation"
+          ],
+          [
+            "C",
+            "Role playing"
+          ],
+          [
+            "D",
+            "Literature review"
+          ]
+        ],
+        "correct_answers": [
+          "B",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000007",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000103",
+        "chapter": 5,
+        "source_question_number": 4,
+        "question_type": "multiple_choice",
+        "stem": "The charge nurse is discussing a patient‘s care plan during a team meeting. The team determines that the patient has not met the goal of ―ambulating to the nurse‘s station twice a day‖ and decides to revise the plan. The nurse recognizes which characteristic of the nursing process most represents this decision?",
+        "choices": [
+          [
+            "A",
+            "Organization"
+          ],
+          [
+            "B",
+            "Dynamics"
+          ],
+          [
+            "C",
+            "Adaptability"
+          ],
+          [
+            "D",
+            "Outcome orientation"
+          ]
+        ],
+        "correct_answers": [
+          "D",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000008",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000108",
+        "chapter": 5,
+        "source_question_number": 9,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is assisting a patient to bed when the patient says, ―My chest hurts and my left arm feels numb. What‘s wrong with me?‖ What is the type and source of data obtained from the patient‘s complaint?",
+        "choices": [
+          [
+            "A",
+            "Objective data from a primary source"
+          ],
+          [
+            "B",
+            "Objective data from a secondary source"
+          ],
+          [
+            "C",
+            "Subjective data from a primary source"
+          ],
+          [
+            "D",
+            "Subjective data from a secondary source"
+          ],
+          [
+            "D",
+            "Evaluation"
+          ]
+        ],
+        "correct_answers": [
+          "A"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000009",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (5 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000111",
+        "chapter": 5,
+        "source_question_number": 12,
+        "question_type": "multiple_choice",
+        "stem": "A patient with a congenital heart defect is admitted for further testing. The nurse observes the patient has increased shortness of breath and is restless. The nurse is demonstrating which phase of the nursing process?",
+        "choices": [
+          [
+            "D",
+            "Evaluation"
+          ]
+        ],
+        "correct_answers": [
+          "A"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000010",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (1 labels)."
+          },
+          {
+            "finding_id": "PFV2-PARSE-FIND-000011",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000113",
+        "chapter": 5,
+        "source_question_number": 14,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient diagnosed with Lyme disease. The patient tells the nurse, ―My heart seems to be skipping some beats. My doctor told me to let the nurse know if this happens since it might be a complication of my disease.‖ The nurse auscultates the heart and confirms the palpitations. Which step of the nursing process does the nurse‘s action demonstrate?",
+        "choices": [
+          [
+            "A",
+            "Assessment"
+          ],
+          [
+            "B",
+            "Planning and physical assessment. During the planning step of the nursing process, the nurse prioritizes the Nursing diagnoses and identifies short- and long-term goals that are realistic, measurable, and patient focused, with specific outcome identification for evaluation purposes. The implementation step includes initiating specific nursing interventions and treatments designed to help the patient achieve established goals or outcomes. In the evaluation step, the nurse"
+          ],
+          [
+            "D",
+            "Evaluation"
+          ]
+        ],
+        "correct_answers": [
+          "A"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000012",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (3 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000135",
+        "chapter": 6,
+        "source_question_number": 11,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is documenting data collected during a health assessment interview. Which statement by the nurse indicates subjective data?",
+        "choices": [
+          [
+            "A",
+            "―My last bowel movement was 4 days ago.‖"
+          ],
+          [
+            "B",
+            "Abdomen distended; firm and tender."
+          ],
+          [
+            "C",
+            "Dark colored; hard pellet-shaped stool."
+          ],
+          [
+            "D",
+            "Color pink. Skin warm and dry. No sign of discomfort."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000013",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000153",
+        "chapter": 7,
+        "source_question_number": 4,
+        "question_type": "multiple_choice",
+        "stem": "A patient is receiving an experimental drug for leukemia. The nurse is worried that the drug may cause a reduction in platelets leading to intestinal tract bleeding. Which type of nursing diagnosis does the nurse use to address this concern?",
+        "choices": [
+          [
+            "A",
+            "Risk"
+          ],
+          [
+            "B",
+            "Actual"
+          ],
+          [
+            "C",
+            "Health-promotion"
+          ],
+          [
+            "D",
+            "Medical diagnosis"
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000014",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000158",
+        "chapter": 7,
+        "source_question_number": 9,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is reviewing assessment findings on a patient admitted with an extremely slow heart rate in preparation to write a care plan. The patient complains of dizziness, shortness of breath, chest pain, and fainting spells. Vital signs are blood pressure of 98/60 mm Hg and pulse of 52 beats/min. Oxygen saturation is 88%. Which action does the nurse perform next?",
+        "choices": [
+          [
+            "A",
+            "Exclude all subjective data in favor of objective data."
+          ],
+          [
+            "B",
+            "Focus on data gathered during the physical assessment."
+          ],
+          [
+            "C",
+            "Evaluate the data looking for patterns and related data."
+          ],
+          [
+            "D",
+            "Dismiss family members input as ―hearsay.‖"
+          ]
+        ],
+        "correct_answers": [],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000015",
+            "field": "correct_answers",
+            "damage_type": "missing_correct_answer",
+            "explanation": "No correct answer was parsed."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000184",
+        "chapter": 8,
+        "source_question_number": 11,
+        "question_type": "multiple_choice",
+        "stem": "The nurse recognizes which response as a barrier to achieving goals?",
+        "choices": [
+          [
+            "A",
+            "The effects of pain and/or clinical depression"
+          ],
+          [
+            "B",
+            "Patient involvement in setting patient goals"
+          ],
+          [
+            "C",
+            "Family involvement in setting patient goals"
+          ],
+          [
+            "D",
+            "Realistic expectations of the patient‘s capabilities"
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000016",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000192",
+        "chapter": 8,
+        "source_question_number": 19,
+        "question_type": "multiple_choice",
+        "stem": "The nurse recognizes that physical therapy, speech therapy, home health care, and personal care are examples of which tNypUeRoSfiIntNerGveTnBtio.nCs?OM a. Collaborative interventions",
+        "choices": [
+          [
+            "B",
+            "Dependent nursing interventions"
+          ],
+          [
+            "C",
+            "Independent nursing interventions"
+          ],
+          [
+            "D",
+            "Assessment interventions"
+          ]
+        ],
+        "correct_answers": [
+          "A"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000017",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (3 labels)."
+          },
+          {
+            "finding_id": "PFV2-PARSE-FIND-000018",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000196",
+        "chapter": 8,
+        "source_question_number": 2,
+        "question_type": "multiple_response",
+        "stem": "The nurse is formulating a plan of care for a patient. In this phase of the nursing process, the nurse should complete which actions? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Prioritize Nursing diagnoses."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000019",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000210",
+        "chapter": 9,
+        "source_question_number": 12,
+        "question_type": "multiple_choice",
+        "stem": "The nurse identifies change-of-shift report, collaboration with other health care members, and ensuring availability of needed equipment are examples of which term?",
+        "choices": [
+          [
+            "A",
+            "Indirect care"
+          ],
+          [
+            "B",
+            "Direct care"
+          ],
+          [
+            "C",
+            "Referrals"
+          ],
+          [
+            "D",
+            "Delegation"
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000020",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000230",
+        "chapter": 10,
+        "source_question_number": 7,
+        "question_type": "multiple_choice",
+        "stem": "The nurse understands which statement about the use of electronic health records is true?",
+        "choices": [
+          [
+            "A",
+            "They improve patient health status."
+          ],
+          [
+            "B",
+            "They require a keyboard to enter data."
+          ],
+          [
+            "C",
+            "They have not reduced medication errors."
+          ],
+          [
+            "D",
+            "They require increased storage space."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000021",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000252",
+        "chapter": 11,
+        "source_question_number": 3,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient recently diagnosed with cancer that is being asked to participate in a new chemotherapy trial. How would the nurse respond if working under the ethical principle of utilitarianism?",
+        "choices": [
+          [
+            "A",
+            "―The patient should be allowed to decide.‖"
+          ]
+        ],
+        "correct_answers": [
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000022",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000264",
+        "chapter": 11,
+        "source_question_number": 15,
+        "question_type": "multiple_choice",
+        "stem": "The nurse frequently cares for patients who are nearing the end of life. The nurse identifies what strategy that is designed to prolong the time of death rather than restoring life?",
+        "choices": [
+          [
+            "A",
+            "Establishing a do-not-resuscitate (DNR) order"
+          ],
+          [
+            "B",
+            "Adherence to living will requests"
+          ],
+          [
+            "C",
+            "Removal of extraordinary measures already in place"
+          ],
+          [
+            "D",
+            "Continuance of futile care"
+          ]
+        ],
+        "correct_answers": [
+          "D",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000023",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000277",
+        "chapter": 11,
+        "source_question_number": 2,
+        "question_type": "multiple_response",
+        "stem": "Which statements by the nurse are correct regarding informed consent and someone who requires an interpreter? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "A professional interpreter is needed."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "C",
+          "E"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000024",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000294",
+        "chapter": 12,
+        "source_question_number": 16,
+        "question_type": "multiple_choice",
+        "stem": "When explaining delegation to student nurses, what statement by the nurse educator aligns to the ANA regarding delegatioNn?URSINGTB.COM a. A transfer of authority to a less-qualified individual",
+        "choices": [
+          [
+            "B",
+            "The nurse transferring accountability to the delegate"
+          ],
+          [
+            "C",
+            "The transfer of tasks by the nurse while retaining accountability"
+          ],
+          [
+            "D",
+            "Transferring responsibility for assessments and planning"
+          ]
+        ],
+        "correct_answers": [
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000025",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (3 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000358",
+        "chapter": 15,
+        "source_question_number": 6,
+        "question_type": "multiple_choice",
+        "stem": "When technology such as a bar-code medication administration (BCMA) system is used a s part of the process of medication administration, fewer errors are made. The nurse knows that the proper procedure when using the BCMA includes which action?",
+        "choices": [
+          [
+            "A",
+            "Signing into the system using the patient‘s ID number b. Typing in the patient‘s name and room number"
+          ],
+          [
+            "C",
+            "Scanning the patient‘s I DN, UMRASRI, aNnGd mTBed.icCatOioMn"
+          ],
+          [
+            "D",
+            "Discontinuing the medication if the system signals an error"
+          ]
+        ],
+        "correct_answers": [
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000026",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (3 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000367",
+        "chapter": 15,
+        "source_question_number": 15,
+        "question_type": "multiple_choice",
+        "stem": "One classification system for nursing informatics competencies uses technical, utility, and leadership categories. The nurse recognizes leadership competencies involve which concept?",
+        "choices": [
+          [
+            "A",
+            "Maintaining privacy and confidentiality"
+          ],
+          [
+            "B",
+            "Using computers and other technological equipment"
+          ],
+          [
+            "C",
+            "Using a variety of software programs"
+          ],
+          [
+            "D",
+            "Addressing critical thinking applications One classification system for nursing informatics competencies uses technical, utility, and leadership categories. Leadership competencies address the ethical and management issues related to using IT in nursing practice, education, research, and administration. Technical competencies pertain to the use of computers and other technologic equipment and the use of a variety of software programs for word processing, spreadsheet and database development, presentation, referencing, and e-mail. Utility competencies address critical thinking and evidence- based practice applications. Nurses who have a utility competency recognize the relevance of nursing data for improving practice and can access multiple information sources for gathering evidence for clinical decision making."
+          ]
+        ],
+        "correct_answers": [],
+        "rationale_present": false,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000027",
+            "field": "correct_answers",
+            "damage_type": "missing_correct_answer",
+            "explanation": "No correct answer was parsed."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000371",
+        "chapter": 15,
+        "source_question_number": 1,
+        "question_type": "multiple_response",
+        "stem": "The nurse recognizes the use of telemonitoring offers the opportunity to complete which tasks? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Reduce cost of health care."
+          ],
+          [
+            "B",
+            "Improve patient satisfaction. c. Increase duplicate ordersN."
+          ],
+          [
+            "D",
+            "Improve patient outcomes."
+          ],
+          [
+            "E",
+            "Improve organization."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "B",
+          "D",
+          "E"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000028",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (4 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000382",
+        "chapter": 16,
+        "source_question_number": 8,
+        "question_type": "multiple_choice",
+        "stem": "An overweight, sedentary middle-aged smoker with a family history of cardiac disease has noticed a steady rise in resting blood pressure over a 3- to 4-year period. The patient is concerned about his slightly elevated blood pressure and begins walking 20 to 30 minutes in the evenings with his wife and reduces his pack-a-day cigarette habit to ten cigarettes a day. The nurse identifies these actions are the initial step of which behavior?",
+        "choices": [
+          [
+            "A",
+            "Risk factor reduction"
+          ],
+          [
+            "B",
+            "Self-actualization"
+          ],
+          [
+            "C",
+            "Self-transcendence"
+          ],
+          [
+            "D",
+            "Health promotion"
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000029",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000396",
+        "chapter": 16,
+        "source_question_number": 22,
+        "question_type": "multiple_choice",
+        "stem": "Self-concept refers to the way in which individuals perceive unchanging aspects of themselves, such as social character, cognitive abilities, physical appearance, and body image. Which additional point does the nurse the nurse recognize as part of the definition of self- concept?",
+        "choices": [
+          [
+            "A",
+            "If negative, self-concept will allow the patient to compensate for weaknesses."
+          ]
+        ],
+        "correct_answers": [
+          "D"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000030",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000398",
+        "chapter": 16,
+        "source_question_number": 2,
+        "question_type": "multiple_response",
+        "stem": "The nurse recognizes which of the following to be a benefit of regular physical exercise? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Enhances the immune system."
+          ],
+          [
+            "B",
+            "Decreases bone density."
+          ],
+          [
+            "C",
+            "Limits joint mobility."
+          ],
+          [
+            "D",
+            "Improves mental health."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "D",
+          "E"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000031",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000399",
+        "chapter": 16,
+        "source_question_number": 3,
+        "question_type": "multiple_response",
+        "stem": "The economic stability of individuals or families can determine whether they are willing to seek preventive care or screening examinations. The nurse knows which statements about screening examinations to be true? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Free or low-cost screening ensures patient screening."
+          ],
+          [
+            "B",
+            "People may not screen due to fear of testing positive."
+          ],
+          [
+            "C",
+            "Early screening ensures minimal treatment costs."
+          ],
+          [
+            "D",
+            "Employment stability is enhanced by early screening."
+          ],
+          [
+            "E",
+            "Treatment of disorders often means lost wages."
+          ]
+        ],
+        "correct_answers": [
+          "B",
+          "E",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000032",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000406",
+        "chapter": 17,
+        "source_question_number": 7,
+        "question_type": "multiple_choice",
+        "stem": "A home health care nurse is making a well-baby visit to the home of a new mother who has an infant. What assessment finding leads the nurse to provide further anticipatory guidance  and teaching to the mother?",
+        "choices": [
+          [
+            "A",
+            "Mother states she does not breastfeed but uses a recommended formula."
+          ],
+          [
+            "B",
+            "Crib has colorful blankets and pillows for the baby to cuddle."
+          ],
+          [
+            "C",
+            "A mobile is hanging well above the crib playing soft music."
+          ],
+          [
+            "D",
+            "Several rattles and plush toys are available in different textures."
+          ]
+        ],
+        "correct_answers": [
+          "B",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000033",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000430",
+        "chapter": 18,
+        "source_question_number": 6,
+        "question_type": "multiple_choice",
+        "stem": "A nurse is assessing a middle-aged adult for cognitive skills. The patient has difficulty with seriation tests. What action by the nurse is most appropriate?",
+        "choices": [
+          [
+            "A",
+            "Document the findings and continue the assessment."
+          ]
+        ],
+        "correct_answers": [
+          "B"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000034",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000469",
+        "chapter": 19,
+        "source_question_number": 2,
+        "question_type": "multiple_response",
+        "stem": "The nurse is delegating taking vital signs to an unlicensed assistive personnel (UAP). What instructions does the nurse provide the UAP? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "―Let me know if Mr. Smith‘s blood pressure is low.‖"
+          ],
+          [
+            "B",
+            "―Take Mrs. Jones‘ blood pressure every 15 minutes.‖"
+          ],
+          [
+            "C",
+            "―Call me if Ms. Walsh‘s systolic blood pressure drops to under 100 mm Hg.‖"
+          ],
+          [
+            "D",
+            "―Do you want me to demonstrate using the electronic blood pressure cuff?‖"
+          ],
+          [
+            "E",
+            "―I‘ll take Mr. Derby‘s blood pressure since he is not stable.‖"
+          ]
+        ],
+        "correct_answers": [
+          "B",
+          "C",
+          "D",
+          "E",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000035",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000485",
+        "chapter": 20,
+        "source_question_number": 11,
+        "question_type": "multiple_choice",
+        "stem": "A nurse has conducted an Allen‘s test on a patient and the result was 8 seconds. What action by the nurse is best?",
+        "choices": [
+          [
+            "A",
+            "Document the findings and continue the assessment."
+          ],
+          [
+            "B",
+            "Notify the health care provider immediately."
+          ],
+          [
+            "C",
+            "Elevate the patient‘s arm above the level of the heart."
+          ],
+          [
+            "D",
+            "Assess the patient for other signs of circulatory problems."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000036",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000490",
+        "chapter": 20,
+        "source_question_number": 16,
+        "question_type": "multiple_choice",
+        "stem": "A nurse assesses a patient‘s lungs and notes the presence of low-pitched snoring sounds that clear with coughing. What action by the nurse is best?",
+        "choices": [
+          [
+            "A",
+            "Prepare to treat the patient for asthma."
+          ]
+        ],
+        "correct_answers": [
+          "B"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000037",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000493",
+        "chapter": 20,
+        "source_question_number": 19,
+        "question_type": "multiple_choice",
+        "stem": "The nurse reads in a chart that a patient has a paronychia. What assessment technique is most appropriate?",
+        "choices": [
+          [
+            "A",
+            "Auscultate the patient‘s bowel sounds."
+          ],
+          [
+            "B",
+            "Test the cranial nerves for sensory function."
+          ]
+        ],
+        "correct_answers": [
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000038",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000497",
+        "chapter": 20,
+        "source_question_number": 4,
+        "question_type": "multiple_response",
+        "stem": "The nurse examining a patient‘s skin correlates which conditions with which underlying pathology? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Albinism: Full-thickness burns"
+          ],
+          [
+            "B",
+            "Peripheral cyanosis: poor circulation"
+          ],
+          [
+            "C",
+            "Purpura: clotting disorders"
+          ],
+          [
+            "D",
+            "Jaundice: liver disease"
+          ],
+          [
+            "E",
+            "Vitiligo: skin infestation"
+          ]
+        ],
+        "correct_answers": [
+          "B",
+          "C",
+          "D",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000039",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000508",
+        "chapter": 21,
+        "source_question_number": 9,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient from a culture that is unfamiliar. The patient nodded her head ―yes‖ when asked if she will take her prescriptions as ordered, but the nurse discovers the patient does not take the medication but uses herbs for treatment. What action by the nurse is best?",
+        "choices": [
+          [
+            "A",
+            "Warn the patient of the consequences on noncompliance."
+          ]
+        ],
+        "correct_answers": [
+          "D"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000040",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000520",
+        "chapter": 21,
+        "source_question_number": 21,
+        "question_type": "multiple_choice",
+        "stem": "A patient has hypertension and is on a very-low-sodium diet. However, the patient is going to celebrate an important religious holiday soon that includes many food items high in sodium. What action by the nurse is best?",
+        "choices": [
+          [
+            "A",
+            "Tell the patient you are so sorry she can‘t have any of these foods."
+          ],
+          [
+            "B",
+            "Consult with the prescriber about increasing the blood pressure medications."
+          ],
+          [
+            "C",
+            "Collaborate with the patient and dietitian to include some of these foods."
+          ],
+          [
+            "D",
+            "Tell the patient eating these foods once won‘t hurt her condition."
+          ]
+        ],
+        "correct_answers": [
+          "C",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000041",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000568",
+        "chapter": 23,
+        "source_question_number": 2,
+        "question_type": "multiple_response",
+        "stem": "A nurse is assessing social determinants of health. Which does the nurse include in the assessment? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Vaccination compliance"
+          ],
+          [
+            "B",
+            "Family structure"
+          ],
+          [
+            "C",
+            "Communication patterns"
+          ],
+          [
+            "D",
+            "Roles for women"
+          ],
+          [
+            "E",
+            "Education"
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "B",
+          "D",
+          "E",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000042",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000576",
+        "chapter": 24,
+        "source_question_number": 2,
+        "question_type": "multiple_choice",
+        "stem": "The nurse learns that spermatozoa are produced in which sexual organ?",
+        "choices": [
+          [
+            "A",
+            "Scrotum"
+          ],
+          [
+            "B",
+            "Testes"
+          ],
+          [
+            "C",
+            "Glans"
+          ],
+          [
+            "D",
+            "Prostate"
+          ]
+        ],
+        "correct_answers": [
+          "B",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000043",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000613",
+        "chapter": 25,
+        "source_question_number": 14,
+        "question_type": "multiple_choice",
+        "stem": "Which collaborative team member would be most effective in assisting the nurse to identify medication alternatives that are less likely to cause drowsiness and dizziness to reduce the risk of falls in the elderly patient?",
+        "choices": [
+          [
+            "A",
+            "Nursing case manager b. Charge nurse"
+          ],
+          [
+            "C",
+            "Physical therapist"
+          ],
+          [
+            "D",
+            "Pharmacist"
+          ]
+        ],
+        "correct_answers": [
+          "D"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000044",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (3 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000622",
+        "chapter": 25,
+        "source_question_number": 1,
+        "question_type": "multiple_response",
+        "stem": "The nurse is explaining the National Patient Safety Goals (NPSG) to the student nurse. Which answers indicate that the student has a good understanding of these goals? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "The NPSG‘s focus on treating chronic infections quickly"
+          ],
+          [
+            "B",
+            "The NPGS‘s focus on improving staff communication"
+          ],
+          [
+            "C",
+            "The NPGS‘s focus on using medications safely"
+          ],
+          [
+            "D",
+            "The NPGS‘s focus on identifying patients correctly"
+          ]
+        ],
+        "correct_answers": [
+          "B",
+          "C",
+          "D",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000045",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000656",
+        "chapter": 27,
+        "source_question_number": 8,
+        "question_type": "multiple_choice",
+        "stem": "The nurse has assisted the patient to wash the hands, face, axillae, and perineal area. What type of bath does the nurse chart?",
+        "choices": [
+          [
+            "A",
+            "Sink bath"
+          ],
+          [
+            "B",
+            "Complete bed bath"
+          ],
+          [
+            "C",
+            "Partial bed bath"
+          ],
+          [
+            "D",
+            "Shower"
+          ]
+        ],
+        "correct_answers": [
+          "C",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000046",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000676",
+        "chapter": 28,
+        "source_question_number": 3,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is educating the family of a patient on falls risk precautions. Which statement by the family indicates a need for further education?",
+        "choices": [
+          [
+            "A",
+            "―I should keep the wheelchair locked unless using it to move Mom.‖"
+          ],
+          [
+            "B",
+            "―I should leave the bathroom light on as she does at her home.‖"
+          ]
+        ],
+        "correct_answers": [
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000047",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000678",
+        "chapter": 28,
+        "source_question_number": 5,
+        "question_type": "multiple_choice",
+        "stem": "The nurse recognizes which goal to be appropriate for the patient who is postoperative day one from a hip fracture with NthUe nRuSrsIinNgGdTiaBgn.oCsisOIMmpaired mobility? a. Patient will interact with others.",
+        "choices": [
+          [
+            "B",
+            "Patient will ambulate to the bathroom with assistance."
+          ],
+          [
+            "C",
+            "Patient will have no skin breakdown."
+          ],
+          [
+            "D",
+            "Patient will have a physical therapy consult."
+          ]
+        ],
+        "correct_answers": [
+          "B"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000048",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (3 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000732",
+        "chapter": 30,
+        "source_question_number": 9,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is explaining to the UAP that the patient is on a full-liquid diet. Which statement by the UAP indicates a need for reorientation?",
+        "choices": [
+          [
+            "A",
+            "―I can give the patient orange juice.‖"
+          ]
+        ],
+        "correct_answers": [
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000049",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000735",
+        "chapter": 30,
+        "source_question_number": 12,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is attempting to open an occluded PEG tube. Which intervention by the nurse requires re-education?",
+        "choices": [
+          [
+            "A",
+            "Flushes the tube with a small amount of air."
+          ]
+        ],
+        "correct_answers": [
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000050",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000743",
+        "chapter": 30,
+        "source_question_number": 5,
+        "question_type": "multiple_response",
+        "stem": "The nurse is planning dietary education for the patient. What food labeling considerations should the nurse be aware of when planning that education? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Ask patient if food labels are read routinely."
+          ],
+          [
+            "B",
+            "Assess patient‘s level of understanding of food labels."
+          ],
+          [
+            "C",
+            "Encourage patient to read the food labels."
+          ],
+          [
+            "D",
+            "Explain to patient all food labels are different."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "B",
+          "C",
+          "E"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000051",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000764",
+        "chapter": 31,
+        "source_question_number": 1,
+        "question_type": "multiple_response",
+        "stem": "The nurse is completing an assessment of an older adult and notices some cognitive impairment not normally associated with aging. Which of these alterations would prompt further follow-up? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "The patient does not remember where her son lives."
+          ],
+          [
+            "B",
+            "The patient is unable to balance her checkbook."
+          ],
+          [
+            "C",
+            "The patient got lost in a city she never traveled to before."
+          ],
+          [
+            "D",
+            "The patient often has difficulty remembering words."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "B",
+          "D",
+          "E"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000052",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000770",
+        "chapter": 31,
+        "source_question_number": 7,
+        "question_type": "multiple_response",
+        "stem": "The nurse is caring for a patient who is hospitalized with cognitive impairment and recognizes which interventions will assist the patient in orientation? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Keep a photo of the family in the room."
+          ],
+          [
+            "B",
+            "Use a clock on the wall."
+          ],
+          [
+            "C",
+            "Make sure the room is kept bright and well lit."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "B",
+          "D",
+          "E"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000053",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000797",
+        "chapter": 32,
+        "source_question_number": 5,
+        "question_type": "multiple_response",
+        "stem": "The nurse working with older adults wants to support healthy coping strategies. What actions by the nurse are most appropriate? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Installing boxing equipment in the recreation room"
+          ],
+          [
+            "B",
+            "Provide reminiscing sessions for the adults to share personal stories"
+          ],
+          [
+            "C",
+            "Arrange for gentle yoga to be provided at the senior center"
+          ],
+          [
+            "D",
+            "Create activities designed to distract them from their losses"
+          ],
+          [
+            "E",
+            "Encourage the adults to eat frequent, healthy snacks"
+          ]
+        ],
+        "correct_answers": [
+          "B",
+          "C",
+          "E",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000054",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000807",
+        "chapter": 33,
+        "source_question_number": 8,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is providing discharge instructions to a patient who has had sleep alterations. Which statement by the patient indicates further education is needed?",
+        "choices": [
+          [
+            "A",
+            "―I should avoid drinking caffeine too close to bedtime.‖"
+          ],
+          [
+            "B",
+            "―I should not eat anything too close to bedtime.‖"
+          ],
+          [
+            "C",
+            "―I should exercise regularly to help with sleeping.‖"
+          ],
+          [
+            "D",
+            "―I can gain weight if I don‘t sleep enough.‖"
+          ]
+        ],
+        "correct_answers": [
+          "B",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000055",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000834",
+        "chapter": 34,
+        "source_question_number": 10,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient who will be receiving iodine-based contrast medium for a CT scan. Which allergy should be reported to the technician and radiologist before the test is performed? a. Gluten and lactose",
+        "choices": [
+          [
+            "B",
+            "Strawberries and blueberNriesR IGB.CM"
+          ],
+          [
+            "C",
+            "Peanuts and cashews"
+          ],
+          [
+            "D",
+            "Shrimp and scallops U S N T O"
+          ]
+        ],
+        "correct_answers": [
+          "D"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000056",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (3 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000873",
+        "chapter": 35,
+        "source_question_number": 1,
+        "question_type": "multiple_response",
+        "stem": "The nurse is caring for a patient who is NPO with a new PEG (percutaneous endoscopic gastrostomy) tube. Which of the patient‘s medications can the nurse administer through the tube? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Zolpidem tartrate (Edluar) sublingual tablet 5 mg nightly at bedtime"
+          ],
+          [
+            "B",
+            "Ondansetron (Zofran) oral disintegrating tablet 8 mg q 8 hours PRN nausea"
+          ],
+          [
+            "C",
+            "Cefaclor (Ceclor) for oral suspension 250 mg q 6 hours"
+          ],
+          [
+            "D",
+            "Oxymorphone hydrochloride extended release (Opana ER) 40 mg q 12 hours"
+          ],
+          [
+            "E",
+            "Phenytoin (Dilantin) chewable tablet 100 mg q 12 hours"
+          ],
+          [
+            "F",
+            "Potassium chloride oral solution 20 mEq daily"
+          ]
+        ],
+        "correct_answers": [
+          "C",
+          "E",
+          "F",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000057",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000897",
+        "chapter": 36,
+        "source_question_number": 3,
+        "question_type": "multiple_response",
+        "stem": "The nurse is caring for a patient who just had knee replacement surgery. Which factors will affect how the patient experiences pain after this surgery? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "The patient has had rheumatoid arthritis for the last 16 years."
+          ],
+          [
+            "B",
+            "The patient is allergic to aspirin and strawberries."
+          ],
+          [
+            "C",
+            "The patient owns a business and is self-insured."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "E",
+          "F"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000058",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000903",
+        "chapter": 37,
+        "source_question_number": 6,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient who will be having surgery. The patient has just signed the consent form for the operation. What does the patient‘s signature indicate?",
+        "choices": [
+          [
+            "A",
+            "The patient agrees with the doctor‘s diagnosis."
+          ]
+        ],
+        "correct_answers": [
+          "B"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000059",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000911",
+        "chapter": 37,
+        "source_question_number": 14,
+        "question_type": "multiple_choice",
+        "stem": "The nurse will be caring for a patient who has just arrived on the medical–surgical unit following surgical repair of his fractured right ankle. Which is the priority action of the nurse when the patient arrives on the unit?",
+        "choices": [
+          [
+            "A",
+            "Instruct the patient how to call for assistance using the call light."
+          ],
+          [
+            "B",
+            "Assess the color and warmth of the toes on the patient‘s right foot."
+          ]
+        ],
+        "correct_answers": [
+          "D"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000060",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000931",
+        "chapter": 38,
+        "source_question_number": 10,
+        "question_type": "multiple_choice",
+        "stem": "The preceptor is working with a new nurse to provide care for a patient with a chest tub to relieve a pneumothorax. Which action by the new nurse indicates need for additional teaching about chest tube care?",
+        "choices": [
+          [
+            "A",
+            "The suction is discontinued when the patient is ambulated to the bathroom."
+          ],
+          [
+            "B",
+            "The collection device is emptied at the end of the shift and output recorded in the chart."
+          ],
+          [
+            "C",
+            "The patient‘s bed is placed in the semi-Fowler‘s position to facilitate lung reexpansion."
+          ],
+          [
+            "D",
+            "The patient is encouraged to use his incentive spirometer at least 10 times every hour."
+          ]
+        ],
+        "correct_answers": [
+          "B",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000061",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000947",
+        "chapter": 39,
+        "source_question_number": 2,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is reviewing the patient‘s laboratory results. Which result must be communicated to t hephysician immediately? a .  Serumchloride level 85 m E qN/ L  R I GB.CM",
+        "choices": [
+          [
+            "B",
+            "Serum sodium level 134 m UE q / LS NT O"
+          ],
+          [
+            "C",
+            "Serum potassium level 6.8 mEq/L"
+          ],
+          [
+            "D",
+            "Serum magnesium level 2.3 mEq/L"
+          ]
+        ],
+        "correct_answers": [
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000062",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (3 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000958",
+        "chapter": 39,
+        "source_question_number": 13,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient who has a central venous catheter (CVC). Which nursing intervention is the most important for the nurse to include in the patient‘s plan of care?",
+        "choices": [
+          [
+            "A",
+            "Carefully document all assessments of the catheter site."
+          ],
+          [
+            "B",
+            "Use strict sterile procedure when performing dressing changes."
+          ],
+          [
+            "C",
+            "Label each new dressing with the date, time, and nurse‘s initials."
+          ],
+          [
+            "D",
+            "Ensure that the CVC is discontinued as soon as possible."
+          ]
+        ],
+        "correct_answers": [
+          "B",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000063",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000969",
+        "chapter": 39,
+        "source_question_number": 24,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a hospitalized patient with hyperparathyroid disease and a serum calcium level of 14.2 mg/dL. What is the priority intervention of the nurse?",
+        "choices": [
+          [
+            "A",
+            "Instruct the patient to always call for assistance before getting out of bed."
+          ],
+          [
+            "B",
+            "Assist the patient to change into dry clothing after episodes of diaphoresis."
+          ],
+          [
+            "C",
+            "Teach stress-relieving techniques, including progressive muscle relaxation."
+          ],
+          [
+            "D",
+            "Notify the provider if urine output is less than 30 mL/hr."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000064",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-000972",
+        "chapter": 40,
+        "source_question_number": 2,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient who has diarrhea and identifies which priority nursing diagnosis for this patient? a. Lack of knowledge related to prescribed diet modifications",
+        "choices": [
+          [
+            "B",
+            "Impaired nutritional intakNeUreRlaSteIdNtoGpToBor.apCpOetMite"
+          ],
+          [
+            "C",
+            "Diarrhea related to excessive loss of fluid through stool"
+          ],
+          [
+            "D",
+            "Anxiety related to incontinence with loose stools and need for clothing change"
+          ]
+        ],
+        "correct_answers": [
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000065",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (3 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-001008",
+        "chapter": 41,
+        "source_question_number": 15,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient who had prostate surgery the previous day. The patient has had significantly decreased urine output over the last shift despite ample oral and IV fluid intake. The patient‘s urine from the indwelling catheter is cherry red with occasional small clots. What is the appropriate action of the nurse? a. Remove the urinary catheter and replace it with a new one.",
+        "choices": [
+          [
+            "B",
+            "Gently irrigate the cathete NrUuRsinSgIwNaGrmTeBd.stCerOile normal saline."
+          ],
+          [
+            "C",
+            "Send a sample of the patient‘s urine to the laboratory for analysis."
+          ],
+          [
+            "D",
+            "Call the provider and obtain an order for kidney and bladder ultrasound."
+          ]
+        ],
+        "correct_answers": [
+          "B"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000066",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (3 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-001017",
+        "chapter": 41,
+        "source_question_number": 3,
+        "question_type": "multiple_response",
+        "stem": "The nurse is working with a new nursing assistant who is providing care to patients with urinary difficulties. Which actions by the nursing assistant indicates that additional teaching is required? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "The length of the urinary catheter is cleaned up to the patient‘s perineum."
+          ],
+          [
+            "B",
+            "A urine sample is obtained from the drainage bag immediately after catheter insertion."
+          ],
+          [
+            "C",
+            "A fresh condom catheter is applied every other day following careful perineal care."
+          ],
+          [
+            "D",
+            "Zinc oxide barrier cream is applied liberally to the perineal area for incontinent patients."
+          ],
+          [
+            "E",
+            "The catheter drainage bag is disconnected in order to put pants on the patient."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "C",
+          "E",
+          "F"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000067",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-001025",
+        "chapter": 42,
+        "source_question_number": 7,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a terminally ill patient who appears to be calmly having a conversation with someone even though there is nobody else in the room. The patient reaches out and appears to take something out of thin air and hold it close. Which is the appropriate action of the nurse?",
+        "choices": [
+          [
+            "A",
+            "Reorient the patient and reassure that nobody else is in the room."
+          ],
+          [
+            "B",
+            "Be present but quiet and let the patient continue the conversation. c. Carefully assess the patient‘s mental status and level of attention."
+          ],
+          [
+            "D",
+            "Obtain a set of vital signsNaUndRcShIecNkGthTeBp.atCienOt‘s pulse oximetry."
+          ]
+        ],
+        "correct_answers": [
+          "B"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000068",
+            "field": "choices",
+            "damage_type": "noncanonical_choice_sequence",
+            "explanation": "Parsed choice labels are not contiguous from A (3 labels)."
+          }
+        ]
+      },
+      {
+        "record_id": "PFV2-REC-001030",
+        "chapter": 42,
+        "source_question_number": 12,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient who has just died in a motor vehicle accident. What is the priority action of the nurse before the patient‘s family arrives to see the patient‘s body?",
+        "choices": [
+          [
+            "A",
+            "Gently wash the body and provide perineal care."
+          ],
+          [
+            "B",
+            "Remove the patient‘s dentures and jewelry."
+          ],
+          [
+            "C",
+            "Ensure that the death certificate has been signed."
+          ],
+          [
+            "D",
+            "Determine which funeral home will pick up the body."
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "G",
+          "B",
+          "C"
+        ],
+        "rationale_present": true,
+        "findings": [
+          {
+            "finding_id": "PFV2-PARSE-FIND-000069",
+            "field": "correct_answers",
+            "damage_type": "correct_answer_without_choice",
+            "explanation": "At least one parsed answer has no corresponding parsed choice."
+          }
+        ]
+      }
+    ]
+  },
+  "identity": {
+    "target_pack_id": "fundamentals",
+    "target_records": 1040,
+    "exact_matches": 1024,
+    "source_review_required": 19,
+    "pack_only_records": 16,
+    "findings_by_type": {
+      "changed_or_unmatched_identity": 19
+    },
+    "source_records_requiring_review": [
+      {
+        "record_id": "PFV2-REC-000158",
+        "chapter": 7,
+        "source_question_number": 9,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is reviewing assessment findings on a patient admitted with an extremely slow heart rate in preparation to write a care plan. The patient complains of dizziness, shortness of breath, chest pain, and fainting spells. Vital signs are blood pressure of 98/60 mm Hg and pulse of 52 beats/min. Oxygen saturation is 88%. Which action does the nurse perform next?",
+        "choices": [
+          [
+            "A",
+            "Exclude all subjective data in favor of objective data."
+          ],
+          [
+            "B",
+            "Focus on data gathered during the physical assessment."
+          ],
+          [
+            "C",
+            "Evaluate the data looking for patterns and related data."
+          ],
+          [
+            "D",
+            "Dismiss family members input as ―hearsay.‖"
+          ]
+        ],
+        "correct_answers": [],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000367",
+        "chapter": 15,
+        "source_question_number": 15,
+        "question_type": "multiple_choice",
+        "stem": "One classification system for nursing informatics competencies uses technical, utility, and leadership categories. The nurse recognizes leadership competencies involve which concept?",
+        "choices": [
+          [
+            "A",
+            "Maintaining privacy and confidentiality"
+          ],
+          [
+            "B",
+            "Using computers and other technological equipment"
+          ],
+          [
+            "C",
+            "Using a variety of software programs"
+          ],
+          [
+            "D",
+            "Addressing critical thinking applications One classification system for nursing informatics competencies uses technical, utility, and leadership categories. Leadership competencies address the ethical and management issues related to using IT in nursing practice, education, research, and administration. Technical competencies pertain to the use of computers and other technologic equipment and the use of a variety of software programs for word processing, spreadsheet and database development, presentation, referencing, and e-mail. Utility competencies address critical thinking and evidence- based practice applications. Nurses who have a utility competency recognize the relevance of nursing data for improving practice and can access multiple information sources for gathering evidence for clinical decision making."
+          ]
+        ],
+        "correct_answers": [],
+        "rationale_present": false,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000414",
+        "chapter": 17,
+        "source_question_number": 15,
+        "question_type": "multiple_choice",
+        "stem": "A father expresses frustration that his school-aged child is suddenly ―sick all the time.‖ What action by the nurse is best? NURSINGTB.COM U S N",
+        "choices": [
+          [
+            "A",
+            "Encourage the father to give the child a multivitamin each day."
+          ],
+          [
+            "B",
+            "Explain that illness is frequent in this age-group because of exposure to others."
+          ],
+          [
+            "C",
+            "Encourage the father to discuss testing the child‘s immunity with the provider."
+          ],
+          [
+            "D",
+            "Make sure the parents are washing their hands frequently in the home."
+          ]
+        ],
+        "correct_answers": [
+          "B"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000445",
+        "chapter": 18,
+        "source_question_number": 2,
+        "question_type": "multiple_response",
+        "stem": "The nurse is planning an educational workshop on health risks for the young adult. What topics does the nurse plan to include as priorities? (Select all that apply.) NURSINGTB.COM",
+        "choices": [
+          [
+            "A",
+            "Sexually transmitted diseases"
+          ],
+          [
+            "B",
+            "Falling"
+          ],
+          [
+            "C",
+            "Responsible alcohol use"
+          ],
+          [
+            "D",
+            "Intimate partner and sexual violence"
+          ],
+          [
+            "E",
+            "Distracted driving"
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "C",
+          "D",
+          "E"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000540",
+        "chapter": 22,
+        "source_question_number": 16,
+        "question_type": "multiple_choice",
+        "stem": "A home health care nurse has been working with a patient who has the Nursing diagnosis Spiritual Distress. After a few weeks of implementing the care plan, what method is best for the nurse to determine if goals have been met? NURSINGTB.COM",
+        "choices": [
+          [
+            "A",
+            "Ask the patient to what extent he/she feels goals have been met."
+          ],
+          [
+            "B",
+            "Ask the patient to rate the distress on a scale of 1 to 10."
+          ],
+          [
+            "C",
+            "Assess for objective data to support goal attainment."
+          ],
+          [
+            "D",
+            "Determine if the patient thinks the interventions are helpful."
+          ]
+        ],
+        "correct_answers": [
+          "A"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000581",
+        "chapter": 24,
+        "source_question_number": 7,
+        "question_type": "multiple_choice",
+        "stem": "A nurse is working with a patient using the PLISSIT model. In the LI phase, what is an appropriate activity? NURSINGTB.COM",
+        "choices": [
+          [
+            "A",
+            "Educate the patient on water-based lubricants."
+          ],
+          [
+            "B",
+            "Ask the patient for permission to discuss sexuality."
+          ],
+          [
+            "C",
+            "Instruct the patient on positions acceptable after knee replacement."
+          ],
+          [
+            "D",
+            "Refer the patient and partner to a licensed therapist."
+          ]
+        ],
+        "correct_answers": [
+          "A"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000590",
+        "chapter": 24,
+        "source_question_number": 16,
+        "question_type": "multiple_choice",
+        "stem": "A male patient takes a medication known to cause erectile dysfunction. What action by the nurse is best? NURSINGTB.COM",
+        "choices": [
+          [
+            "A",
+            "State, ―If this medication has bad side effects, talk to your doctor.‖"
+          ],
+          [
+            "B",
+            "Ask, ―Are you having any sexual problems in your life right now?‖"
+          ],
+          [
+            "C",
+            "Give the patient written information on the side effects of the drug."
+          ],
+          [
+            "D",
+            "State, ―Many men have erectile dysfunction on this drug.‖"
+          ]
+        ],
+        "correct_answers": [
+          "D"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000598",
+        "chapter": 24,
+        "source_question_number": 7,
+        "question_type": "multiple_response",
+        "stem": "A nurse understands that which characteristics of family dynamics impact a patient‘s sexuality? (Select all that apply.) NURSINGTB.COM",
+        "choices": [
+          [
+            "A",
+            "Religion"
+          ],
+          [
+            "B",
+            "Age"
+          ],
+          [
+            "C",
+            "Ethnicity"
+          ],
+          [
+            "D",
+            "Culture"
+          ],
+          [
+            "E",
+            "Geographic location"
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000640",
+        "chapter": 26,
+        "source_question_number": 16,
+        "question_type": "multiple_choice",
+        "stem": "Which isolation precaution should the nurse implement for the patient who has been diagnosed with hepatitis A? NURSINGTB.COM",
+        "choices": [
+          [
+            "A",
+            "Airborne"
+          ],
+          [
+            "B",
+            "Contact"
+          ],
+          [
+            "C",
+            "Droplet"
+          ],
+          [
+            "D",
+            "Protective"
+          ]
+        ],
+        "correct_answers": [
+          "B"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000664",
+        "chapter": 27,
+        "source_question_number": 16,
+        "question_type": "multiple_choice",
+        "stem": "The nurse recognizes which statement by the patient indicates a teaching need? NURSINGTB.COM",
+        "choices": [
+          [
+            "A",
+            "―I use bobby pins to remove excessive ear wax.‖"
+          ],
+          [
+            "B",
+            "―I use soap and a warm cloth to clean the outside of my ear.‖"
+          ],
+          [
+            "C",
+            "―My doctor sometimes gives me oil drops for my ears.‖"
+          ],
+          [
+            "D",
+            "―I never use Q-Tips.‖"
+          ]
+        ],
+        "correct_answers": [
+          "A"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000729",
+        "chapter": 30,
+        "source_question_number": 6,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is performing an oral examination on a patient and notices a beefy-red tongue. The nurse identifies this as a characteristic finding for what condition? NURSINGTB.COM U S N",
+        "choices": [
+          [
+            "A",
+            "Anorexia nervosa"
+          ],
+          [
+            "B",
+            "Malnutrition"
+          ],
+          [
+            "C",
+            "Bulimia"
+          ],
+          [
+            "D",
+            "Pernicious anemia"
+          ]
+        ],
+        "correct_answers": [
+          "D"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000767",
+        "chapter": 31,
+        "source_question_number": 4,
+        "question_type": "multiple_response",
+        "stem": "The nurse is performing a health history to determine the patient‘s cognitive status. Which questions will be best suited to elicit the information needed? (Select all that apply.) NURSINGTB.COM U S",
+        "choices": [
+          [
+            "A",
+            "―Are you able to drive to the store or do errands?‖"
+          ],
+          [
+            "B",
+            "―Do you have any pain?‖"
+          ],
+          [
+            "C",
+            "―Is your vision blurry?‖"
+          ],
+          [
+            "D",
+            "―Are you able to smell different foods?‖"
+          ],
+          [
+            "E",
+            "―Have you noticed any difficulty adding up numbers?‖"
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "E"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000810",
+        "chapter": 33,
+        "source_question_number": 11,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is working with a patient who has been advised to take 2 20-minute naps during the day for fatigue. After a week, the patient states the naps have not helped. What response by the nurse is best? NURSINGTB.COM",
+        "choices": [
+          [
+            "A",
+            "―Maybe that is too much sleep for you during the day.‖"
+          ],
+          [
+            "B",
+            "―Why don‘t you try one 40-minute nap instead?‖"
+          ],
+          [
+            "C",
+            "―Let‘s explore some sleeping medications for you to try.‖"
+          ],
+          [
+            "D",
+            "―It often takes a few weeks for napping to help.‖"
+          ]
+        ],
+        "correct_answers": [
+          "D"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000820",
+        "chapter": 33,
+        "source_question_number": 5,
+        "question_type": "multiple_response",
+        "stem": "The nurse recognizes which sleeping conditions are identified as dyssomnias? (Select all that apply.) NURSINGTB.COM",
+        "choices": [
+          [
+            "A",
+            "Difficultly getting to sleep"
+          ],
+          [
+            "B",
+            "Nocturnal enuresis"
+          ],
+          [
+            "C",
+            "Inability staying asleep"
+          ],
+          [
+            "D",
+            "Being excessively sleepy"
+          ],
+          [
+            "E",
+            "Falling asleep during the day"
+          ]
+        ],
+        "correct_answers": [
+          "A",
+          "C",
+          "D",
+          "E"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000841",
+        "chapter": 34,
+        "source_question_number": 17,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient with a urinary tract infection. Which test will indicate which antibiotics will be effective to treat the infection? NURSINGTB.COM",
+        "choices": [
+          [
+            "A",
+            "Complete blood count (CBC)"
+          ],
+          [
+            "B",
+            "Culture and sensitivity (C&S)"
+          ],
+          [
+            "C",
+            "Renal scan and angiography"
+          ],
+          [
+            "D",
+            "Radioreceptor assay for HCG"
+          ]
+        ],
+        "correct_answers": [
+          "B"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000871",
+        "chapter": 35,
+        "source_question_number": 22,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient who takes 6 tablets of methotrexate once ev ery week on Fridays. How many mg of methotrexate does the patient take per dose? NURSINGTB.COM Trexall Methotrexate tablets, USP 2.5 mg tablets only",
+        "choices": [
+          [
+            "A",
+            "10 mg"
+          ],
+          [
+            "B",
+            "15 mg"
+          ],
+          [
+            "C",
+            "20 mg"
+          ],
+          [
+            "D",
+            "25 mg"
+          ]
+        ],
+        "correct_answers": [
+          "B"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000872",
+        "chapter": 35,
+        "source_question_number": 23,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is to administer 45 mg of phenobarbital to the patient. How many tablets will the patient receive? Phenobarbital tablets, USP 15 mg CIV only NURSINGTB.COM",
+        "choices": [
+          [
+            "A",
+            "1 tablet"
+          ],
+          [
+            "B",
+            "2 tablets"
+          ],
+          [
+            "C",
+            "3 tablets"
+          ],
+          [
+            "D",
+            "4 tablets"
+          ]
+        ],
+        "correct_answers": [
+          "C"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000940",
+        "chapter": 38,
+        "source_question_number": 1,
+        "question_type": "multiple_response",
+        "stem": "NURSINGTB.COM The nurse is caring for a patient with advanced COPD who reports feeling short of breath. The nurse notes that the patient‘s lung sounds are diminished bilaterally and the patient‘s pulse oximetry is 91% on 2 L/min oxygen via nasal cannula. What actions will t he nurse take to make the patient more comfortable? (Select all that apply.)",
+        "choices": [
+          [
+            "A",
+            "Increase the patient‘s oxygen to 4 L/min via nasal cannula."
+          ],
+          [
+            "B",
+            "Suction the patient‘s airway using sterile technique."
+          ],
+          [
+            "C",
+            "Maintain eye contact and provide calm reassurance."
+          ],
+          [
+            "D",
+            "Turn the patient onto the side for postural drainage."
+          ],
+          [
+            "E",
+            "Administer the ordered nebulized bronchodilator."
+          ],
+          [
+            "F",
+            "Elevate the head of the patient‘s bed to fully upright."
+          ]
+        ],
+        "correct_answers": [
+          "C",
+          "E",
+          "F"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      },
+      {
+        "record_id": "PFV2-REC-000985",
+        "chapter": 40,
+        "source_question_number": 15,
+        "question_type": "multiple_choice",
+        "stem": "The nurse is caring for a patient who has just completed 2 weeks of IV antibiotics for a severe infection. The patient now has frequent loose watery stools and a low-grade temperature. What is the most likely cause of the patient‘s new symptoms? NURSINGTB.COM",
+        "choices": [
+          [
+            "A",
+            "Clostridium difficile infection"
+          ],
+          [
+            "B",
+            "Paralytic ileus"
+          ],
+          [
+            "C",
+            "Fecal impaction"
+          ],
+          [
+            "D",
+            "Salmonella food poisoning"
+          ]
+        ],
+        "correct_answers": [
+          "A"
+        ],
+        "rationale_present": true,
+        "finding_code": "changed_or_unmatched_identity",
+        "candidate_question_ids": []
+      }
+    ],
+    "pack_only_question_ids": [
+      "PFQ-fundamentals-000000412",
+      "PFQ-fundamentals-000000443",
+      "PFQ-fundamentals-000000538",
+      "PFQ-fundamentals-000000579",
+      "PFQ-fundamentals-000000588",
+      "PFQ-fundamentals-000000596",
+      "PFQ-fundamentals-000000638",
+      "PFQ-fundamentals-000000662",
+      "PFQ-fundamentals-000000727",
+      "PFQ-fundamentals-000000765",
+      "PFQ-fundamentals-000000808",
+      "PFQ-fundamentals-000000818",
+      "PFQ-fundamentals-000000839",
+      "PFQ-fundamentals-000000869",
+      "PFQ-fundamentals-000000870",
+      "PFQ-fundamentals-000000982"
+    ]
+  }
+}

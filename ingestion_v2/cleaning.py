@@ -61,7 +61,7 @@ class GuardedPageAwareCleaner:
             removed_lines += page_removed
             stripped_suffixes += page_stripped
 
-        cleaned = "\n\f\n".join(cleaned_pages)
+        cleaned = "\n\f\n".join("\n".join(page) for page in cleaned_pages)
         return CleaningResult(
             text=cleaned,
             cleaner_name=self.cleaner_name,

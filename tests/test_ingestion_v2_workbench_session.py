@@ -1,4 +1,5 @@
 import json
+import os
 
 import pytest
 from io import BytesIO
@@ -894,6 +895,25 @@ def test_completed_run_manifest_survives_while_new_run_starts(tmp_path) -> None:
     assert prior_manifest["stage"] == "completed"
     assert not (completed_directory / "artifacts" / "raw.txt").exists()
     assert not (completed_directory / "artifacts" / "cleaned.txt").exists()
+
+
+
+def test_recoverable_runs_are_ordered_by_latest_activity(tmp_path) -> None:
+    first = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    first.start_run()
+    second = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    second.start_run()
+
+    os.utime(first._lifecycle.run_directory, ns=(1, 1))
+    os.utime(second._lifecycle.run_directory, ns=(2, 2))
+
+    available = list_recoverable_runs(tmp_path / "runs", {"fundamentals"})
+
+    assert [item["run_id"] for item in available] == [
+        first._lifecycle.run_directory.name,
+        second._lifecycle.run_directory.name,
+    ]
+
 
 
 def test_active_compared_pdf_run_resumes_to_exact_same_candidate_and_comparison(tmp_path) -> None:

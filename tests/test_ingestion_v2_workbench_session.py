@@ -899,15 +899,26 @@ def test_completed_run_manifest_survives_while_new_run_starts(tmp_path) -> None:
 
 
 def test_recoverable_runs_are_ordered_by_latest_activity(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes([
+        "Chapter 1: Resume", "MULTIPLE CHOICE", "1. Which?",
+        "a. First", "ANS: A", "First.",
+    ])
+    target = {
+        "format": "prepflow_pack", "pack_id": "test",
+        "questions": [{"id": "PFQ-test-000000001", "chapter": 1, "stem": "Which?"}],
+    }
+
     first = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
-    first.start_run()
+    first.start_pdf_run(pdf)
+    first.match_existing_pack(target)
     second = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
-    second.start_run()
+    second.start_pdf_run(pdf)
+    second.match_existing_pack(target)
 
     os.utime(first._lifecycle.run_directory, ns=(1, 1))
     os.utime(second._lifecycle.run_directory, ns=(2, 2))
 
-    available = list_recoverable_runs(tmp_path / "runs", {"fundamentals"})
+    available = list_recoverable_runs(tmp_path / "runs", {"test"})
 
     assert [item["run_id"] for item in available] == [
         first._lifecycle.run_directory.name,

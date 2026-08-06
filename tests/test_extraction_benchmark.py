@@ -1,6 +1,7 @@
 import pytest
 
 from compiler.extraction_benchmark import (
+    EXTRACTOR_NAMES,
     _audit_summary,
     run_extraction_benchmark,
 )
@@ -35,3 +36,7 @@ def test_extraction_benchmark_rejects_unknown_strategy_before_reading_source() -
             {},
             strategies=("unknown",),
         )
+
+
+def test_extraction_benchmark_exposes_rendered_page_ocr_strategy() -> None:
+    assert "tesseract_ocr_v1" in EXTRACTOR_NAMES

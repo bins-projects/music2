@@ -40,6 +40,15 @@ INLINE_METADATA_RE = re.compile(
 )
 PAGE_BREAK_MARKER = "[PREPFLOW_PAGE_BREAK]"
 SOURCE_SHARE_FOOTER_RE = re.compile(r"^Document shared on https?://", re.IGNORECASE)
+PAGE_ARTIFACT_RE = re.compile(
+    r"^(?:[A-Z](?:\s+[A-Z]){0,8}|.*\b(?:test bank|edition)\b.*|"
+    r"[A-Z]{4,}\.[A-Z]{2,4})$",
+    re.IGNORECASE,
+)
+INLINE_FIRST_CHOICE_RE = re.compile(
+    r"^(\d+\.\s+.+?\?)\s*(?:[A-Z][A-Z .]{0,48}\s+)?"
+    r"([a-gA-G])\.\s+(.+)$"
+)
 CHOICE_SENTENCE_END_RE = re.compile(r"[.!?][)\\\"'”’‖]*$")
 
 def strip_inline_metadata(text: str) -> str:
@@ -248,6 +257,34 @@ def normalize_labeled_question_format(
             if rationale:
                 normalized.append(rationale)
 
+            continue
+
+        normalized.append(line)
+
+    return normalized
+
+
+def normalize_inline_question_choices(lines: list[str]) -> list[str]:
+    """
+    Split a first answer choice that PDF extraction placed on the stem line.
+
+    This is limited to a numbered question ending in a question mark followed
+    by a conventional choice marker. Uppercase domain-like overlay text
+    between the stem and choice is discarded as page-extraction noise.
+    """
+
+    normalized: list[str] = []
+
+    for line in lines:
+        match = INLINE_FIRST_CHOICE_RE.match(line)
+
+        if match:
+            normalized.extend(
+                (
+                    match.group(1).strip(),
+                    f"{match.group(2).upper()}. {match.group(3).strip()}",
+                )
+            )
             continue
 
         normalized.append(line)
@@ -521,6 +558,7 @@ def parse_source_questions(
     )
     lines = [line.strip() for line in source_with_page_markers.splitlines()]
     lines = normalize_labeled_question_format(lines)
+    lines = normalize_inline_question_choices(lines)
     lines = normalize_split_choices(lines)
     lines = normalize_inline_answers(lines)
     lines = normalize_multiline_ordered_answers(lines)
@@ -583,6 +621,12 @@ def parse_source_questions(
                 and not metadata_started
                 and CHOICE_SENTENCE_END_RE.search(question["choices"][-1]["text"])
             )
+            continue
+
+        # Repeated page titles, one-letter overlay fragments, and all-caps
+        # domains can occur before a choice continuation. They are transport
+        # artifacts, so retain the page-boundary decision until real content.
+        if page_break_after_complete_choice and PAGE_ARTIFACT_RE.match(line):
             continue
 
         # A paragraph that begins on a new page after a complete final choice

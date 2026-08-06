@@ -990,3 +990,30 @@ ANS: A
     assert len(questions) == 1
     assert questions[0]["stem"] == "First question?"
     assert all(question["stem"] != "[PREPFLOW_PAGE_BREAK]" for question in questions)
+
+
+def test_parser_ignores_watermark_letters_after_answer_key() -> None:
+    text = """Chapter 1: Nursing Theory
+MULTIPLE CHOICE
+13. Which theorist described the interpersonal nurse-patient process?
+a. Virginia Henderson
+b. Betty Neuman
+c. Imogene King
+d. Hildegard Peplau
+ANS: D NURSINGTB.COM
+The interpersonal process is therapeutic.
+14. Select the valid goals. (Select all that apply.)
+a. First
+b. Second
+c. Third
+d. Fourth
+e. Fifth
+ANS: A, B, D NURSINGTB.COM
+The listed goals are valid.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert len(questions) == 2
+    assert questions[0]["correct_answers"] == ["D"]
+    assert questions[1]["correct_answers"] == ["A", "B", "D"]

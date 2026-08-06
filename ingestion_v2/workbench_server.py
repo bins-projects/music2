@@ -121,6 +121,11 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 if pack_id not in IDENTITY_PACKS:
                     raise DomainError("Unknown protected Pack selection")
                 payload = self.session.match_existing_pack(load_pack(IDENTITY_PACKS[pack_id]))
+            elif self.path == "/api/identity/source-context":
+                record_id = body.get("record_id")
+                if not isinstance(record_id, str):
+                    raise DomainError("record_id is required")
+                payload = self.session.view_identity_source_context(record_id)
             elif self.path == "/api/identity/actions":
                 record_id = body.get("record_id")
                 action = body.get("action")

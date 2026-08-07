@@ -39,6 +39,9 @@ class GuardedPageAwareCleaner:
             raise DomainError("Cleaner input must be non-empty extracted text")
 
         pages = _pages(_normalized_newlines(text))
+        pages, attribution_removed, attribution_stripped = (
+            _strip_repeated_marketplace_attribution(pages)
+        )
         repeated = _repeated_lines(pages)
         protected = sum(
             1
@@ -53,8 +56,8 @@ class GuardedPageAwareCleaner:
         }
 
         cleaned_pages = []
-        removed_lines = 0
-        stripped_suffixes = 0
+        removed_lines = attribution_removed
+        stripped_suffixes = attribution_stripped
         for page in pages:
             cleaned, page_removed, page_stripped = _clean_page(page, removable)
             cleaned_pages.append(cleaned)
@@ -71,6 +74,64 @@ class GuardedPageAwareCleaner:
             stripped_repeated_suffixes=stripped_suffixes,
             protected_repeated_structures=protected,
         )
+
+
+def _strip_repeated_marketplace_attribution(
+    pages: tuple[tuple[str, ...], ...],
+) -> tuple[tuple[tuple[str, ...], ...], int, int]:
+    """Remove a repeated marketplace attribution block without losing text.
+
+    The block is eligible only when its downloader marker repeats on at least
+    three pages. Banner text is stripped from mixed lines so interrupted
+    choice labels and continuations survive for the structural parser.
+    """
+
+    downloader_pages = sum(
+        1
+        for page in pages
+        if any(DOWNLOADER_ATTRIBUTION_RE.match(line.strip()) for line in page)
+    )
+    if downloader_pages < 3:
+        return pages, 0, 0
+
+    cleaned_pages: list[tuple[str, ...]] = []
+    removed = 0
+    stripped = 0
+
+    for page in pages:
+        cleaned: list[str] = []
+        attribution_active = False
+
+        for line in page:
+            without_banner = MARKETPLACE_BANNER_RE.sub("", line).strip()
+            if without_banner != line.strip():
+                attribution_active = True
+                if without_banner:
+                    cleaned.append(without_banner)
+                    stripped += 1
+                else:
+                    removed += 1
+                continue
+
+            normalized = line.strip()
+            if (
+                attribution_active
+                and (
+                    DOWNLOADER_ATTRIBUTION_RE.match(normalized)
+                    or DISTRIBUTION_WARNING_RE.match(normalized)
+                    or MARKETPLACE_PROMOTION_RE.match(normalized)
+                )
+            ):
+                removed += 1
+                continue
+
+            if normalized:
+                attribution_active = False
+            cleaned.append(line)
+
+        cleaned_pages.append(tuple(cleaned))
+
+    return tuple(cleaned_pages), removed, stripped
 
 
 def _normalized_newlines(text: str) -> str:

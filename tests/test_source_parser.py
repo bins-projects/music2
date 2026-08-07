@@ -1072,3 +1072,34 @@ Planning follows assessment.
         "E",
     ]
     assert questions[0]["correct_answers"] == ["A", "B", "C", "D"]
+
+
+def test_parser_recovers_attributed_single_word_completion_answer() -> None:
+    text = """Chapter 8: Pain
+COMPLETION
+1. A nurse explains that afferent pathways are activated by pain receptors called ______.
+ANS Downloaded by: learner@example.com | learner@example.com nociceptors Pain receptors that are called nociceptors activate the afferent pathways.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert len(questions) == 1
+    assert questions[0]["question_type"] == "completion"
+    assert questions[0]["correct_answers"] == ["nociceptors"]
+    assert questions[0]["rationale"] == (
+        "Pain receptors that are called nociceptors activate the afferent pathways."
+    )
+
+
+def test_parser_does_not_guess_multiword_attributed_completion_answer() -> None:
+    text = """Chapter 8: Pain
+COMPLETION
+1. The appropriate phrase is ______.
+ANS Downloaded by: learner@example.com | learner@example.com acute respiratory distress This source formatting is ambiguous.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["correct_answers"] == [
+        "acute respiratory distress This source formatting is ambiguous."
+    ]

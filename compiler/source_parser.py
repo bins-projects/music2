@@ -14,7 +14,11 @@ SYNTHETIC_QUESTION_RE = re.compile(
 )
 CHOICE_RE = re.compile(r"^([a-gA-G])\.\s+(.+)")
 PAREN_CHOICE_RE = re.compile(r"^([a-gA-G])\)\s+(.+)")
-ANSWER_RE = re.compile(r"^ANS:\s*(.*)", re.IGNORECASE)
+ANSWER_RE = re.compile(r"^ANS\b\s*:?\s*(.*)", re.IGNORECASE)
+DOWNLOADED_BY_ATTRIBUTION_RE = re.compile(
+    r"^Downloaded by:\s+\S+(?:\s*\|\s*\S+)?\s*",
+    re.IGNORECASE,
+)
 LONG_ANSWER_RE = re.compile(
     r"^(?:Correct\s+)?Answer:\s*([a-gA-G])"
     r"(?:[.)]\s*.*)?$",
@@ -88,7 +92,10 @@ def split_attributed_completion_answer(
         "",
         answer_text,
     ).strip()
-    match = re.match(r"^([A-Za-z][A-Za-z'’-]*)\\s+([A-Z].+)$", without_attribution)
+    match = re.match(
+        r"^([A-Za-z][A-Za-z'’-]*)\s+([A-Z].+)$",
+        without_attribution,
+    )
 
     if match and without_attribution != answer_text.strip():
         return match.group(1), match.group(2).strip()

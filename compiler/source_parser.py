@@ -72,6 +72,30 @@ def extract_answer_labels(answer_text: str) -> list[str]:
     return labels
 
 
+def split_attributed_completion_answer(
+    answer_text: str,
+) -> tuple[str, str]:
+    """Separate a one-word completion answer from an inline attribution.
+
+    PDF text layers sometimes flatten an answer marker, a downloader
+    attribution, the answer, and the opening rationale onto one line. This
+    accepts only the narrow unambiguous shape: a single-token answer followed
+    by a capitalized rationale sentence. Other completion answers remain
+    untouched for review rather than being guessed.
+    """
+
+    without_attribution = DOWNLOADED_BY_ATTRIBUTION_RE.sub(
+        "",
+        answer_text,
+    ).strip()
+    match = re.match(r"^([A-Za-z][A-Za-z'’-]*)\\s+([A-Z].+)$", without_attribution)
+
+    if match and without_attribution != answer_text.strip():
+        return match.group(1), match.group(2).strip()
+
+    return without_attribution, ""
+
+
 def recover_missing_a_choice(question: dict) -> dict:
     """
     Recover an A choice lost during PDF extraction.
@@ -815,7 +839,11 @@ def parse_source_questions(
 
             if question["question_type"] == "completion":
                 if answer_text:
-                    question["correct_answers"] = [answer_text]
+                    completion_answer, inline_rationale = (
+                        split_attributed_completion_answer(answer_text)
+                    )
+                    question["correct_answers"] = [completion_answer]
+                    question["rationale"] = inline_rationale
                     reading_rationale = True
                 else:
                     awaiting_completion_answer = True

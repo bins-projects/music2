@@ -94,11 +94,12 @@ class GuardedPageAwareCleaner:
 def _strip_repeated_marketplace_attribution(
     pages: tuple[tuple[str, ...], ...],
 ) -> tuple[tuple[tuple[str, ...], ...], int, int]:
-    """Remove a repeated marketplace attribution block without losing text.
+    """Remove only bounded, repeated marketplace-attribution blocks.
 
-    The block is eligible only when its downloader marker repeats on at least
-    three pages. Banner text is stripped from mixed lines so interrupted
-    choice labels and continuations survive for the structural parser.
+    A downloader line is the required anchor. We examine its immediate local
+    neighbors instead of carrying attribution state through the rest of a page,
+    so educational content such as answer keys can never be removed merely
+    because it follows a marketplace banner.
     """
 
     downloader_pages = sum(
@@ -114,40 +115,53 @@ def _strip_repeated_marketplace_attribution(
     stripped = 0
 
     for page in pages:
-        cleaned: list[str] = []
-        attribution_active = False
+        lines = list(page)
+        omitted: set[int] = set()
 
-        for line in page:
-            without_banner = MARKETPLACE_BANNER_RE.sub("", line).strip()
-            if without_banner != line.strip():
-                attribution_active = True
-                if without_banner:
-                    cleaned.append(without_banner)
+        for index, line in enumerate(lines):
+            if not DOWNLOADER_ATTRIBUTION_RE.match(line.strip()):
+                continue
+
+            omitted.add(index)
+
+            # A preceding line may contain a choice label followed by the
+            # banner. Remove only the banner, retaining that label.
+            if index and MARKETPLACE_BANNER_RE.search(lines[index - 1]):
+                preserved = MARKETPLACE_BANNER_RE.sub("", lines[index - 1]).strip()
+                if preserved:
+                    lines[index - 1] = preserved
                     stripped += 1
                 else:
-                    removed += 1
-                continue
+                    omitted.add(index - 1)
 
-            normalized = line.strip()
-            if (
-                attribution_active
-                and (
-                    DOWNLOADER_ATTRIBUTION_RE.match(normalized)
-                    or DISTRIBUTION_WARNING_RE.match(normalized)
+            # The remaining boilerplate is adjacent to the downloader line.
+            # Blank lines may separate it from a repeated banner, but no other
+            # content is eligible for removal.
+            cursor = index + 1
+            while cursor < len(lines):
+                normalized = lines[cursor].strip()
+                if not normalized:
+                    cursor += 1
+                    continue
+                if (
+                    DISTRIBUTION_WARNING_RE.match(normalized)
                     or MARKETPLACE_PROMOTION_RE.match(normalized)
-                )
-            ):
-                removed += 1
-                continue
+                ):
+                    omitted.add(cursor)
+                    cursor += 1
+                    continue
+                if MARKETPLACE_BANNER_RE.fullmatch(normalized):
+                    omitted.add(cursor)
+                    cursor += 1
+                    continue
+                break
 
-            if normalized:
-                attribution_active = False
-            cleaned.append(line)
-
-        cleaned_pages.append(tuple(cleaned))
+        cleaned_pages.append(
+            tuple(line for index, line in enumerate(lines) if index not in omitted)
+        )
+        removed += len(omitted)
 
     return tuple(cleaned_pages), removed, stripped
-
 
 def _normalized_newlines(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n")

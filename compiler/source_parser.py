@@ -350,6 +350,32 @@ def normalize_split_choices(lines: list[str]) -> list[str]:
             last_choice_label = None
 
     while index < len(lines):
+        # Some copied PDF layers place a downloader attribution between a
+        # choice label and its text, e.g. "A. First B Downloaded by: ... .
+        # Second". Recover only an immediately following conventional label;
+        # this cannot reinterpret ordinary educational prose as a choice.
+        attributed_choice = re.match(
+            r"^([a-gA-G])\\.\\s+(.+?)\\s+([a-gA-G])\\s+"
+            r"Downloaded by:\\s+.*?\\.\\s+(.+)$",
+            lines[index],
+            re.IGNORECASE,
+        )
+        if (
+            attributed_choice
+            and ord(attributed_choice.group(3).upper())
+            == ord(attributed_choice.group(1).upper()) + 1
+        ):
+            append_line(
+                f"{attributed_choice.group(1).upper()}. "
+                f"{attributed_choice.group(2).strip()}"
+            )
+            append_line(
+                f"{attributed_choice.group(3).upper()}. "
+                f"{attributed_choice.group(4).strip()}"
+            )
+            index += 1
+            continue
+
         if (
             index + 1 < len(lines)
             and re.fullmatch(r"[a-gA-G]", lines[index])

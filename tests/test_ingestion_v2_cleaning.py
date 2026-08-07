@@ -132,3 +132,32 @@ def test_cleaner_strips_repeated_marketplace_attribution_inside_choices() -> Non
     assert "A. First choice" in result.text
     assert "B\n. Second choice" in result.text
     assert result.removed_repeated_lines > 0
+
+
+def test_cleaner_keeps_answer_keys_after_marketplace_attribution() -> None:
+    watermark = (
+        "Stuvia.com - The Marketplace to Buy and Sell your Study Material\n"
+        "Downloaded by: learner@example.com | learner@example.com\n"
+        "Distribution of this document is illegal\n"
+        "Want to earn $1.236\n"
+        "extra per year?\n"
+    )
+    source = "\n\f\n".join(
+        (
+            f"{index + 1}. Question {index}?\n"
+            "A. First choice\n"
+            f"B {watermark}"
+            "Stuvia.com - The Marketplace to Buy and Sell your Study Material\n"
+            ". Second choice\n"
+            "C. Third choice\n"
+            "ANS: B\n"
+            "The rationale."
+        )
+        for index in range(3)
+    )
+
+    result = GuardedPageAwareCleaner().clean(source)
+
+    assert result.text.count("ANS: B") == 3
+    assert result.text.count("The rationale.") == 3
+    assert "Downloaded by:" not in result.text

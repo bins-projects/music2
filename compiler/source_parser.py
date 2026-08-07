@@ -350,6 +350,31 @@ def normalize_split_choices(lines: list[str]) -> list[str]:
             last_choice_label = None
 
     while index < len(lines):
+        # Some copied PDF layers put the next choice label on a separate
+        # line before a downloader attribution, e.g. "A. First" followed by
+        # "B Downloaded by: ... . Second". Recover only the immediate
+        # alphabetical successor.
+        if index + 1 < len(lines):
+            current_choice = CHOICE_RE.match(lines[index])
+            attributed_continuation = re.match(
+                r"^([a-gA-G])\\s+Downloaded by:\\s+.*?\\.\\s+(.+)$",
+                lines[index + 1],
+                re.IGNORECASE,
+            )
+            if (
+                current_choice
+                and attributed_continuation
+                and ord(attributed_continuation.group(1).upper())
+                == ord(current_choice.group(1).upper()) + 1
+            ):
+                append_line(lines[index])
+                append_line(
+                    f"{attributed_continuation.group(1).upper()}. "
+                    f"{attributed_continuation.group(2).strip()}"
+                )
+                index += 2
+                continue
+
         # Some copied PDF layers place a downloader attribution between a
         # choice label and its text, e.g. "A. First B Downloaded by: ... .
         # Second". Recover only an immediately following conventional label;

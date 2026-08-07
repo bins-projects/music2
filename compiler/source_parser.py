@@ -357,7 +357,7 @@ def normalize_split_choices(lines: list[str]) -> list[str]:
         if index + 1 < len(lines):
             current_choice = CHOICE_RE.match(lines[index])
             attributed_continuation = re.match(
-                r"^([a-gA-G])\\s+Downloaded by:\\s+.*?\\.\\s+(.+)$",
+                r"^([a-gA-G])\s+Downloaded by:\s+.*?\.\s+(.+)$",
                 lines[index + 1],
                 re.IGNORECASE,
             )

@@ -355,8 +355,8 @@ def normalize_split_choices(lines: list[str]) -> list[str]:
         # Second". Recover only an immediately following conventional label;
         # this cannot reinterpret ordinary educational prose as a choice.
         attributed_choice = re.match(
-            r"^([a-gA-G])\\.\\s+(.+?)\\s+([a-gA-G])\\s+"
-            r"Downloaded by:\\s+.*?\\.\\s+(.+)$",
+            r"^([a-gA-G])\.\s+(.+?)\s+([a-gA-G])\s+"
+            r"Downloaded by:\s+.*?\.\s+(.+)$",
             lines[index],
             re.IGNORECASE,
         )

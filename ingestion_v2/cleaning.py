@@ -6,6 +6,21 @@ from typing import Protocol
 
 from ingestion_v2.domain import DomainError
 
+MARKETPLACE_BANNER_RE = re.compile(
+    r"(?:[A-Za-z0-9.-]+[.](?:com|org|net) *- *)?"
+    r"The Marketplace to Buy and Sell your Study Material",
+    re.IGNORECASE,
+)
+DOWNLOADER_ATTRIBUTION_RE = re.compile(r"^Downloaded by:", re.IGNORECASE)
+DISTRIBUTION_WARNING_RE = re.compile(
+    r"^Distribution of this document is illegal$",
+    re.IGNORECASE,
+)
+MARKETPLACE_PROMOTION_RE = re.compile(
+    r"^(?:Want to earn|extra per year[?])",
+    re.IGNORECASE,
+)
+
 
 @dataclass(frozen=True)
 class CleaningResult:

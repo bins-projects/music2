@@ -1103,3 +1103,32 @@ ANS Downloaded by: learner@example.com | learner@example.com acute respiratory d
     assert questions[0]["correct_answers"] == [
         "acute respiratory distress This source formatting is ambiguous."
     ]
+
+
+def test_parser_recovers_choice_split_by_downloader_attribution() -> None:
+    text = """Chapter 2: Medication Safety
+MULTIPLE CHOICE
+18. What is the best way to identify an alert patient?
+a. Ask for the patient's social security number. B Downloaded by: learner@example.com | learner@example.com Distribution is prohibited . Have the patient state name and birth date.
+c. Check the chart.
+d. Check room number.
+ANS: B
+The patient can verify two identifiers.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert len(questions) == 1
+    assert questions[0]["choices"] == [
+        {
+            "label": "A",
+            "text": "Ask for the patient's social security number.",
+        },
+        {
+            "label": "B",
+            "text": "Have the patient state name and birth date.",
+        },
+        {"label": "C", "text": "Check the chart."},
+        {"label": "D", "text": "Check room number."},
+    ]
+    assert questions[0]["correct_answers"] == ["B"]

@@ -101,3 +101,34 @@ def test_cleaner_preserves_a_rationale_across_a_page_break() -> None:
     assert "The rationale begins on this page\n\f\nand continues on the next page." in result.text
     assert result.removed_repeated_lines == 0
     assert result.stripped_repeated_suffixes == 0
+
+
+def test_cleaner_strips_repeated_marketplace_attribution_inside_choices() -> None:
+    watermark = (
+        "Stuvia.com - The Marketplace to Buy and Sell your Study Material\n"
+        "Downloaded by: learner@example.com | learner@example.com\n"
+        "Distribution of this document is illegal\n"
+        "Want to earn $1.236\n"
+        "extra per year?\n"
+    )
+    source = "\n\f\n".join(
+        (
+            f"{index + 1}. Question {index}?\n"
+            "A. First choice\n"
+            f"B {watermark}"
+            "Stuvia.com - The Marketplace to Buy and Sell your Study Material\n"
+            ". Second choice\n"
+            "C. Third choice"
+        )
+        for index in range(3)
+    )
+
+    result = GuardedPageAwareCleaner().clean(source)
+
+    assert "Downloaded by:" not in result.text
+    assert "Distribution of this document is illegal" not in result.text
+    assert "Want to earn" not in result.text
+    assert "extra per year?" not in result.text
+    assert "A. First choice" in result.text
+    assert "B\n. Second choice" in result.text
+    assert result.removed_repeated_lines > 0

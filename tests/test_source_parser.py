@@ -1256,7 +1256,7 @@ a. Amnion
 b. Yolk sac
 ¢. Chorion
 
-\\f
+\f
 
 d. Decidua basalis
 ANS: C

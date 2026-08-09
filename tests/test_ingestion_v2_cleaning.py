@@ -246,3 +246,48 @@ def test_marketplace_cleanup_preserves_complete_records_through_parser() -> None
         )
         assert record.correct_answers == ("B",)
         assert record.rationale == "The second choice is expected."
+
+
+@pytest.mark.parametrize(
+    "header",
+    ("MULTIPLE CHOICE", "MULTIPLE RESPONSE", "COMPLETION", "ORDERING"),
+)
+def test_cleaner_preserves_parser_section_headers_at_page_edges(header: str) -> None:
+    source = "\n\f\n".join(
+        f"{header}\nUnique educational content {index}."
+        for index in range(3)
+    )
+
+    result = GuardedPageAwareCleaner().clean(source)
+
+    assert sum(line == header for line in result.text.splitlines()) == 3
+    assert result.removed_repeated_lines == 0
+    assert result.protected_repeated_structures >= 1
+
+
+def test_completion_section_headers_survive_cleaning_and_control_parser_type() -> None:
+    question_pages = "\n\f\n".join(
+        (
+            "Completion\n"
+            f"{index + 1}. What is the calculated dose? _____\n"
+            f"ANS: {index + 1}\n"
+            "The calculated dose is expected.\n"
+            "DIF: Synthetic"
+        )
+        for index in range(3)
+    )
+    source = "Chapter 4: Dosage Calculation\n\f\n" + question_pages
+
+    cleaned = GuardedPageAwareCleaner().clean(source)
+    batch = ExistingParserAdapter().parse(cleaned.text)
+
+    assert cleaned.text.count("Completion") == 3
+    assert len(batch.records) == 3
+    assert batch.findings == ()
+    assert all(record.question_type == "completion" for record in batch.records)
+    assert [record.correct_answers for record in batch.records] == [
+        ("1",),
+        ("2",),
+        ("3",),
+    ]
+    assert all(not record.choices for record in batch.records)

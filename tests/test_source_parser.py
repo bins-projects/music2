@@ -1164,41 +1164,34 @@ The patient can verify two identifiers.
 
 
 
-def test_parser_recovers_first_choice_exposed_by_noise_cleanup() -> None:
+def test_parser_recovers_marker_only_choices_across_transport_gaps() -> None:
     text = """Chapter 3: Dosage Calculations
 MULTIPLE CHOICE
-12. What type of information is measured in liters? A
-. Distance
-B. Weight
-C. Liquid
-D. Temperature
+12. What type of information is measured in liters?
+A.
+
+
+Distance
+B.
+Weight
+C.
+Liquid
+D.
+Temperature
 ANS: C
 Liters measure liquid volume.
-"""
+13. Which technique is used when calculating an insulin dose?
+A.
+Use a calculator.
+B.
 
-    questions = parse_source_questions(text)
-
-    assert questions[0]["stem"] == (
-        "What type of information is measured in liters?"
-    )
-    assert questions[0]["choices"] == [
-        {"label": "A", "text": "Distance"},
-        {"label": "B", "text": "Weight"},
-        {"label": "C", "text": "Liquid"},
-        {"label": "D", "text": "Temperature"},
-    ]
-    assert questions[0]["correct_answers"] == ["C"]
-
-
-def test_parser_recovers_sequential_choice_exposed_across_page_break() -> None:
-    text = """Chapter 3: Dosage Calculations
-MULTIPLE CHOICE
-3. Which technique is used when calculating an insulin dose?
-A. Use a calculator. B
 \f
-. Have another professional check the dose.
-C. Estimate the dose.
-D. Round to the nearest vial.
+
+Have another professional check the dose.
+C.
+Estimate the dose.
+D.
+Round to the nearest vial.
 ANS: B
 A second professional verifies the calculation.
 """
@@ -1206,6 +1199,13 @@ A second professional verifies the calculation.
     questions = parse_source_questions(text)
 
     assert questions[0]["choices"] == [
+        {"label": "A", "text": "Distance"},
+        {"label": "B", "text": "Weight"},
+        {"label": "C", "text": "Liquid"},
+        {"label": "D", "text": "Temperature"},
+    ]
+    assert questions[0]["correct_answers"] == ["C"]
+    assert questions[1]["choices"] == [
         {"label": "A", "text": "Use a calculator."},
         {
             "label": "B",
@@ -1214,26 +1214,32 @@ A second professional verifies the calculation.
         {"label": "C", "text": "Estimate the dose."},
         {"label": "D", "text": "Round to the nearest vial."},
     ]
-    assert questions[0]["correct_answers"] == ["B"]
+    assert questions[1]["correct_answers"] == ["B"]
 
 
-def test_parser_does_not_split_a_nonsequential_trailing_label() -> None:
+def test_parser_does_not_attach_marker_only_choice_to_a_boundary() -> None:
     text = """Chapter 3: Dosage Calculations
 MULTIPLE CHOICE
 3. Which response is correct?
-A. A statement ending with C
-. This remains part of the first choice.
-B. The second choice.
-ANS: B
-The second choice is correct.
+A. The first choice.
+B.
+
+
+C. The third choice.
+D. The fourth choice.
+ANS: D
+The fourth choice is correct.
 """
 
     questions = parse_source_questions(text)
 
     assert [choice["label"] for choice in questions[0]["choices"]] == [
         "A",
-        "B",
+        "C",
+        "D",
     ]
-    assert questions[0]["choices"][0]["text"] == (
-        "A statement ending with C . This remains part of the first choice."
-    )
+    assert questions[0]["choices"][1] == {
+        "label": "C",
+        "text": "The third choice.",
+    }
+    assert questions[0]["correct_answers"] == ["D"]

@@ -10,6 +10,11 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     data = (WORKBENCH / "demo-data.js").read_text(encoding="utf-8")
 
     assert "Synthetic preview · no writes" in html
+    assert 'id="local-status"' in html
+    assert "LOCAL ONLY" in html
+    assert "Not synced to GitHub" in html
+    assert "Source PDF is not committed" in html
+    assert "Canonical Pack has not been replaced or promoted" in html
     assert "No canonical write available" in html
     assert "promote_canonical: false" in data
     assert "promote(" not in script
@@ -22,6 +27,7 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     assert 'id="repair-desk-query"' in html
     assert "/api/repair-desk?q=" in script
     assert "question" in script
+    assert "renderLocalStatus" in script
 
 
 def test_workbench_exposes_required_review_information_and_actions() -> None:
@@ -128,6 +134,13 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert 'id="source-dialog"' in html
     assert "/api/source-page" in script
     assert "TEMPORARY PRIVATE SOURCE VIEW" in html
+
+
+def test_workbench_health_endpoint_is_content_free_and_loopback_bound() -> None:
+    server = Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
+    assert 'parsed.path == "/api/health"' in server
+    assert '"scope": "local_only"' in server
+    assert 'ThreadingHTTPServer(("127.0.0.1", args.port)' in server
 
 
 def test_workbench_has_responsive_layout() -> None:

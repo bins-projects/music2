@@ -50,6 +50,20 @@ h2 { font-size: 18px; letter-spacing: -.015em; }
 }
 .safety-badge span { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
 
+.local-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+  align-items: center;
+  padding: 9px clamp(22px, 4vw, 64px);
+  color: #bed1d3;
+  background: #0b1517;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.local-status strong { color: var(--cyan); font: 800 11px/1 ui-monospace, monospace; letter-spacing: .1em; }
+.local-status span + span::before { content: "•"; color: var(--muted); margin-right: 14px; }
+
 main { padding: 24px clamp(18px, 4vw, 64px) 48px; }
 .repair-desk { display: grid; grid-template-columns: 1fr minmax(260px, 420px); gap: 12px 22px; align-items: center; margin-bottom: 18px; padding: 15px 18px; border: 1px solid var(--line); border-radius: 12px; background: #0f181a; }
 .repair-desk strong { display: block; margin-top: 4px; font-size: 14px; }

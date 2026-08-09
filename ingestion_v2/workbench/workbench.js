@@ -122,6 +122,18 @@
     });
   }
 
+  function renderLocalStatus() {
+    const run = payload.run || {};
+    const source = payload.pipeline?.source_metadata;
+    const sourceLabel = source ? `${source.display_name} · ${run.run_id || "run pending"}` : (run.run_id ? `Current run · ${run.run_id}` : "No active source");
+    const candidate = payload.candidate || {};
+    const candidateLabel = candidate.state === "built_in_memory"
+      ? `Isolated candidate · ${candidate.question_count} questions${candidate.promotion_ready ? "" : " · promotion blocked"}`
+      : run.private_checkpoint ? "Private checkpoint available" : "No isolated candidate";
+    document.getElementById("local-status-source").textContent = sourceLabel;
+    document.getElementById("local-status-candidate").textContent = candidateLabel;
+  }
+
   function renderActions(item) {
     const actions = document.getElementById("actions");
     actions.replaceChildren();
@@ -341,6 +353,7 @@
   }
 
   function render() {
+    renderLocalStatus();
     const item = cases[selectedIndex];
     const identityCases = payload.pipeline?.identity?.review_cases || [];
     // Advance past deliberately unresolved cases while any untouched cases

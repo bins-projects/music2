@@ -36,6 +36,9 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
+        if parsed.path == "/api/health":
+            self._send_json({"status": "ok", "scope": "local_only"})
+            return
         if parsed.path == "/api/repair-desk":
             query = parse_qs(parsed.query).get("q", [""])[0]
             canonical = [load_pack(path) for path in IDENTITY_PACKS.values()]

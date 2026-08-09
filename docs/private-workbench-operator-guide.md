@@ -4,7 +4,15 @@ This workbench is for private development use only. It never writes or promotes 
 
 ## Launch
 
-From the private PrepFlow development checkout, run:
+Open **PrepFlow Workbench** from the Chromebook/Linux Apps menu. It starts or reopens the local Workbench and opens it in the default browser. No terminal is needed.
+
+Use the launcher menu actions to **Stop** a running Workbench or **Restart** it when it is unavailable. To install or update the Apps-menu entry again, run:
+
+```bash
+.venv/bin/python tools/install_prepflow_workbench_launcher.py
+```
+
+Only if the launcher is unavailable, use this troubleshooting fallback from the private PrepFlow development checkout:
 
 ```bash
 .venv/bin/python -m ingestion_v2.workbench_server

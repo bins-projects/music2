@@ -1173,6 +1173,9 @@ A.
 
 Distance
 B.
+
+\f
+
 Weight
 C.
 Liquid
@@ -1180,20 +1183,6 @@ D.
 Temperature
 ANS: C
 Liters measure liquid volume.
-13. Which technique is used when calculating an insulin dose?
-A.
-Use a calculator.
-B.
-
-\f
-
-Have another professional check the dose.
-C.
-Estimate the dose.
-D.
-Round to the nearest vial.
-ANS: B
-A second professional verifies the calculation.
 """
 
     questions = parse_source_questions(text)
@@ -1205,16 +1194,6 @@ A second professional verifies the calculation.
         {"label": "D", "text": "Temperature"},
     ]
     assert questions[0]["correct_answers"] == ["C"]
-    assert questions[1]["choices"] == [
-        {"label": "A", "text": "Use a calculator."},
-        {
-            "label": "B",
-            "text": "Have another professional check the dose.",
-        },
-        {"label": "C", "text": "Estimate the dose."},
-        {"label": "D", "text": "Round to the nearest vial."},
-    ]
-    assert questions[1]["correct_answers"] == ["B"]
 
 
 def test_parser_does_not_attach_marker_only_choice_to_a_boundary() -> None:

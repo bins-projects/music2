@@ -28,6 +28,14 @@ STANDALONE_CHOICE_LABEL_RE = re.compile(
     r"^[A-H](?:[.)])?$",
     re.IGNORECASE,
 )
+SECTION_HEADERS = frozenset(
+    {
+        "MULTIPLE CHOICE",
+        "MULTIPLE RESPONSE",
+        "COMPLETION",
+        "ORDERING",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -192,6 +200,15 @@ def _normalized_line(value: str) -> str:
     return " ".join(value.split())
 
 
+def _is_protected_structural_line(value: str) -> bool:
+    normalized = _normalized_line(value)
+    return bool(
+        ANSWER_KEY_RE.match(normalized)
+        or STANDALONE_CHOICE_LABEL_RE.fullmatch(normalized)
+        or normalized.upper() in SECTION_HEADERS
+    )
+
+
 def _repeated_lines(pages: tuple[tuple[str, ...], ...]) -> dict[str, int]:
     page_occurrences: dict[str, set[int]] = {}
     for page_index, page in enumerate(pages):
@@ -230,10 +247,10 @@ def _clean_page(
     for line in lines:
         stripped_line = line
 
-        # Answer keys are educational syntax, not containers for page-edge
-        # suffix noise. Guard them again at application time so a future
-        # profiler regression cannot remove a valid answer payload.
-        if ANSWER_KEY_RE.match(_normalized_line(stripped_line)):
+        # Parser control lines are educational syntax, not containers for
+        # page-edge suffix noise. Guard them again at application time so a
+        # future profiler regression cannot alter their structural meaning.
+        if _is_protected_structural_line(stripped_line):
             cleaned.append(stripped_line)
             continue
 
@@ -251,8 +268,8 @@ def _clean_page(
 def _is_educational_shape(value: str) -> bool:
     lowered = value.casefold()
     return bool(
-        re.match(r"^(?:chapter|section)\s+\d+\b", value, re.IGNORECASE)
-        or STANDALONE_CHOICE_LABEL_RE.fullmatch(value.strip())
+        _is_protected_structural_line(value)
+        or re.match(r"^(?:chapter|section)\s+\d+\b", value, re.IGNORECASE)
         or re.match(r"^\d+[.)]\s+", value)
         or re.match(r"^[a-z][.)]\s+", value, re.IGNORECASE)
         or re.match(r"^(?:ans(?:wer)?|correct(?:\s+answer)?)\s*:", value, re.IGNORECASE)

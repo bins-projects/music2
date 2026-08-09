@@ -20,6 +20,14 @@ MARKETPLACE_PROMOTION_RE = re.compile(
     r"^(?:Want to earn|extra per year[?])",
     re.IGNORECASE,
 )
+ANSWER_KEY_RE = re.compile(
+    r"^(?:ans(?:wer)?|correct(?:\s+answer)?)\s*:",
+    re.IGNORECASE,
+)
+STANDALONE_CHOICE_LABEL_RE = re.compile(
+    r"^[A-H](?:[.)])?$",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -221,6 +229,14 @@ def _clean_page(
     cleaned = []
     for line in lines:
         stripped_line = line
+
+        # Answer keys are educational syntax, not containers for page-edge
+        # suffix noise. Guard them again at application time so a future
+        # profiler regression cannot remove a valid answer payload.
+        if ANSWER_KEY_RE.match(_normalized_line(stripped_line)):
+            cleaned.append(stripped_line)
+            continue
+
         for noise in sorted(removable, key=len, reverse=True):
             suffix = re.compile(r"(?:\s+|\s*[-|:]\s*)" + re.escape(noise) + r"\s*$")
             candidate = suffix.sub("", stripped_line)
@@ -236,6 +252,7 @@ def _is_educational_shape(value: str) -> bool:
     lowered = value.casefold()
     return bool(
         re.match(r"^(?:chapter|section)\s+\d+\b", value, re.IGNORECASE)
+        or STANDALONE_CHOICE_LABEL_RE.fullmatch(value.strip())
         or re.match(r"^\d+[.)]\s+", value)
         or re.match(r"^[a-z][.)]\s+", value, re.IGNORECASE)
         or re.match(r"^(?:ans(?:wer)?|correct(?:\s+answer)?)\s*:", value, re.IGNORECASE)

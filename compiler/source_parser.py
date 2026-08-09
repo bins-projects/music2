@@ -33,6 +33,7 @@ INLINE_ANSWER_RE = re.compile(
     re.IGNORECASE,
 )
 CHOICE_MARKER_ONLY_RE = re.compile(r"^[a-gA-G]\.$")
+OCR_C_CHOICE_RE = re.compile(r"^[¢©]\.\s+(.+)")
 METADATA_RE = re.compile(
     r"^(DIF|OBJ|TOP|MSC|KEY|NCLEX|NOT|CONCEPTS):",
     re.IGNORECASE,
@@ -451,6 +452,26 @@ def normalize_split_choices(lines: list[str]) -> list[str]:
                     index = continuation_index + 1
                     continue
 
+        # OCR can confuse a lowercase c choice marker with a cent or
+        # copyright sign. Recover it only inside the unambiguous B-C-D
+        # sequence; standalone currency and copyright text remain untouched.
+        ocr_c_choice = OCR_C_CHOICE_RE.match(lines[index])
+        following_choice = (
+            CHOICE_RE.match(lines[index + 1])
+            if index + 1 < len(lines)
+            else None
+        )
+
+        if (
+            ocr_c_choice
+            and last_choice_label == "B"
+            and following_choice
+            and following_choice.group(1).upper() == "D"
+        ):
+            append_line(f"C. {ocr_c_choice.group(1).strip()}")
+            index += 1
+            continue
+
         missing_period_match = re.match(
             r"^([a-gA-G])\s+(.+)$",
             lines[index],
@@ -752,6 +773,22 @@ def parse_source_questions(
             if question is not None:
                 questions.append(finalize(question))
                 question = None
+
+            # A table of contents can look like numbered questions before the
+            # first chapter. Discard only a multi-entry preamble when every
+            # candidate lacks both choices and an answer; preserve any
+            # structurally complete chapterless records for source review.
+            if (
+                chapter is None
+                and len(questions) >= 3
+                and all(
+                    candidate["chapter"] is None
+                    and not candidate["choices"]
+                    and not candidate["correct_answers"]
+                    for candidate in questions
+                )
+            ):
+                questions.clear()
 
             chapter = line
             section = None

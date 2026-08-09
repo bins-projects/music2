@@ -34,7 +34,7 @@ INLINE_ANSWER_RE = re.compile(
 )
 CHOICE_MARKER_ONLY_RE = re.compile(r"^[a-gA-G]\.$")
 OCR_C_CHOICE_RE = re.compile(
-    r"^(?:[¢©]c?|e?c|ce)\\.?\\s+(.+)",
+    r"^(?:[¢©]c?|e?c|ce)\.?\s+(.+)",
     re.IGNORECASE,
 )
 METADATA_RE = re.compile(

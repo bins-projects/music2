@@ -33,7 +33,10 @@ INLINE_ANSWER_RE = re.compile(
     re.IGNORECASE,
 )
 CHOICE_MARKER_ONLY_RE = re.compile(r"^[a-gA-G]\.$")
-OCR_C_CHOICE_RE = re.compile(r"^[¢©]\.\s+(.+)")
+OCR_C_CHOICE_RE = re.compile(
+    r"^(?:[¢©]c?|e?c|ce)\\.?\\s+(.+)",
+    re.IGNORECASE,
+)
 METADATA_RE = re.compile(
     r"^(DIF|OBJ|TOP|MSC|KEY|NCLEX|NOT|CONCEPTS):",
     re.IGNORECASE,
@@ -456,9 +459,15 @@ def normalize_split_choices(lines: list[str]) -> list[str]:
         # copyright sign. Recover it only inside the unambiguous B-C-D
         # sequence; standalone currency and copyright text remain untouched.
         ocr_c_choice = OCR_C_CHOICE_RE.match(lines[index])
+        following_index = index + 1
+        while (
+            following_index < len(lines)
+            and lines[following_index] in {"", PAGE_BREAK_MARKER}
+        ):
+            following_index += 1
         following_choice = (
-            CHOICE_RE.match(lines[index + 1])
-            if index + 1 < len(lines)
+            CHOICE_RE.match(lines[following_index])
+            if following_index < len(lines)
             else None
         )
 

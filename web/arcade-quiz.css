@@ -897,6 +897,14 @@ body:has(#quiz-screen:not([hidden])) {
   text-transform: uppercase;
 }
 
+#quiz-screen .quiz-question-id {
+  margin: 4px 0 0;
+  color: rgba(226, 238, 238, .62);
+  font: 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .02em;
+  user-select: text;
+}
+
 /* Left page has one additional row for its contained metadata. */
 #quiz-screen .question-page {
   grid-template-rows: auto auto minmax(0, 1fr);

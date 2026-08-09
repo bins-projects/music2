@@ -19,6 +19,9 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     assert 'fetch("/api/candidate"' in script
     assert 'fetch("/api/comparison"' in script
     assert "localStorage" not in script
+    assert 'id="repair-desk-query"' in html
+    assert "/api/repair-desk?q=" in script
+    assert "question" in script
 
 
 def test_workbench_exposes_required_review_information_and_actions() -> None:

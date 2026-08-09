@@ -4,11 +4,13 @@ import argparse
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 from ingestion_v2.domain import DomainError
 from ingestion_v2.recovery import list_completed_runs, list_recoverable_runs
 from ingestion_v2.workbench_session import SyntheticWorkbenchSession
 from compiler.repair import load_pack
+from ingestion_v2.repair_desk import load_json, reconcile_repairs, repair_desk_lookup
 
 
 WORKBENCH_DIRECTORY = Path(__file__).with_name("workbench")
@@ -18,6 +20,7 @@ IDENTITY_PACKS = {
     "medical_surgical": PROJECT_DIRECTORY / "packs" / "medical_surgical.prepflow.json",
 }
 RUNS_DIRECTORY = PROJECT_DIRECTORY / "output" / "v2-runs"
+REPAIR_WORKBENCH_DIRECTORY = PROJECT_DIRECTORY / "output" / "repair-workbench" / "fundamentals"
 
 
 class WorkbenchHandler(SimpleHTTPRequestHandler):
@@ -27,6 +30,19 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(WORKBENCH_DIRECTORY), **kwargs)
 
     def do_GET(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/repair-desk":
+            query = parse_qs(parsed.query).get("q", [""])[0]
+            canonical = [load_pack(path) for path in IDENTITY_PACKS.values()]
+            candidate_path = REPAIR_WORKBENCH_DIRECTORY / "candidate.prepflow.json"
+            records_path = REPAIR_WORKBENCH_DIRECTORY / "repair-records.json"
+            candidate = load_json(candidate_path) if candidate_path.is_file() else None
+            records = load_json(records_path) if records_path.is_file() else None
+            payload = repair_desk_lookup(query, canonical_packs=canonical, candidate_pack=candidate, repair_records=records)
+            if candidate and records:
+                payload["reconciliation"] = reconcile_repairs(records, canonical[0], candidate)
+            self._send_json(payload)
+            return
         if self.path == "/api/review":
             self._send_json(self.session.view())
             return

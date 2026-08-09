@@ -76,6 +76,27 @@
     return node.innerHTML;
   }
 
+  async function lookupRepairDesk(query) {
+    const result = document.getElementById("repair-desk-results");
+    const normalized = query.trim();
+    if (!normalized) {
+      result.textContent = "Enter a full stable ID or numeric suffix.";
+      return;
+    }
+    try {
+      const response = await fetch(`/api/repair-desk?q=${encodeURIComponent(normalized)}`);
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Repair Desk lookup failed.");
+      const rows = payload.matches.map((item) => `<li><b>${escapeHtml(item.question_id)}</b> · ${escapeHtml(item.location)}${item.repair_id ? ` · ${escapeHtml(item.repair_id)}` : ""}${item.finding_id ? ` · ${escapeHtml(item.finding_id)}` : ""}</li>`).join("");
+      result.innerHTML = rows ? `<ul>${rows}</ul>` : "No matching stable ID was found in the protected lookup locations.";
+      const url = new URL(window.location.href);
+      url.searchParams.set("question", normalized);
+      window.history.replaceState({}, "", url);
+    } catch (error) {
+      result.textContent = error.message;
+    }
+  }
+
   function chapterLabel(item) {
     const number = item.chapter == null ? "Chapter unknown" : `Chapter ${item.chapter}`;
     return item.chapter_title ? `${number}: ${item.chapter_title}` : number;
@@ -894,6 +915,16 @@
         resumableRun = null;
         document.getElementById("resume-run-button").disabled = true;
       });
+  }
+
+  document.getElementById("repair-desk-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    lookupRepairDesk(document.getElementById("repair-desk-query").value);
+  });
+  const deepLinkQuestion = new URL(window.location.href).searchParams.get("question");
+  if (deepLinkQuestion) {
+    document.getElementById("repair-desk-query").value = deepLinkQuestion;
+    lookupRepairDesk(deepLinkQuestion);
   }
 
   fetch("/api/review", { headers: { "Accept": "application/json" } })

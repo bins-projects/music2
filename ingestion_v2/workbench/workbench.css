@@ -51,6 +51,14 @@ h2 { font-size: 18px; letter-spacing: -.015em; }
 .safety-badge span { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
 
 main { padding: 24px clamp(18px, 4vw, 64px) 48px; }
+.repair-desk { display: grid; grid-template-columns: 1fr minmax(260px, 420px); gap: 12px 22px; align-items: center; margin-bottom: 18px; padding: 15px 18px; border: 1px solid var(--line); border-radius: 12px; background: #0f181a; }
+.repair-desk strong { display: block; margin-top: 4px; font-size: 14px; }
+.repair-desk form { display: flex; gap: 8px; }
+.repair-desk input, .repair-desk button { min-width: 0; padding: 9px 11px; color: var(--ink); border: 1px solid #405257; border-radius: 8px; background: #101b1d; }
+.repair-desk input { flex: 1; }
+.repair-desk button { color: #071513; border-color: var(--cyan); background: var(--cyan); font-weight: 800; cursor: pointer; }
+.repair-desk-results { grid-column: 1 / -1; color: var(--muted); font: 12px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; }
+.repair-desk-results ul { margin: 0; padding-left: 18px; color: #cdd7d9; }
 .factory-home { margin-bottom: 18px; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: rgba(15, 24, 26, .96); }
 .factory-home[hidden] { display: none; }
 .home-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
@@ -190,6 +198,7 @@ dialog .check-row { display: flex; align-items: center; gap: 9px; }
 .dialog-actions button { padding: 10px 13px; color: var(--ink); border: 1px solid #405257; border-radius: 8px; background: #1b292c; cursor: pointer; }
 
 @media (max-width: 850px) {
+  .repair-desk { grid-template-columns: 1fr; }
   .home-grid { grid-template-columns: 1fr; }
   .home-heading { align-items: flex-start; flex-direction: column; }
   .workspace, .comparison-grid { grid-template-columns: 1fr; }

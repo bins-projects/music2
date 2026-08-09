@@ -36,6 +36,7 @@ const buildQuizButton = document.querySelector("#build-quiz");
 const quizScreen = document.querySelector("#quiz-screen");
 const quizSubject = document.querySelector("#quiz-subject");
 const quizPosition = document.querySelector("#quiz-position");
+const quizQuestionId = document.querySelector("#quiz-question-id");
 const quizProgress = document.querySelector("#quiz-progress");
 const questionStem = document.querySelector("#question-stem");
 const answerChoices = document.querySelector("#answer-choices");
@@ -444,6 +445,7 @@ function showQuestion() {
   quizScreen.hidden = false;
 
   quizSubject.textContent = currentSubject;
+  quizQuestionId.textContent = question.id;
 
   if (reviewMode) {
     quizPosition.textContent = PrepFlowDisplayRules.quizPositionText({

@@ -7,7 +7,8 @@ from typing import Protocol
 from ingestion_v2.domain import DomainError
 
 MARKETPLACE_BANNER_RE = re.compile(
-    r"(?:[A-Za-z0-9.-]+[.](?:com|org|net) *- *)?"
+    r"(?:(?<![A-Za-z0-9-])(?:www[.])?[A-Za-z0-9-]+"
+    r"[.](?:com|org|net) *- *)?"
     r"The Marketplace to Buy and Sell your Study Material",
     re.IGNORECASE,
 )
@@ -26,6 +27,10 @@ ANSWER_KEY_RE = re.compile(
 )
 STANDALONE_CHOICE_LABEL_RE = re.compile(
     r"^[A-H](?:[.)])?$",
+    re.IGNORECASE,
+)
+SELECT_ALL_INSTRUCTION_RE = re.compile(
+    r"^[(]?\s*select\s+all\s+that\s+apply\s*[)]?[.:]?$",
     re.IGNORECASE,
 )
 SECTION_HEADERS = frozenset(
@@ -205,6 +210,7 @@ def _is_protected_structural_line(value: str) -> bool:
     return bool(
         ANSWER_KEY_RE.match(normalized)
         or STANDALONE_CHOICE_LABEL_RE.fullmatch(normalized)
+        or SELECT_ALL_INSTRUCTION_RE.fullmatch(normalized)
         or normalized.upper() in SECTION_HEADERS
     )
 
@@ -255,6 +261,9 @@ def _clean_page(
             continue
 
         for noise in sorted(removable, key=len, reverse=True):
+            if _is_protected_structural_line(noise):
+                continue
+
             suffix = re.compile(r"(?:\s+|\s*[-|:]\s*)" + re.escape(noise) + r"\s*$")
             candidate = suffix.sub("", stripped_line)
             if candidate != stripped_line and candidate.strip():

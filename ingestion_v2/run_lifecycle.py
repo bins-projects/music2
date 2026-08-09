@@ -176,9 +176,9 @@ class RunLifecycle:
         self._write_manifest(manifest)
         return manifest
 
-    def record_source_only_review(self, *, parsed_records: int, finding_count: int, source_label: str) -> dict:
+    def record_source_only_review(self, *, parsed_records: int, finding_count: int, source_metadata: dict) -> dict:
         manifest = self._require_stage("identity_pending")
-        manifest.update(stage="review_ready", parsed_records=parsed_records, finding_count=finding_count, source_only=True, source_label=source_label, promotion_ready=False)
+        manifest.update(stage="review_ready", parsed_records=parsed_records, finding_count=finding_count, source_only=True, source_metadata=source_metadata, promotion_ready=False)
         self._write_manifest(manifest)
         return manifest
 

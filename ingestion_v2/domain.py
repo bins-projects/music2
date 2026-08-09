@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 
-QUESTION_ID_RE = re.compile(r"^(?:PFQ-[a-z0-9_]+-\d{9}|[a-z][a-z0-9_]*[1-9]\d*)$")
+QUESTION_ID_RE = re.compile(r"^PFQ-[a-z0-9_]+-\d{9}$")
 FIELD_RE = re.compile(r"^(?:stem|rationale|chapter_title|correct_answers|choices)$")
 
 

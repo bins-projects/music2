@@ -46,6 +46,7 @@ from ingestion_v2.qa_adapter import QaResult, detect_candidate_damage
 from ingestion_v2.proposal_adapter import draft_benchmark_answer_proposals, draft_deterministic_proposals
 from ingestion_v2.checkpoint import proposal_fingerprint, write_checkpoint
 from ingestion_v2.recovery import recover_run
+from ingestion_v2.source_intake import validate_source_metadata
 
 
 @dataclass(frozen=True)
@@ -90,6 +91,7 @@ class SyntheticWorkbenchSession:
         self._last_cleanup = None
         self._source_only = False
         self._document_findings: list[dict] = []
+        self._source_metadata: dict | None = None
 
     @classmethod
     def resume_run(cls, run_directory: Path, target_pack: dict) -> "SyntheticWorkbenchSession":
@@ -127,6 +129,35 @@ class SyntheticWorkbenchSession:
         session._events = [
             SessionEvent("PFV2-EVENT-RECOVERED-000001", "PFV2-CHECKPOINT", "checkpoint:recovered")
         ]
+        return session
+
+    @classmethod
+    def resume_source_only_run(cls, run_directory: Path) -> "SyntheticWorkbenchSession":
+        """Rebuild a source-only review from controlled cleaned text and manifest metadata."""
+        lifecycle = RunLifecycle.open(run_directory)
+        manifest = lifecycle.manifest()
+        metadata = manifest.get("source_metadata")
+        if not manifest.get("source_only") or not isinstance(metadata, dict):
+            raise DomainError("Run is not a source-only review")
+        if manifest.get("stage") not in {"review_ready", "candidate_built", "compared"}:
+            raise DomainError("Source-only run is not ready to resume")
+        cleaned = Path(run_directory) / "artifacts" / "cleaned.txt"
+        if cleaned.is_symlink() or not cleaned.is_file():
+            raise DomainError("Resume requires the controlled cleaned artifact")
+        session = cls(workspace_root=Path(run_directory).parent)
+        session._lifecycle = lifecycle
+        session._parse_batch = ExistingParserAdapter().parse(cleaned.read_text(encoding="utf-8"))
+        session._source_only = True
+        session._source_metadata = validate_source_metadata(metadata, reserved=set())
+        mapping = {
+            record.record_id: f"PFQ-{session._source_metadata['slug']}-{index:09d}"
+            for index, record in enumerate(session._parse_batch.records, start=1)
+        }
+        session.questions, parser_findings = materialize_matched_batch(session._parse_batch, mapping)
+        session._qa_result = detect_candidate_damage(session.questions)
+        session.findings = parser_findings + session._qa_result.findings
+        session.proposals = draft_deterministic_proposals(session.questions, session.findings)
+        session._events = [SessionEvent("PFV2-EVENT-RECOVERED-000001", "PFV2-CHECKPOINT", "checkpoint:recovered")]
         return session
 
     def view(self) -> dict:
@@ -194,6 +225,8 @@ class SyntheticWorkbenchSession:
                 "automatic_applications": 0,
             },
         }
+        if self._source_metadata is not None:
+            payload["pipeline"]["source_metadata"] = self._source_metadata
         payload["candidate"] = self._candidate_view()
         payload["comparison"] = (
             self._comparison_view()
@@ -475,19 +508,23 @@ class SyntheticWorkbenchSession:
         self._lifecycle = lifecycle
         return self.view()
 
-    def materialize_source_only(self, source_label: str) -> dict:
+    def materialize_source_only(self, source_metadata: dict, *, registered_preset: bool = False) -> dict:
         if self._lifecycle is None or self._parse_batch is None or self._lifecycle.manifest()["stage"] != "identity_pending":
             raise DomainError("Parse a PDF before starting source-only review")
-        if source_label not in {"peds"}:
-            raise DomainError("Unknown source-only intake label")
-        mapping = {record.record_id: f"PFQ-pediatrics-{index:09d}" for index, record in enumerate(self._parse_batch.records, start=1)}
+        reserved = {"fundamentals", "medical_surgical", "pharmacy", "pediatrics", "fund", "medsurg", "pharm", "peds"}
+        if registered_preset:
+            reserved -= {str(source_metadata.get("slug", "")).casefold(), "peds"}
+        metadata = validate_source_metadata(source_metadata, reserved=reserved)
+        mapping = {record.record_id: f"PFQ-{metadata['slug']}-{index:09d}" for index, record in enumerate(self._parse_batch.records, start=1)}
         self.questions, parser_findings = materialize_matched_batch(self._parse_batch, mapping)
         qa = detect_candidate_damage(self.questions)
         self.findings = parser_findings + qa.findings
         self.proposals = draft_deterministic_proposals(self.questions, self.findings)
         self._qa_result = qa
         self._source_only = True
-        self._lifecycle.record_source_only_review(parsed_records=len(self.questions), finding_count=len(self.findings), source_label=source_label)
+        self._source_metadata = metadata
+        self._lifecycle.record_source_only_review(parsed_records=len(self.questions), finding_count=len(self.findings), source_metadata=metadata)
+        self._save_checkpoint()
         return self.view()
 
     def record_action(self, finding_id: str, action: str) -> dict:
@@ -1075,7 +1112,7 @@ class SyntheticWorkbenchSession:
         return question_id
 
     def _save_checkpoint(self) -> None:
-        if self._lifecycle is None or self._identity_report is None:
+        if self._lifecycle is None or (self._identity_report is None and not self._source_only):
             return
         write_private_user_proposals(self._lifecycle.run_directory, self.proposals)
         comparison_counts = {}
@@ -1091,7 +1128,7 @@ class SyntheticWorkbenchSession:
                 "format": "prepflow_v2_checkpoint",
                 "version": "1.0",
                 "run_id": self._lifecycle.manifest()["run_id"],
-                "target_pack_id": self._identity_report.target_pack_id,
+                "target_pack_id": (self._identity_report.target_pack_id if self._identity_report is not None else f"source_only:{self._source_metadata['slug']}"),
                 "identity_actions": [
                     {
                         "record_id": record_id,
@@ -1182,6 +1219,8 @@ class SyntheticWorkbenchSession:
             "parsed_records": manifest.get("parsed_records"),
             "parser_findings": manifest.get("parser_finding_count", manifest.get("finding_count")),
             "failure_code": manifest.get("failure_code"),
+            "source_only": bool(manifest.get("source_only")),
+            "source_metadata": manifest.get("source_metadata"),
         }
 
     def _reset_completed_run_for_new_intake(self) -> None:
@@ -1206,6 +1245,8 @@ class SyntheticWorkbenchSession:
         self._post_group_qa_result = None
         self._comparison_category_decisions.clear()
         self._viewed_comparison_categories.clear()
+        self._source_only = False
+        self._source_metadata = None
         self.questions, self.findings, self.proposals = (), (), ()
         self._decisions_by_proposal.clear()
         self._verifications_by_proposal.clear()

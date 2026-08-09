@@ -794,6 +794,31 @@
   }
 
   document.getElementById("start-run-button").addEventListener("click", () => runCommand("/api/run/start"));
+  function sourceOnlyMetadata() {
+    if (selectedNewRunPack === "peds") {
+      return { display_name: "Pediatrics", slug: "pediatrics", prefix: "Peds" };
+    }
+    return {
+      display_name: document.getElementById("new-source-name").value,
+      slug: document.getElementById("new-source-slug").value,
+      prefix: document.getElementById("new-source-prefix").value
+    };
+  }
+  function updateNewSourcePreview() {
+    const select = document.getElementById("new-run-pack");
+    const metadata = document.getElementById("new-source-metadata");
+    const isNew = select.value === "new_source";
+    metadata.hidden = !isNew;
+    const source = sourceOnlyMetadata();
+    const slug = String(source.slug || "slug").trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+    const prefix = String(source.prefix || "Prefix").trim();
+    document.getElementById("new-source-preview").textContent = `Preview: PFQ-${slug || "slug"}-000000001 · ${prefix || "Prefix"} 1`;
+  }
+  document.getElementById("new-run-pack").addEventListener("change", updateNewSourcePreview);
+  ["new-source-name", "new-source-slug", "new-source-prefix"].forEach((id) => {
+    document.getElementById(id).addEventListener("input", updateNewSourcePreview);
+  });
+  updateNewSourcePreview();
   document.getElementById("new-run-button").addEventListener("click", () => {
     selectedNewRunPack = document.getElementById("new-run-pack").value;
     document.getElementById("pdf-input").click();
@@ -849,8 +874,8 @@
       if (!response.ok) throw new Error(result.error || "PDF intake failed.");
       acceptEnginePayload(result);
       if (selectedNewRunPack) {
-        if (selectedNewRunPack === "peds") {
-          const sourceResponse = await fetch("/api/identity/source-only", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source_label: "peds" }) });
+        if (["peds", "new_source"].includes(selectedNewRunPack)) {
+          const sourceResponse = await fetch("/api/identity/source-only", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ metadata: sourceOnlyMetadata(), preset: selectedNewRunPack === "peds" ? "peds" : null }) });
           const sourceResult = await sourceResponse.json();
           if (!sourceResponse.ok) throw new Error(sourceResult.error || "Source-only review could not begin.");
           acceptEnginePayload(sourceResult);

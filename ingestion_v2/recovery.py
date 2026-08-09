@@ -66,11 +66,12 @@ def list_recoverable_runs(workspace_root: Path, protected_pack_ids: set[str]) ->
             manifest = lifecycle.manifest()
             checkpoint = read_checkpoint(run_directory)
             pack_id = checkpoint["target_pack_id"]
+            source_only = bool(manifest.get("source_only"))
             cleaned = run_directory / "artifacts" / "cleaned.txt"
             if (
                 manifest.get("status") != "running"
                 or manifest.get("stage") in {"created", "staged", "extracted", "cleaned", "completed", "failed", "failed_cleaned"}
-                or pack_id not in protected_pack_ids
+                or (not source_only and pack_id not in protected_pack_ids)
                 or cleaned.is_symlink()
                 or not cleaned.is_file()
             ):
@@ -80,10 +81,11 @@ def list_recoverable_runs(workspace_root: Path, protected_pack_ids: set[str]) ->
                     run_directory.stat().st_mtime_ns,
                     {
                         "run_id": manifest["run_id"],
-                        "pack_id": pack_id,
+                        "pack_id": "source_only" if source_only else pack_id,
                         "stage": manifest["stage"],
                         "parsed_records": manifest.get("parsed_records", 0),
                         "finding_count": manifest.get("finding_count", 0),
+                        **({"source_only": True} if source_only else {}),
                     },
                 )
             )

@@ -12,7 +12,7 @@ from typing import Any, Iterable
 
 
 QUESTION_ID_RE = re.compile(r"^PFQ-[a-z0-9_]+-\d{9}$", re.IGNORECASE)
-SUFFIX_RE = re.compile(r"^(?:\d{1,9}|PFQ-[a-z0-9_]+-(\d{9})|([a-z][a-z_-]*)\s*(\d{1,9}))$", re.IGNORECASE)
+SUFFIX_RE = re.compile(r"^(?:\d{1,9}|PFQ-[a-z0-9_]+-(\d{9})|([a-z][a-z _-]*?)\s*(\d{1,9}))$", re.IGNORECASE)
 DISPLAY_SLUGS = {"fundamentals": "fund", "medical_surgical": "medsurg", "pharmacy": "pharm", "pediatrics": "peds"}
 
 
@@ -86,7 +86,7 @@ def reconcile_repairs(
     return result
 
 
-def _matches(question_id: str, query: str) -> bool:
+def _matches(question_id: str, query: str, friendly_prefixes: dict[str, str] | None = None) -> bool:
     query = query.strip()
     if QUESTION_ID_RE.fullmatch(query):
         return question_id.casefold() == query.casefold()
@@ -96,7 +96,8 @@ def _matches(question_id: str, query: str) -> bool:
     slug, number = match.group(2), match.group(3)
     if slug:
         pack_id = question_id.removeprefix("PFQ-").rsplit("-", 1)[0]
-        if slug.casefold() not in {pack_id.casefold(), DISPLAY_SLUGS.get(pack_id, "").casefold()}:
+        prefixes = friendly_prefixes or {}
+        if slug.casefold() not in {pack_id.casefold(), DISPLAY_SLUGS.get(pack_id, "").casefold(), prefixes.get(pack_id, "").casefold()}:
             return False
     return question_id.endswith(f"-{(match.group(1) or number or query).zfill(9)}")
 
@@ -118,24 +119,25 @@ def repair_desk_lookup(
     repair_records: dict[str, Any] | None = None,
     unresolved: Iterable[dict[str, Any]] = (),
     excluded: Iterable[dict[str, Any]] = (),
+    friendly_prefixes: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Find an ID across every read-only Repair Desk location."""
     matches: list[dict[str, Any]] = []
     for pack in canonical_packs:
         for question in pack.get("questions", ()):
-            if _matches(question["id"], query):
+            if _matches(question["id"], query, friendly_prefixes):
                 matches.append({"location": "canonical_pack", "question_id": question["id"], "pack_id": pack.get("pack_id")})
     if candidate_pack:
         for question in candidate_pack.get("questions", ()):
-            if _matches(question["id"], query):
+            if _matches(question["id"], query, friendly_prefixes):
                 matches.append({"location": "isolated_candidate", "question_id": question["id"], "pack_id": candidate_pack.get("pack_id")})
     for item in unresolved:
-        if isinstance(item.get("question_id"), str) and _matches(item["question_id"], query):
+        if isinstance(item.get("question_id"), str) and _matches(item["question_id"], query, friendly_prefixes):
             matches.append({"location": "unresolved_queue", "question_id": item["question_id"], "finding_id": item.get("finding_id")})
     for item in excluded:
-        if isinstance(item.get("question_id"), str) and _matches(item["question_id"], query):
+        if isinstance(item.get("question_id"), str) and _matches(item["question_id"], query, friendly_prefixes):
             matches.append({"location": "excluded_record", "question_id": item["question_id"], "finding_id": item.get("finding_id")})
     for record in (repair_records or {}).get("repairs", ()):
-        if _matches(record["question_id"], query):
+        if _matches(record["question_id"], query, friendly_prefixes):
             matches.append({"location": "repair_record", "question_id": record["question_id"], "repair_id": record["repair_id"]})
     return {"query": query, "matches": matches}

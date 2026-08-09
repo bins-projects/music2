@@ -21,6 +21,9 @@ PACK_REGISTRY = {
     "pharmacy": PROJECT_DIRECTORY / "packs" / "pharmacy.prepflow.json",
 }
 IDENTITY_PACKS = PACK_REGISTRY
+SOURCE_ONLY_PRESETS = {
+    "peds": {"display_name": "Pediatrics", "slug": "pediatrics", "prefix": "Peds"},
+}
 RUNS_DIRECTORY = PROJECT_DIRECTORY / "output" / "v2-runs"
 REPAIR_WORKBENCH_DIRECTORY = PROJECT_DIRECTORY / "output" / "repair-workbench" / "fundamentals"
 
@@ -40,13 +43,17 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
             records_path = REPAIR_WORKBENCH_DIRECTORY / "repair-records.json"
             candidate = load_json(candidate_path) if candidate_path.is_file() else None
             records = load_json(records_path) if records_path.is_file() else None
-            payload = repair_desk_lookup(query, canonical_packs=canonical, candidate_pack=candidate, repair_records=records)
+            prefixes = dict(SOURCE_ONLY_PRESETS)
+            friendly_prefixes = {value["slug"]: value["prefix"] for value in prefixes.values()}
+            if self.session._source_metadata:
+                friendly_prefixes[self.session._source_metadata["slug"]] = self.session._source_metadata["prefix"]
+            payload = repair_desk_lookup(query, canonical_packs=canonical, candidate_pack=candidate, repair_records=records, friendly_prefixes=friendly_prefixes)
             if candidate and records:
                 payload["reconciliation"] = reconcile_repairs(records, canonical[0], candidate)
             self._send_json(payload)
             return
         if parsed.path == "/api/pack-registry":
-            self._send_json({"packs": [{"id": key, "source_only": False} for key in PACK_REGISTRY] + [{"id": "peds", "source_only": True}]})
+            self._send_json({"packs": [{"id": key, "source_only": False} for key in PACK_REGISTRY] + [{"id": key, "source_only": True, "metadata": value} for key, value in SOURCE_ONLY_PRESETS.items()] + [{"id": "new_source", "source_only": True}]})
             return
         if self.path == "/api/review":
             self._send_json(self.session.view())
@@ -127,14 +134,15 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
             elif self.path == "/api/run/resume":
                 run_id = body.get("run_id")
                 pack_id = body.get("pack_id")
-                if pack_id not in IDENTITY_PACKS or not isinstance(run_id, str):
-                    raise DomainError("A protected Pack and private run ID are required")
+                if not isinstance(run_id, str) or not isinstance(pack_id, str):
+                    raise DomainError("A private run ID and intake type are required")
                 run_directory = RUNS_DIRECTORY / run_id
                 if run_directory.parent != RUNS_DIRECTORY or not run_id.startswith("v2-run-"):
                     raise DomainError("Private run ID is invalid")
-                resumed = SyntheticWorkbenchSession.resume_run(
-                    run_directory, load_pack(IDENTITY_PACKS[pack_id])
-                )
+                resumed = (SyntheticWorkbenchSession.resume_source_only_run(run_directory)
+                    if pack_id == "source_only" else SyntheticWorkbenchSession.resume_run(run_directory, load_pack(IDENTITY_PACKS[pack_id])) if pack_id in IDENTITY_PACKS else None)
+                if resumed is None:
+                    raise DomainError("Unknown protected Pack selection")
                 type(self).session = resumed
                 payload = resumed.view()
             elif self.path == "/api/identity/existing-pack":
@@ -143,10 +151,15 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                     raise DomainError("Unknown protected Pack selection")
                 payload = self.session.match_existing_pack(load_pack(IDENTITY_PACKS[pack_id]))
             elif self.path == "/api/identity/source-only":
-                source_label = body.get("source_label")
-                if not isinstance(source_label, str):
-                    raise DomainError("source_label is required")
-                payload = self.session.materialize_source_only(source_label)
+                metadata = body.get("metadata")
+                if not isinstance(metadata, dict):
+                    raise DomainError("source metadata is required")
+                preset = body.get("preset")
+                if preset is not None and preset not in SOURCE_ONLY_PRESETS:
+                    raise DomainError("Unknown source-only preset")
+                if preset is not None and metadata != SOURCE_ONLY_PRESETS[preset]:
+                    raise DomainError("Registered source metadata cannot be changed")
+                payload = self.session.materialize_source_only(metadata, registered_preset=bool(preset))
             elif self.path == "/api/identity/source-context":
                 record_id = body.get("record_id")
                 if not isinstance(record_id, str):

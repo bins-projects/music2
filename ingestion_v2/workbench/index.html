@@ -31,7 +31,13 @@
             <span>1</span><h3>Start a new book</h3>
             <p>Create an isolated run and compare it with a protected existing Pack.</p>
             <label for="new-run-pack">Comparison Pack</label>
-            <select id="new-run-pack"><option value="fundamentals">Fundamentals</option><option value="medical_surgical">Medical-Surgical</option><option value="pharmacy">Pharmacy / PharmFinal</option><option value="peds">Pediatrics (source-only)</option></select>
+            <select id="new-run-pack"><option value="fundamentals">Fundamentals</option><option value="medical_surgical">Medical-Surgical</option><option value="pharmacy">Pharmacy / PharmFinal</option><option value="peds">Pediatrics (source-only)</option><option value="new_source">New Source</option></select>
+            <div id="new-source-metadata" hidden>
+              <label>Book name <input id="new-source-name" placeholder="Book name"></label>
+              <label>Pack slug <input id="new-source-slug" placeholder="e.g. adult_health"></label>
+              <label>Friendly prefix <input id="new-source-prefix" placeholder="e.g. Adult Health"></label>
+              <small id="new-source-preview" aria-live="polite"></small>
+            </div>
             <button id="new-run-button" type="button">Choose PDF and begin</button>
           </article>
           <article class="home-card">

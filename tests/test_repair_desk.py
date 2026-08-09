@@ -31,3 +31,12 @@ def test_lookup_accepts_friendly_book_reference_without_changing_internal_id() -
     question_id = "PFQ-pediatrics-000000398"
     assert repair_desk_lookup("Peds 398", canonical_packs=[pack(question_id)])["matches"][0]["question_id"] == question_id
     assert repair_desk_lookup("peds398", canonical_packs=[pack(question_id)])["matches"][0]["question_id"] == question_id
+
+
+def test_lookup_accepts_new_source_friendly_prefix_without_changing_internal_id() -> None:
+    question_id = "PFQ-adult_health-000000001"
+    result = repair_desk_lookup(
+        "adult health1", canonical_packs=[pack(question_id)],
+        friendly_prefixes={"adult_health": "Adult Health"},
+    )
+    assert result["matches"][0]["question_id"] == question_id

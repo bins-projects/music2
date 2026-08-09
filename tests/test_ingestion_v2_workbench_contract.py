@@ -43,6 +43,11 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
         "factory-home",
         "new-run-button",
         "new-run-pack",
+        "new-source-metadata",
+        "new-source-name",
+        "new-source-slug",
+        "new-source-prefix",
+        "new-source-preview",
         "completed-runs",
         "complete-run-button",
         "cleanup-run-button",
@@ -92,6 +97,7 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert 'data-pack-id="medical_surgical"' in html
     assert 'value="pharmacy"' in html
     assert 'value="peds"' in html
+    assert 'value="new_source"' in html
     assert "/api/identity/existing-pack" in script
     assert "IDENTITY_PACKS" in server
     assert "Unknown protected Pack selection" in server
@@ -107,6 +113,10 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert "selected?.target_stem" in script
     assert "/api/identity/materialize" in script
     assert "/api/identity/source-only" in script
+    assert "sourceOnlyMetadata" in script
+    assert "PFQ-${slug || \"slug\"}-000000001" in script
+    assert "SOURCE_ONLY_PRESETS" in server
+    assert "Registered source metadata cannot be changed" in server
     assert "Prepare parsed review" in html
     assert 'id="proposal-dialog"' in html
     assert 'id="proposal-value"' in html

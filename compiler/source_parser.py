@@ -401,6 +401,54 @@ def normalize_split_choices(lines: list[str]) -> list[str]:
             index += 1
             continue
 
+        # Bounded marketplace cleanup can leave a choice label attached to
+        # the preceding question or choice while its text begins on the next
+        # line with a period. Split only A after a numbered question or the
+        # immediate alphabetical successor after an existing choice.
+        continuation_index = index + 1
+
+        if (
+            continuation_index < len(lines)
+            and lines[continuation_index] == PAGE_BREAK_MARKER
+        ):
+            continuation_index += 1
+
+        if continuation_index < len(lines):
+            trailing_label = re.match(
+                r"^(.+\S)\s+([a-gA-G])$",
+                lines[index],
+            )
+            split_continuation = re.match(
+                r"^\.\s+(\S.*)$",
+                lines[continuation_index],
+            )
+
+            if trailing_label and split_continuation:
+                content = trailing_label.group(1).rstrip()
+                label = trailing_label.group(2).upper()
+                question_boundary = bool(
+                    QUESTION_RE.match(content)
+                    or SYNTHETIC_QUESTION_RE.match(content)
+                )
+                current_choice = CHOICE_RE.match(content)
+                valid_question_choice = (
+                    question_boundary and label == "A"
+                )
+                valid_sequential_choice = bool(
+                    current_choice
+                    and ord(label)
+                    == ord(current_choice.group(1).upper()) + 1
+                )
+
+                if valid_question_choice or valid_sequential_choice:
+                    append_line(content)
+                    append_line(
+                        f"{label}. "
+                        f"{split_continuation.group(1).strip()}"
+                    )
+                    index = continuation_index + 1
+                    continue
+
         if (
             index + 1 < len(lines)
             and re.fullmatch(r"[a-gA-G]", lines[index])

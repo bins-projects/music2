@@ -427,6 +427,13 @@ function currentQuestion() {
   return question;
 }
 
+function displayQuestionReference(questionId) {
+  const match = /^PFQ-([a-z0-9_]+)-(\d{9})$/i.exec(questionId || "");
+  if (!match) return questionId || "";
+  const labels = { fundamentals: "Fundamentals", medical_surgical: "Med-Surg", pharmacy: "Pharm", pediatrics: "Peds" };
+  return `${labels[match[1]] || match[1]} ${Number(match[2])}`;
+}
+
 function totalBlockCount() {
   return PrepFlowSessionRules.totalBlockCount(
     sessionQuestions.length,
@@ -445,7 +452,8 @@ function showQuestion() {
   quizScreen.hidden = false;
 
   quizSubject.textContent = currentSubject;
-  quizQuestionId.textContent = question.id;
+  quizQuestionId.textContent = displayQuestionReference(question.id);
+  quizQuestionId.title = question.id;
 
   if (reviewMode) {
     quizPosition.textContent = PrepFlowDisplayRules.quizPositionText({

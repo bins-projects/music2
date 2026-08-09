@@ -849,6 +849,13 @@
       if (!response.ok) throw new Error(result.error || "PDF intake failed.");
       acceptEnginePayload(result);
       if (selectedNewRunPack) {
+        if (selectedNewRunPack === "peds") {
+          const sourceResponse = await fetch("/api/identity/source-only", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source_label: "peds" }) });
+          const sourceResult = await sourceResponse.json();
+          if (!sourceResponse.ok) throw new Error(sourceResult.error || "Source-only review could not begin.");
+          acceptEnginePayload(sourceResult);
+          return;
+        }
         const packResponse = await fetch("/api/identity/existing-pack", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

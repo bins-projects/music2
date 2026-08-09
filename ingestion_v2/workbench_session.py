@@ -88,6 +88,8 @@ class SyntheticWorkbenchSession:
         self._comparison_category_decisions: dict[str, str] = {}
         self._viewed_comparison_categories: set[str] = set()
         self._last_cleanup = None
+        self._source_only = False
+        self._document_findings: list[dict] = []
 
     @classmethod
     def resume_run(cls, run_directory: Path, target_pack: dict) -> "SyntheticWorkbenchSession":
@@ -174,6 +176,7 @@ class SyntheticWorkbenchSession:
                 self._lifecycle
                 and self._lifecycle.manifest()["stage"] == "identity_pending"
             ),
+            "document_findings": list(self._document_findings),
             "identity": self._identity_view(),
             "qa": (
                 {
@@ -432,6 +435,8 @@ class SyntheticWorkbenchSession:
             raise DomainError("A run is already active")
         if not content:
             raise DomainError("Selected PDF is empty")
+        self._source_only = False
+        self._document_findings = []
         lifecycle = RunLifecycle.create(self._workspace_root)
         try:
             lifecycle.stage_disposable_copy(content, source_type="pdf")
@@ -453,6 +458,11 @@ class SyntheticWorkbenchSession:
             )
             self._cleaning_result = cleaning
             self._parse_batch = ExistingParserAdapter().parse(cleaning.text)
+            if not self._parse_batch.records:
+                self._document_findings = [{"finding_id": "PFV2-DOCUMENT-000001", "severity": "blocking", "damage_type": "zero_parsed_records", "explanation": "No questions were parsed. This PDF may require another extraction strategy or OCR."}]
+                lifecycle.fail("zero_parsed_records")
+                self._lifecycle = lifecycle
+                return self.view()
             lifecycle.record_identity_pending(
                 parsed_records=len(self._parse_batch.records),
                 parser_findings=len(self._parse_batch.findings),
@@ -463,6 +473,21 @@ class SyntheticWorkbenchSession:
             raise
         self.questions, self.findings, self.proposals = (), (), ()
         self._lifecycle = lifecycle
+        return self.view()
+
+    def materialize_source_only(self, source_label: str) -> dict:
+        if self._lifecycle is None or self._parse_batch is None or self._lifecycle.manifest()["stage"] != "identity_pending":
+            raise DomainError("Parse a PDF before starting source-only review")
+        if source_label not in {"peds"}:
+            raise DomainError("Unknown source-only intake label")
+        mapping = {record.record_id: f"PFQ-pediatrics-{index:09d}" for index, record in enumerate(self._parse_batch.records, start=1)}
+        self.questions, parser_findings = materialize_matched_batch(self._parse_batch, mapping)
+        qa = detect_candidate_damage(self.questions)
+        self.findings = parser_findings + qa.findings
+        self.proposals = draft_deterministic_proposals(self.questions, self.findings)
+        self._qa_result = qa
+        self._source_only = True
+        self._lifecycle.record_source_only_review(parsed_records=len(self.questions), finding_count=len(self.findings), source_label=source_label)
         return self.view()
 
     def record_action(self, finding_id: str, action: str) -> dict:
@@ -918,6 +943,8 @@ class SyntheticWorkbenchSession:
             comparison_complete=bool(self._comparison and self._comparison.complete),
         )
         blocking_reasons = list(readiness.blocking_reasons)
+        if self._source_only:
+            blocking_reasons.append("source_only_candidate_requires_explicit_pack_creation")
         if self._comparison is not None and self._unreviewed_comparison_change_count():
             blocking_reasons.append("unreviewed_comparison_field_changes")
         if self._post_group_qa_result is not None and self._post_group_qa_result.findings:
@@ -929,7 +956,7 @@ class SyntheticWorkbenchSession:
             "applied_proposal_ids": list(self._candidate.applied_proposal_ids),
             "unresolved_finding_ids": list(self._candidate.unresolved_finding_ids),
             "excluded_question_ids": list(self._candidate.excluded_question_ids),
-            "promotion_ready": readiness.ready and not blocking_reasons,
+            "promotion_ready": False if self._source_only else readiness.ready and not blocking_reasons,
             "blocking_reasons": blocking_reasons,
         }
 

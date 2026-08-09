@@ -65,7 +65,8 @@ def test_connected_session_starts_in_memory_and_non_promoting() -> None:
         "document_text_in_payload": False,
         "extraction": None,
         "cleaning": None,
-        "identity_pending": False,
+            "identity_pending": False,
+            "document_findings": [],
         "identity": {"state": "not_run"},
         "qa": {"state": "not_run"},
         "proposal_generation": {

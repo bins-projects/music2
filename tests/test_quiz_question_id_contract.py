@@ -7,6 +7,7 @@ def test_active_quiz_renders_full_copyable_stable_question_id() -> None:
     css = Path("web/arcade-quiz.css").read_text(encoding="utf-8")
 
     assert 'id="quiz-question-id"' in html
-    assert 'quizQuestionId.textContent = question.id' in script
+    assert 'quizQuestionId.textContent = displayQuestionReference(question.id)' in script
+    assert "quizQuestionId.title = question.id" in script
     assert "#quiz-screen .quiz-question-id" in css
     assert "user-select: text" in css

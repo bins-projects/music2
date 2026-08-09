@@ -12,7 +12,8 @@ from typing import Any, Iterable
 
 
 QUESTION_ID_RE = re.compile(r"^PFQ-[a-z0-9_]+-\d{9}$", re.IGNORECASE)
-SUFFIX_RE = re.compile(r"^(?:\d{1,9}|PFQ-[a-z0-9_]+-(\d{9}))$", re.IGNORECASE)
+SUFFIX_RE = re.compile(r"^(?:\d{1,9}|PFQ-[a-z0-9_]+-(\d{9})|([a-z][a-z_-]*)\s*(\d{1,9}))$", re.IGNORECASE)
+DISPLAY_SLUGS = {"fundamentals": "fund", "medical_surgical": "medsurg", "pharmacy": "pharm", "pediatrics": "peds"}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -90,7 +91,23 @@ def _matches(question_id: str, query: str) -> bool:
     if QUESTION_ID_RE.fullmatch(query):
         return question_id.casefold() == query.casefold()
     match = SUFFIX_RE.fullmatch(query)
-    return bool(match and question_id.endswith(f"-{(match.group(1) or query).zfill(9)}"))
+    if not match:
+        return False
+    slug, number = match.group(2), match.group(3)
+    if slug:
+        pack_id = question_id.removeprefix("PFQ-").rsplit("-", 1)[0]
+        if slug.casefold() not in {pack_id.casefold(), DISPLAY_SLUGS.get(pack_id, "").casefold()}:
+            return False
+    return question_id.endswith(f"-{(match.group(1) or number or query).zfill(9)}")
+
+
+def display_reference(question_id: str) -> str:
+    """Human locator only; storage retains the immutable PFQ ID."""
+    match = re.fullmatch(r"PFQ-([a-z0-9_]+)-(\d{9})", question_id, re.IGNORECASE)
+    if not match:
+        return question_id
+    label = {"fundamentals": "Fundamentals", "medical_surgical": "Med-Surg", "pharmacy": "Pharm", "pediatrics": "Peds"}.get(match.group(1), match.group(1).replace("_", " ").title())
+    return f"{label} {int(match.group(2))}"
 
 
 def repair_desk_lookup(

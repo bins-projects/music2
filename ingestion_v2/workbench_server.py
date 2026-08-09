@@ -15,10 +15,12 @@ from ingestion_v2.repair_desk import load_json, reconcile_repairs, repair_desk_l
 
 WORKBENCH_DIRECTORY = Path(__file__).with_name("workbench")
 PROJECT_DIRECTORY = Path(__file__).resolve().parent.parent
-IDENTITY_PACKS = {
+PACK_REGISTRY = {
     "fundamentals": PROJECT_DIRECTORY / "packs" / "fundamentals.prepflow.json",
     "medical_surgical": PROJECT_DIRECTORY / "packs" / "medical_surgical.prepflow.json",
+    "pharmacy": PROJECT_DIRECTORY / "packs" / "pharmacy.prepflow.json",
 }
+IDENTITY_PACKS = PACK_REGISTRY
 RUNS_DIRECTORY = PROJECT_DIRECTORY / "output" / "v2-runs"
 REPAIR_WORKBENCH_DIRECTORY = PROJECT_DIRECTORY / "output" / "repair-workbench" / "fundamentals"
 
@@ -42,6 +44,9 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
             if candidate and records:
                 payload["reconciliation"] = reconcile_repairs(records, canonical[0], candidate)
             self._send_json(payload)
+            return
+        if parsed.path == "/api/pack-registry":
+            self._send_json({"packs": [{"id": key, "source_only": False} for key in PACK_REGISTRY] + [{"id": "peds", "source_only": True}]})
             return
         if self.path == "/api/review":
             self._send_json(self.session.view())
@@ -137,6 +142,11 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 if pack_id not in IDENTITY_PACKS:
                     raise DomainError("Unknown protected Pack selection")
                 payload = self.session.match_existing_pack(load_pack(IDENTITY_PACKS[pack_id]))
+            elif self.path == "/api/identity/source-only":
+                source_label = body.get("source_label")
+                if not isinstance(source_label, str):
+                    raise DomainError("source_label is required")
+                payload = self.session.materialize_source_only(source_label)
             elif self.path == "/api/identity/source-context":
                 record_id = body.get("record_id")
                 if not isinstance(record_id, str):

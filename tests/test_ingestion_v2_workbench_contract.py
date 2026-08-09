@@ -90,6 +90,8 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
 
     assert 'data-pack-id="fundamentals"' in html
     assert 'data-pack-id="medical_surgical"' in html
+    assert 'value="pharmacy"' in html
+    assert 'value="peds"' in html
     assert "/api/identity/existing-pack" in script
     assert "IDENTITY_PACKS" in server
     assert "Unknown protected Pack selection" in server
@@ -104,6 +106,7 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert "identity-target-preview" in script
     assert "selected?.target_stem" in script
     assert "/api/identity/materialize" in script
+    assert "/api/identity/source-only" in script
     assert "Prepare parsed review" in html
     assert 'id="proposal-dialog"' in html
     assert 'id="proposal-value"' in html

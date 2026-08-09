@@ -134,20 +134,28 @@ def _tesseract_ocr_pages(
 
 
 def _audit_summary(report: dict[str, Any]) -> dict[str, int]:
-    return {
+    summary = {
         "page_count": report["source"]["page_count"],
         "raw_characters": report["source"]["raw_characters"],
+        "chapter_count": len(report["parse"]["chapters"]),
         "parsed_records": report["parse"]["parsed_records"],
         "parser_findings": report["parse"]["parser_finding_count"],
-        "exact_pack_matches": report["identity"]["exact_matches"],
-        "source_review_required": report["identity"]["source_review_required"],
-        "pack_only_records": report["identity"]["pack_only_records"],
     }
+    identity = report.get("identity")
+    if identity is not None:
+        summary.update(
+            {
+                "exact_pack_matches": identity["exact_matches"],
+                "source_review_required": identity["source_review_required"],
+                "pack_only_records": identity["pack_only_records"],
+            }
+        )
+    return summary
 
 
 def run_extraction_benchmark(
     source_path: str | Path,
-    target_pack: dict[str, Any],
+    target_pack: dict[str, Any] | None = None,
     *,
     strategies: tuple[str, ...] = EXTRACTOR_NAMES,
     reporter: ProgressReporter | None = None,
@@ -225,14 +233,18 @@ def run_extraction_benchmark(
 
 def write_extraction_benchmark(
     source_path: str | Path,
-    target_pack_path: str | Path,
+    target_pack_path: str | Path | None,
     output_directory: str | Path,
     *,
     strategies: tuple[str, ...] = EXTRACTOR_NAMES,
     reporter: ProgressReporter | None = None,
 ) -> dict[str, Any]:
     source = Path(source_path)
-    pack = json.loads(Path(target_pack_path).read_text(encoding="utf-8"))
+    pack = (
+        json.loads(Path(target_pack_path).read_text(encoding="utf-8"))
+        if target_pack_path is not None
+        else None
+    )
     output = Path(output_directory)
     output.mkdir(parents=True, exist_ok=True)
 

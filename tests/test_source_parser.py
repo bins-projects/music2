@@ -1222,3 +1222,97 @@ The fourth choice is correct.
         "text": "The third choice.",
     }
     assert questions[0]["correct_answers"] == ["D"]
+
+
+def test_parser_recovers_ocr_cent_sign_only_as_sequential_choice_c() -> None:
+    text = """Chapter 3: Fetal Development
+MULTIPLE CHOICE
+7. Which membrane attaches to the uterine wall?
+a. Amnion
+b. Yolk sac
+¢. Chorion
+d. Decidua basalis
+ANS: C
+The chorion has fingerlike projections.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["choices"] == [
+        {"label": "A", "text": "Amnion"},
+        {"label": "B", "text": "Yolk sac"},
+        {"label": "C", "text": "Chorion"},
+        {"label": "D", "text": "Decidua basalis"},
+    ]
+    assert questions[0]["correct_answers"] == ["C"]
+
+
+def test_parser_preserves_cent_sign_outside_a_b_c_d_choice_sequence() -> None:
+    text = """Chapter 1: Dosage
+MULTIPLE CHOICE
+1. Which statement is correct?
+a. First
+b. Second
+c. Third
+d. Fourth
+ANS: A
+A cent sign such as ¢. remains educational rationale text.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["rationale"] == (
+        "A cent sign such as ¢. remains educational rationale text."
+    )
+
+
+def test_parser_discards_only_structurally_empty_numbered_preamble() -> None:
+    text = """CONTENTS
+1. The Past, Present, and Future
+2. Human Reproductive Anatomy and Physiology
+3. Fetal Development
+Chapter 1: The Past, Present, and Future
+MULTIPLE CHOICE
+1. Which statement is correct?
+a. First
+b. Second
+c. Third
+d. Fourth
+ANS: A
+The first statement is correct.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert len(questions) == 1
+    assert questions[0]["chapter"] == "Chapter 1: The Past, Present, and Future"
+    assert questions[0]["stem"] == "Which statement is correct?"
+
+
+def test_parser_preserves_complete_questions_before_first_chapter() -> None:
+    text = """1. Which preliminary statement is correct?
+a. First
+b. Second
+c. Third
+d. Fourth
+ANS: A
+The first statement is correct.
+DIF: Understanding
+Chapter 1: Main Material
+MULTIPLE CHOICE
+1. Which chapter statement is correct?
+a. First
+b. Second
+c. Third
+d. Fourth
+ANS: D
+The fourth statement is correct.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert len(questions) == 2
+    assert questions[0]["chapter"] is None
+    assert questions[0]["correct_answers"] == ["A"]
+    assert questions[1]["chapter"] == "Chapter 1: Main Material"
+    assert questions[1]["correct_answers"] == ["D"]

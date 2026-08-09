@@ -1390,3 +1390,67 @@ The fourth statement is correct.
     assert questions[0]["correct_answers"] == ["A"]
     assert questions[1]["chapter"] == "Chapter 1: Main Material"
     assert questions[1]["correct_answers"] == ["D"]
+
+
+def test_parser_joins_wrapped_chapter_title_across_transport_blanks() -> None:
+    text = """Chapter 27: The Child with a Condition of the Blood, or
+
+Lymphatic System
+
+Leifer: Synthetic Nursing, 10th Edition
+MULTIPLE CHOICE
+1. Which statement is correct?
+a. First
+b. Second
+c. Third
+d. Fourth
+ANS: A
+The first statement is correct.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["chapter"] == (
+        "Chapter 27: The Child with a Condition of the Blood, or "
+        "Lymphatic System"
+    )
+
+
+def test_parser_joins_title_shaped_continuation_before_publisher_context() -> None:
+    text = """Chapter 34: Complementary Therapies in Pediatric
+Nursing
+SS
+Leifer: Synthetic Nursing, 10th Edition
+MULTIPLE CHOICE
+1. Which statement is correct?
+a. First
+b. Second
+c. Third
+d. Fourth
+ANS: A
+The first statement is correct.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["chapter"] == (
+        "Chapter 34: Complementary Therapies in Pediatric Nursing"
+    )
+
+
+def test_parser_does_not_append_unconfirmed_title_shaped_preamble() -> None:
+    text = """Chapter 1: Clear Title
+Basic Concepts
+MULTIPLE CHOICE
+1. Which statement is correct?
+a. First
+b. Second
+c. Third
+d. Fourth
+ANS: A
+The first statement is correct.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["chapter"] == "Chapter 1: Clear Title"

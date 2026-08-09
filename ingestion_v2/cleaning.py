@@ -261,7 +261,9 @@ def _clean_page(
             continue
 
         for noise in sorted(removable, key=len, reverse=True):
-            if _is_protected_structural_line(noise):
+            if SELECT_ALL_INSTRUCTION_RE.fullmatch(
+                _normalized_line(noise)
+            ):
                 continue
 
             suffix = re.compile(r"(?:\s+|\s*[-|:]\s*)" + re.escape(noise) + r"\s*$")

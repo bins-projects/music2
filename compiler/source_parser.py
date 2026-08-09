@@ -34,7 +34,7 @@ INLINE_ANSWER_RE = re.compile(
 )
 CHOICE_MARKER_ONLY_RE = re.compile(r"^[a-gA-G]\.$")
 OCR_C_CHOICE_RE = re.compile(
-    r"^(?:[¢©]c?|e?c|ce)\.?\s+(.+)",
+    r"^(?:[¢©]c?|e?c|ce|e)\.?\s+(.+)",
     re.IGNORECASE,
 )
 METADATA_RE = re.compile(
@@ -454,6 +454,35 @@ def normalize_split_choices(lines: list[str]) -> list[str]:
                     )
                     index = continuation_index + 1
                     continue
+
+        # OCR can also drop punctuation and spacing from a numeric first
+        # choice. Recover only a lowercase a plus a numeric payload when the
+        # next significant line is the conventional B choice.
+        missing_numeric_a = re.match(
+            r"^a\\s*(\\d+(?:[.,]\\d+)?)$",
+            lines[index],
+        )
+        next_index = index + 1
+        while (
+            next_index < len(lines)
+            and lines[next_index] in {"", PAGE_BREAK_MARKER}
+        ):
+            next_index += 1
+        next_choice = (
+            CHOICE_RE.match(lines[next_index])
+            if next_index < len(lines)
+            else None
+        )
+
+        if (
+            missing_numeric_a
+            and last_choice_label is None
+            and next_choice
+            and next_choice.group(1).upper() == "B"
+        ):
+            append_line(f"A. {missing_numeric_a.group(1)}")
+            index += 1
+            continue
 
         # OCR can confuse a lowercase c choice marker with a cent or
         # copyright sign. Recover it only inside the unambiguous B-C-D

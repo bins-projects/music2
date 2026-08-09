@@ -42,3 +42,43 @@ Explanation.
     assert report["identity"]["exact_matches"] == 1
     assert report["identity"]["source_review_required"] == 1
     assert report["identity"]["pack_only_records"] == 0
+
+
+
+def test_private_source_audit_without_pack_preserves_chapter_titles() -> None:
+    source = """Chapter 1: Growth and Development
+MULTIPLE CHOICE
+1. Which response is expected?
+A. First
+B. Second
+ANS: B
+Explanation.
+Chapter 2: Pediatric Assessment
+MULTIPLE CHOICE
+1. Which assessment is expected?
+A. First
+B. Second
+ANS: A
+Explanation.
+"""
+
+    report = audit_private_source(source)
+
+    assert report["mode"] == "source_only"
+    assert report["safety"]["target_pack_supplied"] is False
+    assert report["identity"] is None
+    assert report["parse"]["parsed_records"] == 2
+    assert report["parse"]["chapters"] == [
+        {
+            "chapter": 1,
+            "chapter_title": "Growth and Development",
+            "parsed_records": 1,
+            "parser_findings": 0,
+        },
+        {
+            "chapter": 2,
+            "chapter_title": "Pediatric Assessment",
+            "parsed_records": 1,
+            "parser_findings": 0,
+        },
+    ]

@@ -1224,13 +1224,40 @@ The fourth choice is correct.
     assert questions[0]["correct_answers"] == ["D"]
 
 
-def test_parser_recovers_ocr_cent_sign_only_as_sequential_choice_c() -> None:
+def test_parser_recovers_observed_ocr_variants_as_sequential_choice_c() -> None:
+    for marker in ("¢.", "©.", "¢c.", "ec.", "ce", "ec"):
+        text = f"""Chapter 3: Fetal Development
+MULTIPLE CHOICE
+7. Which membrane attaches to the uterine wall?
+a. Amnion
+b. Yolk sac
+{marker} Chorion
+d. Decidua basalis
+ANS: C
+The chorion has fingerlike projections.
+"""
+
+        questions = parse_source_questions(text)
+
+        assert questions[0]["choices"] == [
+            {"label": "A", "text": "Amnion"},
+            {"label": "B", "text": "Yolk sac"},
+            {"label": "C", "text": "Chorion"},
+            {"label": "D", "text": "Decidua basalis"},
+        ]
+        assert questions[0]["correct_answers"] == ["C"]
+
+
+def test_parser_recovers_ocr_choice_c_across_a_transport_gap() -> None:
     text = """Chapter 3: Fetal Development
 MULTIPLE CHOICE
 7. Which membrane attaches to the uterine wall?
 a. Amnion
 b. Yolk sac
 ¢. Chorion
+
+\\f
+
 d. Decidua basalis
 ANS: C
 The chorion has fingerlike projections.
@@ -1238,13 +1265,12 @@ The chorion has fingerlike projections.
 
     questions = parse_source_questions(text)
 
-    assert questions[0]["choices"] == [
-        {"label": "A", "text": "Amnion"},
-        {"label": "B", "text": "Yolk sac"},
-        {"label": "C", "text": "Chorion"},
-        {"label": "D", "text": "Decidua basalis"},
+    assert [choice["label"] for choice in questions[0]["choices"]] == [
+        "A",
+        "B",
+        "C",
+        "D",
     ]
-    assert questions[0]["correct_answers"] == ["C"]
 
 
 def test_parser_preserves_cent_sign_outside_a_b_c_d_choice_sequence() -> None:

@@ -1225,7 +1225,7 @@ The fourth choice is correct.
 
 
 def test_parser_recovers_observed_ocr_variants_as_sequential_choice_c() -> None:
-    for marker in ("¢.", "©.", "¢c.", "ec.", "ce", "ec"):
+    for marker in ("¢.", "©.", "¢c.", "ec.", "ce", "ec", "e."):
         text = f"""Chapter 3: Fetal Development
 MULTIPLE CHOICE
 7. Which membrane attaches to the uterine wall?
@@ -1271,6 +1271,54 @@ The chorion has fingerlike projections.
         "C",
         "D",
     ]
+
+
+
+def test_parser_recovers_numeric_first_choice_with_lost_punctuation() -> None:
+    for marker in ("a 4", "a4"):
+        text = f"""Chapter 1: Family Care
+MULTIPLE CHOICE
+20. How many weeks are allowed?
+{marker}
+b. 6
+c. 10
+d. 12
+ANS: D
+Twelve weeks are allowed.
+"""
+
+        questions = parse_source_questions(text)
+
+        assert questions[0]["choices"] == [
+            {"label": "A", "text": "4"},
+            {"label": "B", "text": "6"},
+            {"label": "C", "text": "10"},
+            {"label": "D", "text": "12"},
+        ]
+
+
+def test_parser_does_not_reinterpret_textual_a_as_a_choice() -> None:
+    text = """Chapter 1: Family Care
+MULTIPLE CHOICE
+1. Which statement applies when
+a patient requests assistance?
+b. Second option
+c. Third option
+d. Fourth option
+ANS: D
+The fourth option is correct.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert [choice["label"] for choice in questions[0]["choices"]] == [
+        "B",
+        "C",
+        "D",
+    ]
+    assert questions[0]["stem"] == (
+        "Which statement applies when a patient requests assistance?"
+    )
 
 
 def test_parser_preserves_cent_sign_outside_a_b_c_d_choice_sequence() -> None:

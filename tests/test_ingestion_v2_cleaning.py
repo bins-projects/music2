@@ -1,7 +1,8 @@
 import pytest
 
-from ingestion_v2.cleaning import GuardedPageAwareCleaner
+from ingestion_v2.cleaning import GuardedPageAwareCleaner, _clean_page
 from ingestion_v2.domain import DomainError
+from ingestion_v2.parser import ExistingParserAdapter
 
 
 def test_cleaner_removes_repeated_noise_and_preserves_educational_structure() -> None:
@@ -161,3 +162,87 @@ def test_cleaner_keeps_answer_keys_after_marketplace_attribution() -> None:
     assert result.text.count("ANS: B") == 3
     assert result.text.count("The rationale.") == 3
     assert "Downloaded by:" not in result.text
+
+
+@pytest.mark.parametrize("label", ("A", "B", "D", "H", "A.", "B)"))
+def test_cleaner_preserves_standalone_choice_labels_at_page_edges(label: str) -> None:
+    source = "\n\f\n".join(
+        f"{label}\nUnique educational content {index}."
+        for index in range(3)
+    )
+
+    result = GuardedPageAwareCleaner().clean(source)
+
+    assert sum(line == label for line in result.text.splitlines()) == 3
+    assert result.removed_repeated_lines == 0
+    assert result.protected_repeated_structures >= 1
+
+
+def test_suffix_cleanup_cannot_remove_answer_key_payloads() -> None:
+    page = (
+        "ANS: B",
+        "ANS: D",
+        "ANS: B, D",
+        "ANSWER: C",
+        "CORRECT ANSWER: A",
+        "Ordinary repeated footer B",
+    )
+
+    cleaned, removed, stripped = _clean_page(page, {"B", "D"})
+
+    assert cleaned == (
+        "ANS: B",
+        "ANS: D",
+        "ANS: B, D",
+        "ANSWER: C",
+        "CORRECT ANSWER: A",
+        "Ordinary repeated footer",
+    )
+    assert removed == 0
+    assert stripped == 1
+
+
+def test_marketplace_cleanup_preserves_complete_records_through_parser() -> None:
+    pages = []
+    for index in range(3):
+        heading = (
+            "Chapter 1: Synthetic Safety\nMULTIPLE CHOICE\n"
+            if index == 0
+            else ""
+        )
+        pages.append(
+            heading
+            + f"{index + 1}. Which synthetic option is expected?\n"
+            + "A. First choice"
+        )
+        pages.append(
+            "B Stuvia.com - The Marketplace to Buy and Sell your Study Material\n"
+            "Downloaded by: learner@example.com | learner@example.com\n"
+            "Distribution of this document is illegal\n"
+            "Want to earn $1.236\n"
+            "extra per year?\n"
+            "Stuvia.com - The Marketplace to Buy and Sell your Study Material\n"
+            ". Second choice\n"
+            "C. Third choice\n"
+            "D. Fourth choice\n"
+            "ANS: B\n"
+            "The second choice is expected.\n"
+            "DIF: Synthetic"
+        )
+
+    cleaned = GuardedPageAwareCleaner().clean("\n\f\n".join(pages))
+    batch = ExistingParserAdapter().parse(cleaned.text)
+
+    assert "Downloaded by:" not in cleaned.text
+    assert cleaned.text.count("ANS: B") == 3
+    assert len(batch.records) == 3
+    assert batch.findings == ()
+    for record in batch.records:
+        assert record.choices == (
+            ("A", "First choice"),
+            ("B", "Second choice"),
+            ("C", "Third choice"),
+            ("D", "Fourth choice"),
+        )
+        assert record.correct_answers == ("B",)
+        assert record.rationale == "The second choice is expected."

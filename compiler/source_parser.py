@@ -459,7 +459,7 @@ def normalize_split_choices(lines: list[str]) -> list[str]:
         # choice. Recover only a lowercase a plus a numeric payload when the
         # next significant line is the conventional B choice.
         missing_numeric_a = re.match(
-            r"^a\\s*(\\d+(?:[.,]\\d+)?)$",
+            r"^a\s*(\d+(?:[.,]\d+)?)$",
             lines[index],
         )
         next_index = index + 1

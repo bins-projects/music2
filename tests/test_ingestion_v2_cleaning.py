@@ -291,3 +291,58 @@ def test_completion_section_headers_survive_cleaning_and_control_parser_type() -
         ("3",),
     ]
     assert all(not record.choices for record in batch.records)
+
+
+
+def test_marketplace_cleanup_preserves_word_before_joined_hostname() -> None:
+    source = "\n\f\n".join(
+        (
+            f"{index + 1}. Which step is correct?\n"
+            "A. First option\n"
+            "B. Ask if it is an ethical dilemma.Stuvia.com - "
+            "The Marketplace to Buy and Sell your Study Material\n"
+            "Downloaded by: learner@example.com | learner@example.com\n"
+            "Distribution of this document is illegal\n"
+            "Stuvia.com - The Marketplace to Buy and Sell your Study Material\n"
+            "C. Third option\n"
+            "ANS: B"
+        )
+        for index in range(3)
+    )
+
+    result = GuardedPageAwareCleaner().clean(source)
+
+    assert result.text.count(
+        "B. Ask if it is an ethical dilemma."
+    ) == 3
+    assert "Stuvia.com" not in result.text
+    assert "Downloaded by:" not in result.text
+
+
+def test_cleaner_preserves_repeated_select_all_instruction() -> None:
+    source = "\n\f\n".join(
+        (
+            f"{index + 1}. Which actions are appropriate?\n"
+            "(Select All That Apply)"
+        )
+        for index in range(3)
+    )
+
+    result = GuardedPageAwareCleaner().clean(source)
+    directly_cleaned, removed, stripped = _clean_page(
+        (
+            "1. Which actions are appropriate? "
+            "(Select All That Apply)",
+        ),
+        {"(Select All That Apply)"},
+    )
+
+    assert result.text.count("(Select All That Apply)") == 3
+    assert result.removed_repeated_lines == 0
+    assert result.protected_repeated_structures >= 1
+    assert directly_cleaned == (
+        "1. Which actions are appropriate? "
+        "(Select All That Apply)",
+    )
+    assert removed == 0
+    assert stripped == 0

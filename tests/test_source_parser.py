@@ -1161,3 +1161,79 @@ The patient can verify two identifiers.
         {"label": "D", "text": "Check room number."},
     ]
     assert questions[0]["correct_answers"] == ["B"]
+
+
+
+def test_parser_recovers_first_choice_exposed_by_noise_cleanup() -> None:
+    text = """Chapter 3: Dosage Calculations
+MULTIPLE CHOICE
+12. What type of information is measured in liters? A
+. Distance
+B. Weight
+C. Liquid
+D. Temperature
+ANS: C
+Liters measure liquid volume.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["stem"] == (
+        "What type of information is measured in liters?"
+    )
+    assert questions[0]["choices"] == [
+        {"label": "A", "text": "Distance"},
+        {"label": "B", "text": "Weight"},
+        {"label": "C", "text": "Liquid"},
+        {"label": "D", "text": "Temperature"},
+    ]
+    assert questions[0]["correct_answers"] == ["C"]
+
+
+def test_parser_recovers_sequential_choice_exposed_across_page_break() -> None:
+    text = """Chapter 3: Dosage Calculations
+MULTIPLE CHOICE
+3. Which technique is used when calculating an insulin dose?
+A. Use a calculator. B
+\f
+. Have another professional check the dose.
+C. Estimate the dose.
+D. Round to the nearest vial.
+ANS: B
+A second professional verifies the calculation.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["choices"] == [
+        {"label": "A", "text": "Use a calculator."},
+        {
+            "label": "B",
+            "text": "Have another professional check the dose.",
+        },
+        {"label": "C", "text": "Estimate the dose."},
+        {"label": "D", "text": "Round to the nearest vial."},
+    ]
+    assert questions[0]["correct_answers"] == ["B"]
+
+
+def test_parser_does_not_split_a_nonsequential_trailing_label() -> None:
+    text = """Chapter 3: Dosage Calculations
+MULTIPLE CHOICE
+3. Which response is correct?
+A. A statement ending with C
+. This remains part of the first choice.
+B. The second choice.
+ANS: B
+The second choice is correct.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert [choice["label"] for choice in questions[0]["choices"]] == [
+        "A",
+        "B",
+    ]
+    assert questions[0]["choices"][0]["text"] == (
+        "A statement ending with C . This remains part of the first choice."
+    )

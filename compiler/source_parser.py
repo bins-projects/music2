@@ -730,23 +730,62 @@ def parse_source_questions(
     while index < len(lines):
         line = lines[index]
 
-        if (
-            CHAPTER_RE.match(line)
-            and re.search(r"(?:,|\band|\bor)\s*$", line, re.IGNORECASE)
-            and index + 1 < len(lines)
-        ):
-            continuation = lines[index + 1]
+        if CHAPTER_RE.match(line) and index + 1 < len(lines):
+            continuation_index = index + 1
 
-            if (
+            while (
+                continuation_index < len(lines)
+                and lines[continuation_index] in {"", PAGE_BREAK_MARKER}
+            ):
+                continuation_index += 1
+
+            continuation = (
+                lines[continuation_index]
+                if continuation_index < len(lines)
+                else ""
+            )
+            continuation_is_content = bool(
                 continuation
                 and continuation.upper() not in SECTION_HEADERS
                 and not QUESTION_RE.match(continuation)
                 and not CHOICE_RE.match(continuation)
                 and not ANSWER_RE.match(continuation)
                 and not METADATA_RE.match(continuation)
+            )
+            heading_requires_continuation = bool(
+                re.search(
+                    r"(?:,|\band|\bor)\s*$",
+                    line,
+                    re.IGNORECASE,
+                )
+            )
+            title_shaped_continuation = bool(
+                re.fullmatch(
+                    r"[A-Z][a-z'’‘-]*(?:\s+(?:and|of|or|the|with|in|for|to|"
+                    r"[A-Z][a-z'’‘-]*)){0,7}",
+                    continuation,
+                )
+            )
+            publisher_context_follows = any(
+                "edition" in candidate.casefold()
+                or "test bank" in candidate.casefold()
+                for candidate in lines[
+                    continuation_index + 1:continuation_index + 5
+                ]
+            )
+
+            if (
+                continuation_is_content
+                and (
+                    heading_requires_continuation
+                    or (
+                        title_shaped_continuation
+                        and publisher_context_follows
+                    )
+                )
             ):
                 joined_lines.append(f"{line} {continuation}")
-                index += 2
+                index = continuation_index + 1
                 continue
 
         joined_lines.append(line)

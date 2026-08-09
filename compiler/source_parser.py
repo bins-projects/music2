@@ -407,9 +407,9 @@ def normalize_split_choices(lines: list[str]) -> list[str]:
         # immediate alphabetical successor after an existing choice.
         continuation_index = index + 1
 
-        if (
+        while (
             continuation_index < len(lines)
-            and lines[continuation_index] == PAGE_BREAK_MARKER
+            and lines[continuation_index] in {"", PAGE_BREAK_MARKER}
         ):
             continuation_index += 1
 

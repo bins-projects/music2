@@ -37,17 +37,12 @@
         </div>
         <div class="home-grid">
           <article class="home-card">
-            <span>1</span><h3>Start a new book</h3>
-            <p>Create an isolated run and compare it with a protected existing Pack.</p>
-            <label for="new-run-pack">Comparison Pack</label>
-            <select id="new-run-pack"><option value="fundamentals">Fundamentals</option><option value="medical_surgical">Medical-Surgical</option><option value="pharmacy">Pharmacy / PharmFinal</option><option value="peds">Pediatrics (source-only)</option><option value="new_source">New Source</option></select>
-            <div id="new-source-metadata" hidden>
-              <label>Book name <input id="new-source-name" placeholder="Book name"></label>
-              <label>Pack slug <input id="new-source-slug" placeholder="e.g. adult_health"></label>
-              <label>Friendly prefix <input id="new-source-prefix" placeholder="e.g. Adult Health"></label>
-              <small id="new-source-preview" aria-live="polite"></small>
-            </div>
-            <button id="new-run-button" type="button">Choose PDF and begin</button>
+            <span>1</span><h3>Process a book</h3>
+            <p>Select an approved local PDF. Its temporary name is derived automatically; title and destination are chosen later.</p>
+            <label for="approved-pdf-select">Available PDFs</label>
+            <select id="approved-pdf-select"><option value="">Loading local PDFs…</option></select>
+            <p id="selected-pdf-name">No PDF selected.</p>
+            <button id="process-book-button" type="button" disabled>Process book</button>
           </article>
           <article class="home-card">
             <span>2</span><h3>Continue a review</h3>
@@ -81,9 +76,7 @@
           <span id="run-proposals">Proposal generator has not run.</span>
         </div>
         <div class="run-actions">
-          <button id="start-run-button" type="button">Start synthetic run</button>
-          <label class="pdf-button" for="pdf-input">Choose PDF</label>
-          <input id="pdf-input" type="file" accept="application/pdf,.pdf" hidden>
+          <button id="start-run-button" type="button" hidden>Start synthetic run</button>
           <button id="complete-run-button" type="button" disabled>Complete and clean run</button>
           <button id="cleanup-run-button" type="button" disabled>Cancel and clean run</button>
           <button class="identity-button" data-pack-id="fundamentals" type="button" disabled hidden>Legacy Fundamentals IDs</button>
@@ -200,17 +193,33 @@
     <dialog id="proposal-dialog">
       <form id="proposal-form" method="dialog">
         <p class="eyebrow">FIX QUESTION</p>
-        <h2>Update the flagged field</h2>
-        <p class="dialog-help">The complete question remains visible behind this editor. Source context is optional.</p>
-        <label>Updated value<textarea id="proposal-value" rows="9" required></textarea></label>
-        <label id="answer-choice-picker" hidden>Correct answer<select id="answer-choice-select"></select></label>
+        <h2>Complete question editor</h2>
+        <p class="dialog-help">Edit the new v2 question directly. Source context is optional. Ordinary text only; no JSON is required.</p>
+        <label>Stem<textarea id="edit-stem" rows="5" required></textarea></label>
+        <div id="edit-choices" class="edit-choices"></div>
+        <button id="add-choice" type="button" class="secondary">Add choice</button>
+        <fieldset id="answer-choice-picker"><legend>Correct answer</legend><div id="answer-choice-select"></div></fieldset>
+        <label>Rationale<textarea id="edit-rationale" rows="5"></textarea></label>
+        <label>Chapter<select id="edit-question-chapter"></select></label>
+        <textarea id="proposal-value" hidden></textarea>
         <textarea id="proposal-reason" hidden></textarea>
         <input id="proposal-verification" type="checkbox" hidden>
         <p id="proposal-error" class="dialog-error"></p>
         <div class="dialog-actions">
           <button id="proposal-cancel" type="button">Cancel</button>
-          <button class="primary" type="submit">Save fix and next</button>
+          <button class="primary" type="submit">Save fix</button>
         </div>
+      </form>
+    </dialog>
+
+    <dialog id="chapter-dialog">
+      <form id="chapter-form" method="dialog">
+        <p class="eyebrow">EDIT CHAPTER</p>
+        <p id="chapter-affect-count"></p>
+        <label>Chapter number<input id="chapter-edit-number" type="number" min="1" required></label>
+        <label>Chapter title<input id="chapter-edit-title" required></label>
+        <p id="chapter-edit-error" class="dialog-error"></p>
+        <div class="dialog-actions"><button id="chapter-cancel" type="button">Cancel</button><button class="primary" type="submit">Save chapter</button></div>
       </form>
     </dialog>
 

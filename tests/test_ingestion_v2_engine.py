@@ -83,6 +83,22 @@ def test_explicit_approval_applies_current_proposal_to_candidate_only() -> None:
     assert candidate.unresolved_finding_ids == ()
 
 
+def test_approved_complete_question_correction_resolves_all_grouped_findings() -> None:
+    original = question()
+    sibling = Finding(
+        "PFV2-FIND-0002", original.question_id, "rationale", "synthetic_sibling",
+        FindingSeverity.BLOCKING, "Sibling detector finding.",
+    )
+    complete = Proposal(
+        "PFV2-PROP-0002", "PFV2-FIND-0001", original.question_id, "stem",
+        original.stem, "Reviewed synthetic stem", "Operator complete-question correction.",
+    )
+    approved = ReviewDecision("PFV2-DEC-0002", complete.proposal_id, ReviewAction.APPROVE)
+
+    candidate = build_candidate((original,), (finding(), sibling), (complete,), (approved,))
+    assert candidate.unresolved_finding_ids == ()
+
+
 def test_stale_expected_value_blocks_application() -> None:
     with pytest.raises(DomainError, match="stale"):
         build_candidate(

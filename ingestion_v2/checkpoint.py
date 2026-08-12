@@ -13,7 +13,7 @@ REFERENCE_RE = re.compile(r"^PFV2-(?:PROP|FIND|DEC|VERIFY|DISP)-[A-Za-z0-9-]+$")
 FINGERPRINT_RE = re.compile(r"^[a-f0-9]{64}$")
 GROUP_ID_RE = re.compile(r"^PFV2-GROUP-[a-f0-9]{16}$")
 CATEGORY_ID_RE = re.compile(r"^PFV2-CATEGORY-[a-f0-9]{16}$")
-ACTIONS = {"approve", "reject", "defer", "exclude_record", "retain_blocker"}
+ACTIONS = {"approve", "reject", "defer", "exclude_record", "retain_blocker", "accept_as_is"}
 FORBIDDEN_KEYS = {
     "text", "stem", "choices", "rationale", "source_path", "filename",
     "page_text", "raw", "cleaned", "proposed_after", "expected_before",

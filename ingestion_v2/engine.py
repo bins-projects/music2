@@ -49,6 +49,8 @@ def build_candidate(
 
     applied = []
     resolved_findings = set()
+    complete_repair_question_ids = set()
+    structural_repair_question_ids = set()
     audit_events = []
     for proposal_id in sorted(proposal_map):
         proposal = proposal_map[proposal_id]
@@ -72,6 +74,10 @@ def build_candidate(
         )
         applied.append(proposal_id)
         resolved_findings.add(proposal.finding_id)
+        if proposal.explanation == "Operator complete-question correction.":
+            complete_repair_question_ids.add(proposal.question_id)
+        if proposal.field == "choices" and _choice_structure_is_complete(question_map[proposal.question_id]):
+            structural_repair_question_ids.add(proposal.question_id)
         audit_events.append(f"{proposal_id}:applied_after_explicit_approval")
 
     excluded_question_ids = tuple(sorted({
@@ -88,8 +94,22 @@ def build_candidate(
             DispositionAction.ACCEPT_AS_IS,
         }
     )
+    resolved_findings.update(
+        finding.finding_id for finding in findings
+        if finding.question_id in structural_repair_question_ids
+        and finding.field in {"choices", "correct_answers"}
+    )
     for question_id in excluded_question_ids:
         audit_events.append(f"{question_id}:excluded_by_documented_disposition")
+
+    # A complete editor save is one explicit operator decision for the whole
+    # source question.  Its fields are still applied independently above for
+    # auditability, but sibling detector findings must not demand duplicate
+    # repairs of the same corrected question.
+    resolved_findings.update(
+        finding.finding_id for finding in findings
+        if finding.question_id in complete_repair_question_ids
+    )
 
     unresolved = tuple(
         finding.finding_id
@@ -140,3 +160,9 @@ def _unique_by(items, attribute: str) -> dict:
             raise DomainError(f"Duplicate {attribute}: {key}")
         result[key] = item
     return result
+
+
+def _choice_structure_is_complete(question: QuestionRecord) -> bool:
+    labels = tuple(label for label, _ in question.choices)
+    expected = tuple(chr(ord("A") + index) for index in range(len(labels)))
+    return bool(labels) and labels == expected and set(question.correct_answers).issubset(set(labels))

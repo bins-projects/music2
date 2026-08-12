@@ -2,7 +2,7 @@
   "use strict";
 
   let payload = window.PREPFLOW_REVIEW_DEMO;
-  let cases = payload.cases.map((item) => ({ ...item }));
+  let cases = (payload.question_groups || payload.cases).map((item) => ({ ...item }));
   let selectedIndex = 0;
   let resumableRun = null;
   let selectedNewRunPack = null;
@@ -10,6 +10,9 @@
   let candidateBuildInFlight = false;
   let candidateBuildError = "";
   let actionInFlight = false;
+  let intakeProgressTimer = null;
+  let selectedApprovedPdf = null;
+  let completeEditorAnswers = new Set();
   let inspection = null;
   let inspectionIndex = 0;
 
@@ -119,7 +122,10 @@
       const button = document.createElement("button");
       button.type = "button";
       button.className = `queue-item${index === selectedIndex ? " selected" : ""}`;
-      button.innerHTML = `<span class="queue-severity"></span><span><b>${escapeHtml(item.question_id.replace("PFQ-synthetic-", "Question "))}</b><small>${escapeHtml(item.damage_type.replaceAll("_", " "))}</small></span><em>${escapeHtml(statusLabels[item.status])}</em>`;
+      const issueText = item.issues
+        ? item.issues.map((issue) => issue.damage_type.replaceAll("_", " ")).join(" · ")
+        : item.damage_type.replaceAll("_", " ");
+      button.innerHTML = `<span class="queue-severity"></span><span><b>${escapeHtml(item.question_id.replace("PFQ-synthetic-", "Question "))}</b><small>${escapeHtml(issueText)}</small></span><em>${escapeHtml(statusLabels[item.status])}</em>`;
       button.addEventListener("click", () => {
         selectedIndex = index;
         render();
@@ -231,9 +237,14 @@
   }
 
   function openProposalEditor(item) {
+    if (item.issues) {
+      openCompleteQuestionEditor(item);
+      return;
+    }
     const dialog = document.getElementById("proposal-dialog");
     delete dialog.dataset.identityRepair;
     delete dialog.dataset.identityRecordId;
+    delete dialog.dataset.completeQuestionId;
     dialog.dataset.findingId = item.finding_id;
     dialog.dataset.findingField = item.field;
     dialog.dataset.questionId = item.question_id;
@@ -262,6 +273,73 @@
     dialog.showModal();
   }
 
+  function openCompleteQuestionEditor(item) {
+    const dialog = document.getElementById("proposal-dialog");
+    const question = item.effective_question || item.original_question;
+    dialog.dataset.completeQuestionId = item.question_id;
+    document.getElementById("edit-stem").value = question.stem || "";
+    document.getElementById("edit-rationale").value = question.rationale || "";
+    const chapterSelect = document.getElementById("edit-question-chapter");
+    chapterSelect.replaceChildren();
+    const chapterSource = inspection?.chapters?.length ? inspection.chapters : cases;
+    const chapters = [...new Map(chapterSource.map((entry) => [`${entry.chapter}|${entry.title ?? entry.chapter_title}`, entry])).values()];
+    chapters.forEach((entry) => {
+      const title = entry.title ?? entry.chapter_title;
+      const option = new Option(`Chapter ${entry.chapter}: ${title}`, `${entry.chapter}|${title}`);
+      option.selected = entry.chapter === item.chapter && title === item.chapter_title;
+      chapterSelect.append(option);
+    });
+    renderChoiceEditor(question, item.question_type);
+    document.getElementById("proposal-error").textContent = "";
+    dialog.showModal();
+  }
+
+  function renderChoiceEditor(question, type) {
+    const choices = document.getElementById("edit-choices");
+    choices.replaceChildren();
+    const add = (choice = [String.fromCharCode(65 + choices.children.length), ""]) => {
+      const row = document.createElement("label");
+      row.className = "choice-editor-row";
+      row.innerHTML = `<span>Choice</span><input class="edit-choice-label" maxlength="1" value="${escapeHtml(choice[0])}"><input class="edit-choice-text" value="${escapeHtml(choice[1])}"><button type="button" class="secondary">Remove</button>`;
+      row.querySelector(".edit-choice-label").addEventListener("input", () => renderAnswerEditor(type));
+      row.querySelector(".edit-choice-text").addEventListener("input", () => renderAnswerEditor(type));
+      row.querySelector("button").addEventListener("click", () => { row.remove(); renderAnswerEditor(type); });
+      choices.append(row);
+    };
+    (question.choices || []).forEach(add);
+    completeEditorAnswers = new Set(question.correct_answers || []);
+    document.getElementById("add-choice").onclick = () => { add(); renderAnswerEditor(type); };
+    renderAnswerEditor(type);
+  }
+
+  function renderAnswerEditor(type) {
+    const target = document.getElementById("answer-choice-select");
+    const checked = [...target.querySelectorAll("input:checked")].map((node) => node.value);
+    if (checked.length) completeEditorAnswers = new Set(checked);
+    const currentLabels = new Set([...document.querySelectorAll(".choice-editor-row")]
+      .map((row) => row.querySelector(".edit-choice-label").value.trim().toUpperCase())
+      .filter(Boolean));
+    completeEditorAnswers = new Set([...completeEditorAnswers].filter((label) => currentLabels.has(label)));
+    target.replaceChildren();
+    const multiple = type === "multiple_response";
+    [...document.querySelectorAll(".choice-editor-row")].forEach((row) => {
+      const label = row.querySelector(".edit-choice-label").value.trim().toUpperCase();
+      const text = row.querySelector(".edit-choice-text").value;
+      if (!label) return;
+      const option = document.createElement("label");
+      const input = document.createElement("input");
+      input.type = multiple ? "checkbox" : "radio";
+      input.setAttribute("name", "complete-question-answer");
+      input.value = label;
+      input.checked = completeEditorAnswers.has(label);
+      input.addEventListener("change", () => {
+        completeEditorAnswers = new Set([...target.querySelectorAll("input:checked")].map((node) => node.value));
+      });
+      option.append(input, document.createTextNode(` ${label} — ${text}`));
+      target.append(option);
+    });
+  }
+
   function openIdentityRepairEditor(item) {
     const dialog = document.getElementById("proposal-dialog");
     dialog.dataset.identityRecordId = item.record_id;
@@ -288,6 +366,36 @@
     const dialog = document.getElementById("proposal-dialog");
     const errorNode = document.getElementById("proposal-error");
     try {
+      if (dialog.dataset.completeQuestionId) {
+        const choices = [...document.querySelectorAll(".choice-editor-row")].map((row) => ({
+          label: row.querySelector(".edit-choice-label").value,
+          text: row.querySelector(".edit-choice-text").value,
+        }));
+        const values = {
+          stem: document.getElementById("edit-stem").value,
+          choices,
+          correct_answers: [...document.querySelectorAll("#answer-choice-select input:checked")].map((node) => node.value),
+          rationale: document.getElementById("edit-rationale").value,
+        };
+        const response = await fetch("/api/question-repairs", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question_id: dialog.dataset.completeQuestionId, values }),
+        });
+        let result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Fix could not be saved.");
+        const target = document.getElementById("edit-question-chapter").value.split("|");
+        const current = cases.find((entry) => entry.question_id === dialog.dataset.completeQuestionId);
+        if (current && (Number(target[0]) !== current.chapter || target[1] !== current.chapter_title)) {
+          const chapterResponse = await fetch("/api/questions/chapter", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question_id: dialog.dataset.completeQuestionId, chapter: Number(target[0]), title: target[1] }) });
+          const chapterResult = await chapterResponse.json();
+          if (!chapterResponse.ok) throw new Error(chapterResult.error || "Question chapter could not be saved.");
+          result = chapterResult;
+        }
+        dialog.close();
+        delete dialog.dataset.completeQuestionId;
+        acceptEnginePayload(result);
+        return;
+      }
       const rawValue = document.getElementById("proposal-value").value;
       const proposedAfter = dialog.dataset.valueType === "text"
         ? rawValue
@@ -337,12 +445,13 @@
       const first = result.page_range?.[0] || result.page_number;
       const last = result.page_range?.[1] || result.page_number;
       document.getElementById("source-page-title").textContent = first === last
-        ? `Extracted PDF page ${first} of ${result.page_count}`
-        : `Extracted PDF context · pages ${first}–${last} of ${result.page_count}`;
+        ? `Source document · identified page ${first} of ${result.page_count}`
+        : `Source document · verified pages ${first}–${last} of ${result.page_count}`;
       document.getElementById("source-page-text").textContent = result.pages
-        ? result.pages.map((page) => `PAGE ${page.page_number}\n\n${page.text}`).join("\n\n════════════════════════════════════════\n\n")
+        ? result.pages.map((page) => `${String(page.role || "context").toUpperCase()} · PAGE ${page.page_number}\n\n${page.text}`).join("\n\n════════════════════════════════════════\n\n")
         : result.text;
-      document.getElementById("source-dialog").showModal();
+      const dialog = document.getElementById("source-dialog");
+      if (!dialog.open) dialog.show();
     } catch (error) {
       document.getElementById("decision-help").textContent = error.message;
     }
@@ -443,7 +552,7 @@
       set("summary-tail-count", "summary-tail-label", "New v2", "replacement Pack");
       return;
     }
-    set("case-count", "case-count-label", cases.length, "review cases");
+    set("case-count", "case-count-label", payload.summary?.case_count ?? cases.length, "questions need review");
     set("blocking-count", "blocking-count-label", blocking, "blocking");
     set(
       "verified-count",
@@ -470,7 +579,7 @@
       || unresolvedIdentity[0]
       || identityCases.find((entry) => entry.record_id === selectedIdentityRecordId)
       || identityCases[0];
-    const blocking = cases.filter((entry) => entry.severity === "blocking" && !["approved", "excluded_record"].includes(entry.status)).length;
+    const blocking = cases.filter((entry) => (entry.blocking || entry.severity === "blocking") && (entry.unresolved ?? !["approved", "excluded_record"].includes(entry.status))).length;
     renderSummaryCounts(identityCases, blocking);
     document.getElementById("queue-position").textContent = payload.run?.state === "identity_review"
       ? `Question ${Math.max(1, unresolvedIdentity.findIndex((entry) => entry.record_id === identityCase?.record_id) + 1)} of ${unresolvedIdentity.length}`
@@ -504,6 +613,10 @@
       renderQueue();
       return;
     }
+    if (item.issues) {
+      renderGroupedQuestion(item);
+      return;
+    }
     document.getElementById("question-meta").textContent = `NEW V2 QUESTION · ${item.question_id} · ${chapterLabel(item)}${sourceRecordLabel(item)} · ${item.field}`;
     document.getElementById("damage-title").textContent = item.damage_type.replaceAll("_", " ");
     const pill = document.getElementById("status-pill");
@@ -528,6 +641,75 @@
     verificationCard.hidden = item.status !== "awaiting_source_verification";
     renderActions(item);
     renderQueue();
+  }
+
+  function renderGroupedQuestion(item) {
+    document.getElementById("question-meta").textContent = `NEW V2 QUESTION · ${item.question_id} · ${chapterLabel(item)}${sourceRecordLabel(item)}`;
+    document.getElementById("damage-title").textContent = item.unresolved ? "Question needs review" : "Effective candidate question";
+    const pill = document.getElementById("status-pill");
+    pill.textContent = item.unresolved ? "Needs review" : item.accepted_as_is ? "Accepted as is" : "Saved correction";
+    pill.dataset.status = item.unresolved ? "needs_proposal" : "approved";
+    document.getElementById("finding-explanation").innerHTML = `<b>Detected issues</b><ul>${item.issues.map((issue) => `<li>${escapeHtml(issue.damage_type.replaceAll("_", " "))}: ${escapeHtml(issue.explanation)}</li>`).join("")}</ul>`;
+    document.getElementById("preserved-card-label").innerHTML = '<span class="dot amber"></span>Pipeline result';
+    document.getElementById("proposed-card-label").innerHTML = item.has_fix
+      ? '<span class="dot blue"></span>Your corrected question · effective candidate value'
+      : '<span class="dot blue"></span>Effective candidate question';
+    document.getElementById("preserved-value").innerHTML = formatQuestionPacket(item.original_question);
+    document.getElementById("proposed-value").innerHTML = formatQuestionPacket(item.effective_question);
+    document.getElementById("proposed-value").parentElement.hidden = false;
+    document.getElementById("proposal-explanation").textContent = item.has_fix
+      ? `Saved correction${item.proposal_ids.length ? ` · ${item.proposal_ids.join(", ")}` : ""}. This is the exact question that would enter the candidate.`
+      : item.accepted_as_is
+      ? "Accepted as is. No question field was changed; this complete pipeline question is the candidate value."
+      : "Save one complete correction to resolve this question’s related detectors together.";
+    document.getElementById("verification-card").hidden = true;
+    const actions = document.getElementById("actions");
+    actions.replaceChildren();
+    const add = (text, style, callback) => {
+      const button = document.createElement("button"); button.type = "button"; button.className = style; button.textContent = text; button.disabled = actionInFlight; button.addEventListener("click", callback); actions.append(button);
+    };
+    add("Open source context", "secondary", () => openFindingSource({ finding_id: item.finding_ids[0] }));
+    if (item.unresolved) add("Accept as is", "secondary", () => acceptQuestionAsIs(item));
+    add(item.has_fix ? "Edit fix" : "Fix question", "primary", () => openProposalEditor(item));
+    if (item.has_fix) add("Undo fix", "danger", () => undoCompleteQuestionRepair(item));
+    add("Next question", "secondary", () => advanceGroupedQuestion());
+    document.getElementById("queue-position").textContent = `Question ${selectedIndex + 1} of ${cases.length} · ${payload.summary?.case_count ?? 0} unresolved`;
+    renderQueue();
+  }
+
+  function advanceGroupedQuestion() {
+    const next = cases.findIndex((entry, index) => index > selectedIndex && entry.unresolved);
+    selectedIndex = next >= 0 ? next : Math.max(0, cases.findIndex((entry) => entry.unresolved));
+    render();
+  }
+
+  async function undoCompleteQuestionRepair(item) {
+    try {
+      actionInFlight = true;
+      document.getElementById("decision-help").textContent = "Undoing fix…";
+      const response = await fetch("/api/question-repairs/undo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question_id: item.question_id }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Fix could not be undone.");
+      acceptEnginePayload(result, item.question_id);
+    } catch (error) {
+      document.getElementById("decision-help").textContent = error.message;
+    } finally { actionInFlight = false; }
+  }
+
+  async function acceptQuestionAsIs(item) {
+    try {
+      actionInFlight = true;
+      document.getElementById("decision-help").textContent = "Saving acceptance…";
+      const response = await fetch("/api/questions/accept-as-is", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question_id: item.question_id }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Acceptance could not be saved.");
+      acceptEnginePayload(result);
+    } catch (error) {
+      document.getElementById("decision-help").textContent = error.message;
+    } finally { actionInFlight = false; }
   }
 
   function renderIdentityCase(item) {
@@ -679,8 +861,8 @@
       qa.textContent = "QA detectors have not run.";
       proposals.textContent = "Proposal generator has not run.";
       start.disabled = false;
-      pdfInput.disabled = false;
-      pdfButton.classList.remove("disabled");
+      if (pdfInput) pdfInput.disabled = false;
+      if (pdfButton) pdfButton.classList.remove("disabled");
     } else if (run.state === "unmanaged_demo") {
       artifacts.textContent = "Standalone display only; open through the local engine to run stages.";
       extraction.textContent = "Connected extraction metrics unavailable.";
@@ -689,8 +871,8 @@
       qa.textContent = "QA detectors unavailable.";
       proposals.textContent = "Proposal generator unavailable.";
       start.disabled = true;
-      pdfInput.disabled = true;
-      pdfButton.classList.add("disabled");
+      if (pdfInput) pdfInput.disabled = true;
+      if (pdfButton) pdfButton.classList.add("disabled");
     } else {
       artifacts.textContent = `staged copy: ${run.staged_copy_present ? "present" : "removed"} · raw text: ${run.raw_text_present ? "present" : "removed"} · cleaned text: ${run.cleaned_text_present ? "present" : "removed"}`;
       const extractionMetrics = payload.pipeline?.extraction;
@@ -714,8 +896,8 @@
         ? `${proposalReport.proposal_count} review proposal(s) · ${proposalReport.automatic_applications} automatic application(s)`
         : "Proposal generator has not run.";
       start.disabled = true;
-      pdfInput.disabled = true;
-      pdfButton.classList.add("disabled");
+      if (pdfInput) pdfInput.disabled = true;
+      if (pdfButton) pdfButton.classList.add("disabled");
     }
     complete.disabled = run.state !== "compared";
     cleanup.disabled = ["not_started", "unmanaged_demo", "completed"].includes(run.state);
@@ -819,12 +1001,55 @@
       ["QA", overview.qa_finding_count], ["Hash", overview.candidate_sha256],
     ].map(([label, value]) => `<span><small>${label}</small><b>${escapeHtml(String(value))}</b></span>`).join("");
     document.getElementById("inspection-position").textContent = `Question ${inspectionIndex + 1} of ${inspection.questions.length}`;
-    document.getElementById("candidate-chapters").innerHTML = inspection.chapters.map((chapter) => `<span>Chapter ${chapter.chapter ?? "?"}: ${escapeHtml(chapter.title || "Unnamed")} · ${chapter.question_count}</span>`).join("<br>") + (inspection.warnings.length ? `<p>Warnings: ${escapeHtml(inspection.warnings.join(", "))}</p>` : "");
+    document.getElementById("candidate-chapters").replaceChildren(...inspection.chapters.map((chapter) => {
+      const row = document.createElement("div");
+      row.textContent = `Chapter ${chapter.chapter ?? "?"}: ${chapter.title || "Unnamed"} · ${chapter.question_count} questions `;
+      const edit = document.createElement("button"); edit.type = "button"; edit.textContent = "Edit chapter"; edit.className = "secondary";
+      edit.addEventListener("click", () => openChapterEditor(chapter)); row.append(edit);
+      if (Number.isInteger(chapter.original_chapter) && chapter.original_title) {
+        const undo = document.createElement("button"); undo.type = "button"; undo.textContent = "Undo chapter edit"; undo.className = "secondary";
+        undo.addEventListener("click", () => undoChapterEdit(chapter)); row.append(undo);
+      }
+      return row;
+    }));
     document.getElementById("candidate-preview").innerHTML = `<p><b>${escapeHtml(question.question_id)}</b> · ${escapeHtml(chapterLabel(question))} · ${question.position_in_chapter} in chapter</p>${formatQuestionPacket(question)}`;
     const select = document.getElementById("inspection-chapter");
     if (!select.options.length) {
       inspection.chapters.forEach((chapter) => { const option = document.createElement("option"); option.value = String(chapter.chapter); option.textContent = `Chapter ${chapter.chapter ?? "?"}: ${chapter.title || "Unnamed"}`; select.append(option); });
     }
+  }
+
+  function openChapterEditor(chapter) {
+    const dialog = document.getElementById("chapter-dialog");
+    dialog.dataset.originalChapter = String(chapter.chapter);
+    dialog.dataset.originalTitle = chapter.title;
+    document.getElementById("chapter-edit-number").value = chapter.chapter;
+    document.getElementById("chapter-edit-title").value = chapter.title;
+    document.getElementById("chapter-affect-count").textContent = `This changes chapter metadata for ${chapter.question_count} questions.`;
+    document.getElementById("chapter-edit-error").textContent = "";
+    dialog.showModal();
+  }
+
+  document.getElementById("chapter-cancel").addEventListener("click", () => document.getElementById("chapter-dialog").close());
+  document.getElementById("chapter-form").addEventListener("submit", async (event) => {
+    event.preventDefault(); const dialog = document.getElementById("chapter-dialog");
+    try {
+      const response = await fetch("/api/chapters/edit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chapter: Number(dialog.dataset.originalChapter), title: dialog.dataset.originalTitle, new_chapter: Number(document.getElementById("chapter-edit-number").value), new_title: document.getElementById("chapter-edit-title").value }) });
+      const result = await response.json(); if (!response.ok) throw new Error(result.error || "Chapter could not be saved.");
+      dialog.close(); acceptEnginePayload(result); await loadInspection();
+    } catch (error) { document.getElementById("chapter-edit-error").textContent = error.message; }
+  });
+
+  async function undoChapterEdit(chapter) {
+    try {
+      const response = await fetch("/api/chapters/undo", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ original_chapter: chapter.original_chapter, original_title: chapter.original_title }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Chapter edit could not be undone.");
+      acceptEnginePayload(result); await loadInspection();
+    } catch (error) { document.getElementById("decision-help").textContent = error.message; }
   }
 
   async function loadInspection() {
@@ -1005,15 +1230,62 @@
     const prefix = String(source.prefix || "Prefix").trim();
     document.getElementById("new-source-preview").textContent = `Preview: PFQ-${slug || "slug"}-000000001 · ${prefix || "Prefix"} 1`;
   }
-  document.getElementById("new-run-pack").addEventListener("change", updateNewSourcePreview);
-  ["new-source-name", "new-source-slug", "new-source-prefix"].forEach((id) => {
-    document.getElementById(id).addEventListener("input", updateNewSourcePreview);
+  async function loadApprovedPdfs() {
+    const select = document.getElementById("approved-pdf-select");
+    const response = await fetch("/api/private-sources");
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Local PDF list is unavailable.");
+    select.replaceChildren();
+    const placeholder = new Option(result.sources.length ? "Select a PDF" : "No approved PDFs found", "");
+    select.append(placeholder);
+    result.sources.forEach((source) => {
+      const pages = source.page_count ? ` · ${source.page_count} pages` : "";
+      const option = new Option(`${source.filename} · ${source.kind}${pages}`, source.id);
+      option.dataset.existingExtractionAvailable = String(Boolean(source.existing_extraction_available));
+      select.append(option);
+    });
+  }
+  document.getElementById("approved-pdf-select").addEventListener("change", (event) => {
+    const name = event.target.selectedOptions[0]?.textContent || "No PDF selected.";
+    selectedApprovedPdf = event.target.selectedOptions[0] || null;
+    document.getElementById("selected-pdf-name").textContent = event.target.value ? `Selected: ${name}` : "No PDF selected.";
+    document.getElementById("process-book-button").disabled = !event.target.value;
   });
-  updateNewSourcePreview();
-  document.getElementById("new-run-button").addEventListener("click", () => {
-    selectedNewRunPack = document.getElementById("new-run-pack").value;
-    document.getElementById("pdf-input").click();
+  document.getElementById("process-book-button").addEventListener("click", async () => {
+    const button = document.getElementById("process-book-button");
+    const sourceId = document.getElementById("approved-pdf-select").value;
+    if (!sourceId) return;
+    try {
+      button.disabled = true; button.textContent = "Starting…";
+      const stages = [
+        selectedApprovedPdf?.dataset.existingExtractionAvailable === "true"
+          ? "Using existing extraction…"
+          : "Extracting…",
+        "Cleaning…",
+        "Checking questions…",
+      ];
+      let stage = 0;
+      document.getElementById("decision-help").textContent = "Starting…";
+      intakeProgressTimer = window.setInterval(() => {
+        document.getElementById("decision-help").textContent = stages[Math.min(stage++, stages.length - 1)];
+      }, 450);
+      const response = await fetch("/api/run/start-approved-pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source_id: sourceId }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Book processing failed.");
+      acceptEnginePayload(result);
+      document.getElementById("decision-help").textContent = result.run.state === "failed"
+        ? `Processing failed: ${result.run.failure_code || "unknown failure"}`
+        : `${result.intake?.message || "Extracting…"} · Ready for review`;
+    } catch (error) {
+      document.getElementById("decision-help").textContent = `Processing failed: ${error.message}`;
+    } finally {
+      if (intakeProgressTimer) window.clearInterval(intakeProgressTimer);
+      intakeProgressTimer = null;
+      button.textContent = "Process book";
+      button.disabled = !sourceId;
+    }
   });
+  loadApprovedPdfs().catch((error) => { document.getElementById("selected-pdf-name").textContent = error.message; });
   document.getElementById("resume-run-button").addEventListener("click", async () => {
     if (!resumableRun) return;
     try {
@@ -1052,7 +1324,9 @@
     });
   });
 
-  document.getElementById("pdf-input").addEventListener("change", async (event) => {
+  /* Legacy browser-upload flow retained only for developer diagnostics. */
+  const legacyPdfInput = document.getElementById("pdf-input");
+  legacyPdfInput?.addEventListener("change", async (event) => {
     const file = event.target.files[0];
     if (!file) return;
     try {
@@ -1090,15 +1364,20 @@
   });
 
   function acceptEnginePayload(result, advanceQuestionId = null) {
-    const selectedFinding = cases[selectedIndex]?.finding_id;
+    const selectedQuestion = cases[selectedIndex]?.question_id;
     payload = result;
-    cases = result.cases.map((item) => ({ ...item }));
+    cases = (result.question_groups || result.cases).map((item) => ({ ...item }));
+    const repairedIndex = advanceQuestionId
+      ? cases.findIndex((item) => item.question_id === advanceQuestionId)
+      : -1;
     const nextInPacket = advanceQuestionId
-      ? cases.findIndex((item) => item.question_id === advanceQuestionId && !["approved", "excluded_record", "rejected"].includes(item.status))
+      ? cases.findIndex((item, index) => index > repairedIndex && item.unresolved)
       : -1;
     selectedIndex = nextInPacket >= 0
       ? nextInPacket
-      : Math.max(0, cases.findIndex((item) => item.finding_id === selectedFinding));
+      : advanceQuestionId
+        ? Math.max(0, cases.findIndex((item) => item.unresolved))
+        : Math.max(0, cases.findIndex((item) => item.question_id === selectedQuestion));
     document.getElementById("connection-badge").innerHTML = result.session.private_checkpoint
       ? "<span></span> Engine connected · private checkpoint"
       : "<span></span> Engine connected · in memory";

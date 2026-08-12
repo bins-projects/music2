@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from ingestion_v2.workbench_server import approved_pdf_sources, filename_metadata, validated_existing_extraction
+
 
 WORKBENCH = Path("ingestion_v2/workbench")
 
@@ -52,13 +54,9 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
         "start-run-button",
         "resume-run-button",
         "factory-home",
-        "new-run-button",
-        "new-run-pack",
-        "new-source-metadata",
-        "new-source-name",
-        "new-source-slug",
-        "new-source-prefix",
-        "new-source-preview",
+        "approved-pdf-select",
+        "selected-pdf-name",
+        "process-book-button",
         "completed-runs",
         "complete-run-button",
         "cleanup-run-button",
@@ -67,7 +65,6 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
         "run-identity",
         "run-qa",
         "run-proposals",
-        "pdf-input",
         "materialize-identity-button",
     ):
         assert f'id="{required_id}"' in html
@@ -94,21 +91,23 @@ def test_workbench_exposes_required_review_information_and_actions() -> None:
     assert '"/api/runs"' in script
     assert "The public study app does not use this engine" in html
     assert '"/api/run/cleanup"' in script
-    assert 'headers: { "Content-Type": "application/pdf" }' in script
+    assert '"/api/run/start-approved-pdf"' in script
     assert "FormData" not in script
     assert ".name" not in script
 
 
-def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
+def test_workbench_keeps_legacy_identity_routes_outside_normal_intake() -> None:
     html = (WORKBENCH / "index.html").read_text(encoding="utf-8")
     script = (WORKBENCH / "workbench.js").read_text(encoding="utf-8")
     server = Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
 
-    assert 'data-pack-id="fundamentals"' in html
-    assert 'data-pack-id="medical_surgical"' in html
-    assert 'value="pharmacy"' in html
-    assert 'value="peds"' in html
-    assert 'value="new_source"' in html
+    assert 'id="approved-pdf-select"' in html
+    assert 'id="process-book-button"' in html
+    assert "Comparison Pack" not in html
+    assert "Start synthetic run" in html
+    assert 'id="start-run-button" type="button" hidden' in html
+    assert '"/api/private-sources"' in script
+    assert '"/api/run/start-approved-pdf"' in script
     assert "/api/identity/existing-pack" in script
     assert "IDENTITY_PACKS" in server
     assert "Unknown protected Pack selection" in server
@@ -126,21 +125,69 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert "selected?.target_stem" in script
     assert "/api/identity/materialize" in script
     assert "/api/identity/source-only" in script
-    assert "sourceOnlyMetadata" in script
-    assert "PFQ-${slug || \"slug\"}-000000001" in script
     assert "SOURCE_ONLY_PRESETS" in server
     assert "Registered source metadata cannot be changed" in server
     assert "Prepare review" in html
     assert 'id="proposal-dialog"' in html
     assert 'id="proposal-value"' in html
     assert "/api/proposals" in script
-    assert "Save fix and next" in html
+    assert "Save fix" in html
     assert "Source context is optional" in html
     assert "Open temporary source page" in script
     assert 'id="view-source-button"' in html
     assert 'id="source-dialog"' in html
     assert "/api/source-page" in script
     assert "TEMPORARY PRIVATE SOURCE VIEW" in html
+
+
+def test_approved_pdf_intake_reports_progress_and_never_leaves_duplicate_clicks_enabled() -> None:
+    script = (WORKBENCH / "workbench.js").read_text(encoding="utf-8")
+    server = Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
+
+    for state in ("Starting…", "Using existing extraction…", "Cleaning…", "Checking questions…", "Ready for review"):
+        assert state in script
+    assert 'button.disabled = true; button.textContent = "Starting…"' in script
+    assert 'button.disabled = !sourceId' in script
+    assert "Processing failed:" in script
+    assert "existing_extraction_available" in server
+    assert "temporary run was cleaned" in server
+
+
+def test_grouped_review_keeps_source_context_available_with_effective_candidate_value() -> None:
+    script = (WORKBENCH / "workbench.js").read_text(encoding="utf-8")
+    session = Path("ingestion_v2/workbench_session.py").read_text(encoding="utf-8")
+
+    assert 'add("Open source context"' in script
+    assert "if (!dialog.open) dialog.show();" in script
+    assert "Your corrected question · effective candidate value" in script
+    assert "Return the existing verified previous/current/next source window" in session
+    assert '"current" if index in page_indexes' in session
+
+
+def test_complete_editor_refreshes_answer_controls_on_any_choice_edit() -> None:
+    script = (WORKBENCH / "workbench.js").read_text(encoding="utf-8")
+    session = Path("ingestion_v2/workbench_session.py").read_text(encoding="utf-8")
+
+    assert 'addEventListener("input", () => renderAnswerEditor(type))' in script
+    assert "completeEditorAnswers = new Set" in script
+    assert "filter((label) => currentLabels.has(label))" in script
+    assert "This review has no editable finding" not in session
+    assert "operator_complete_question_correction" in session
+
+
+def test_grouped_review_supports_explicit_accept_as_is_and_save_confirmation() -> None:
+    html = (WORKBENCH / "index.html").read_text(encoding="utf-8")
+    script = (WORKBENCH / "workbench.js").read_text(encoding="utf-8")
+    server = Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
+
+    assert ">Save fix<" in html
+    assert "Save fix and next" not in html
+    assert 'add("Accept as is"' in script
+    assert '"/api/questions/accept-as-is"' in script
+    assert "Accepted as is" in script
+    assert "Saved correction" in script
+    assert "def accept_question_as_is" in Path("ingestion_v2/workbench_session.py").read_text(encoding="utf-8")
+    assert 'self.path == "/api/questions/accept-as-is"' in server
 
 
 def test_workbench_health_endpoint_is_content_free_and_loopback_bound() -> None:
@@ -155,3 +202,21 @@ def test_workbench_has_responsive_layout() -> None:
 
     assert "@media (max-width: 850px)" in css
     assert "@media (max-width: 520px)" in css
+
+
+def test_approved_private_pdf_listing_uses_opaque_ids_and_filename_metadata(tmp_path) -> None:
+    source = tmp_path / "Pediatrics Sample.pdf"
+    source.write_bytes(b"%PDF-test")
+
+    listed = approved_pdf_sources(tmp_path)
+
+    assert listed[0][2] == "Pediatrics Sample.pdf"
+    assert str(tmp_path) not in listed[0][0]
+    assert filename_metadata(listed[0][2])["slug"] == "pediatricssample"
+
+
+def test_existing_ocr_artifact_is_reused_only_for_exact_source_identity(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "pediatrics.pdf"
+    source.write_bytes(b"not a real PDF")
+
+    assert validated_existing_extraction(source, "pediatrics.pdf") is None

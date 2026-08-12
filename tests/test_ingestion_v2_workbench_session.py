@@ -1,5 +1,6 @@
 import json
 import os
+from dataclasses import replace
 
 import pytest
 from io import BytesIO
@@ -8,7 +9,7 @@ from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from ingestion_v2.demo import SYNTHETIC_DOCUMENT
 
-from ingestion_v2.domain import Candidate, DomainError, Proposal, QuestionRecord
+from ingestion_v2.domain import Candidate, DomainError, Finding, FindingSeverity, Proposal, QuestionRecord
 from ingestion_v2.recovery import (
     _restore_private_proposal_collections,
     list_completed_runs,
@@ -182,6 +183,173 @@ def test_candidate_inspection_reports_ordered_chapters_and_question_packets() ->
     assert inspection["questions"][0]["question_id"].startswith("PFQ-")
     assert "stem" in inspection["questions"][0]
     assert len(inspection["overview"]["candidate_sha256"]) == 64
+
+
+def test_validated_existing_extraction_starts_review_without_native_extraction(tmp_path, monkeypatch) -> None:
+    pdf = synthetic_pdf_bytes(["unused by the validated extraction"])
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+
+    monkeypatch.setattr(
+        "ingestion_v2.workbench_session.extract_disposable_copy",
+        lambda *_: (_ for _ in ()).throw(AssertionError("native extraction must not run")),
+    )
+    payload = session.start_pdf_run_from_existing_extraction(
+        pdf,
+        "Chapter 1: Reused\nMULTIPLE CHOICE\n1. Which?\na. First\nANS: A\nReason.",
+        adapter_name="tesseract_ocr_v1",
+        page_count=1,
+    )
+
+    assert payload["pipeline"]["extraction"]["adapter"] == "tesseract_ocr_v1"
+    assert payload["run"]["state"] == "identity_pending"
+
+
+def test_complete_question_editor_repairs_grouped_choice_damage_and_undoes_safely() -> None:
+    session = SyntheticWorkbenchSession()
+    question = QuestionRecord(
+        "PFQ-synthetic-000000204", 7, "multiple_choice", "Rate? a 9 bo ce 15",
+        (("D", "20"),), ("B",), "Reason.", "Chapter", "PFV2-REC-000204",
+    )
+    session.questions = (question,)
+    session.findings = (
+        Finding("PFV2-FIND-PARSE-0204", question.question_id, "choices", "noncanonical_choice_sequence", FindingSeverity.BLOCKING, "Choices are incomplete."),
+        Finding("PFV2-FIND-ANSWER-0204", question.question_id, "correct_answers", "correct_answer_without_choice", FindingSeverity.BLOCKING, "Answer has no choice."),
+        Finding("PFV2-FIND-QA-0204", question.question_id, "choices", "choice_structure", FindingSeverity.BLOCKING, "Choice structure is incomplete."),
+    )
+    session.proposals = ()
+
+    repaired = session.save_complete_question_repair(question.question_id, {
+        "stem": question.stem,
+        "choices": [{"label": "A", "text": "9"}, {"label": "B", "text": "11"}, {"label": "C", "text": "15"}, {"label": "D", "text": "20"}],
+        "correct_answers": ["B"], "rationale": question.rationale,
+    })
+    group = repaired["question_groups"][0]
+    assert repaired["summary"]["case_count"] == 0
+    assert group["effective_question"]["choices"] == [["A", "9"], ["B", "11"], ["C", "15"], ["D", "20"]]
+    assert group["effective_question"]["correct_answers"] == ["B"]
+
+    restored = session.undo_complete_question_repair(question.question_id)
+    assert restored["summary"]["case_count"] == 1
+    assert restored["question_groups"][0]["original_question"] == restored["question_groups"][0]["effective_question"]
+
+
+def test_complete_question_editor_allows_unflagged_stem_and_multi_answer_fields() -> None:
+    session = SyntheticWorkbenchSession()
+    question = QuestionRecord(
+        "PFQ-synthetic-000000205", 7, "multiple_response", "Old stem",
+        (("A", "one"), ("B", "two"), ("C", "three"), ("D", "four")), ("A",), "Reason.",
+        "Chapter", "PFV2-REC-000205",
+    )
+    session.questions = (question,)
+    # Only choices were flagged; stem, answer, and rationale remain editable.
+    session.findings = (
+        Finding("PFV2-FIND-CHOICES-0205", question.question_id, "choices", "choice_structure", FindingSeverity.BLOCKING, "Choice review."),
+    )
+    session.proposals = ()
+
+    payload = session.save_complete_question_repair(question.question_id, {
+        "stem": "New stem", "choices": [
+            {"label": "A", "text": "9"}, {"label": "B", "text": "11"},
+            {"label": "C", "text": "15"}, {"label": "D", "text": "20"},
+        ], "correct_answers": ["B", "D"], "rationale": "Updated reason.",
+    })
+    group = payload["question_groups"][0]
+    assert group["unresolved"] is False
+    assert group["effective_question"]["stem"] == "New stem"
+    assert group["effective_question"]["correct_answers"] == ["B", "D"]
+    assert {item.field for item in session.proposals} == {"stem", "choices", "correct_answers", "rationale"}
+
+
+def test_source_only_recovery_preserves_complete_unflagged_correction_and_approval(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes([
+        "Chapter 1: Recovery", "MULTIPLE CHOICE", "1. Which?",
+        "a. One", "b. Two", "ANS: B", "Two is correct.",
+    ])
+    original = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    original.start_pdf_run(pdf)
+    original.materialize_source_only({"display_name": "Recovery", "slug": "recovery", "prefix": "Recovery"})
+    question = original.questions[0]
+    original.save_complete_question_repair(question.question_id, {
+        "stem": "Which answer is best?", "choices": [
+            {"label": "A", "text": "One"}, {"label": "B", "text": "Two"},
+        ], "correct_answers": ["B"], "rationale": question.rationale,
+    })
+
+    resumed = SyntheticWorkbenchSession.resume_source_only_run(original._lifecycle.run_directory)
+    group = resumed.view()["question_groups"][0]
+    assert group["effective_question"]["stem"] == "Which answer is best?"
+    assert group["status"] == "approved"
+    assert any(item.action.value == "approve" for item in resumed._decisions_by_proposal.values())
+
+
+def test_source_only_accept_as_is_persists_all_question_findings_through_recovery(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes([
+        "Chapter 1: Acceptance", "MULTIPLE CHOICE", "1. Which?",
+        "a. First", "b. Second", "ANS: A", "The aBcD qRsT rationale is preserved.",
+    ])
+    original = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    original.start_pdf_run(pdf)
+    payload = original.materialize_source_only({"display_name": "Acceptance", "slug": "acceptance", "prefix": "Acceptance"})
+    group = next(item for item in payload["question_groups"] if item["unresolved"])
+
+    accepted = original.accept_question_as_is(group["question_id"])
+    accepted_group = next(item for item in accepted["question_groups"] if item["question_id"] == group["question_id"])
+    assert accepted_group["accepted_as_is"] is True
+    assert accepted_group["has_fix"] is False
+    assert accepted_group["unresolved"] is False
+
+    resumed = SyntheticWorkbenchSession.resume_source_only_run(original._lifecycle.run_directory)
+    recovered = next(item for item in resumed.view()["question_groups"] if item["question_id"] == group["question_id"])
+    assert recovered["accepted_as_is"] is True
+    assert recovered["unresolved"] is False
+
+
+def test_chapter_edit_persists_bulk_update_and_undo_through_source_only_recovery(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes([
+        "Chapter 1: Original I", "MULTIPLE CHOICE", "1. First?", "a. One", "ANS: A", "Reason.",
+        "2. Second?", "a. Two", "ANS: A", "Reason.",
+    ])
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    session.materialize_source_only({"display_name": "Chapters", "slug": "chapters", "prefix": "Chapters"})
+    original = session.questions[0]
+    session.questions = session.questions + (replace(session.questions[0], question_id="PFQ-chapters-000000999", chapter=2, chapter_title="Other"),)
+    session.edit_chapter(original.chapter, original.chapter_title, 1, "Original")
+    assert all(item.chapter_title == "Original" for item in session.questions if item.chapter == 1)
+    with pytest.raises(DomainError, match="already assigned"):
+        session.edit_chapter(1, "Original", 2, "Duplicate")
+    resumed = SyntheticWorkbenchSession.resume_source_only_run(session._lifecycle.run_directory)
+    assert all(item.chapter_title == "Original" for item in resumed.questions)
+    resumed.undo_chapter_edit(original.chapter, original.chapter_title)
+    assert all(item.chapter_title == original.chapter_title for item in resumed.questions)
+
+
+def test_question_chapter_reassignment_persists_without_changing_question_content(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes([
+        "Chapter 1: First", "MULTIPLE CHOICE", "1. First?", "a. One", "ANS: A", "Reason.",
+    ])
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    session.materialize_source_only({"display_name": "Chapters", "slug": "chapters", "prefix": "Chapters"})
+    original = session.questions[0]
+    second = replace(
+        original,
+        question_id="PFQ-chapters-000000999",
+        chapter=2,
+        chapter_title="Second",
+    )
+    session.questions = session.questions + (second,)
+
+    session.reassign_question_chapter(original.question_id, 2, "Second")
+    reassigned = next(item for item in session.questions if item.question_id == original.question_id)
+    assert (reassigned.chapter, reassigned.chapter_title) == (2, "Second")
+    assert (reassigned.stem, reassigned.choices, reassigned.correct_answers, reassigned.rationale) == (
+        original.stem, original.choices, original.correct_answers, original.rationale,
+    )
+
+    resumed = SyntheticWorkbenchSession.resume_source_only_run(session._lifecycle.run_directory)
+    recovered = next(item for item in resumed.questions if item.question_id == original.question_id)
+    assert (recovered.chapter, recovered.chapter_title) == (2, "Second")
 
 
 def test_user_proposal_rejects_unchanged_or_unexplained_values() -> None:
@@ -899,6 +1067,8 @@ def test_pdf_source_verification_requires_opening_temporary_page_first(tmp_path)
     assert source["temporary"] is True
     verified = session.record_verification(qa_case["finding_id"])
     assert case(verified, qa_case["finding_id"])["status"] == "approved"
+    reopened = session.view_source_page(qa_case["finding_id"])
+    assert reopened["pages"][0]["role"] == "current"
     checkpoint = json.loads(
         (session._lifecycle.run_directory / "audit" / "checkpoint.json").read_text()
     )

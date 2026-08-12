@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import hashlib
 import json
 
@@ -48,7 +48,7 @@ from ingestion_v2.parser_bridge import materialize_matched_batch
 from ingestion_v2.private_proposals import read_private_user_proposals, write_private_user_proposals
 from ingestion_v2.qa_adapter import QaResult, detect_candidate_damage
 from ingestion_v2.proposal_adapter import draft_benchmark_answer_proposals, draft_deterministic_proposals
-from ingestion_v2.checkpoint import proposal_fingerprint, write_checkpoint
+from ingestion_v2.checkpoint import proposal_fingerprint, read_checkpoint, write_checkpoint
 from ingestion_v2.recovery import recover_run
 from ingestion_v2.source_intake import validate_source_metadata
 
@@ -97,6 +97,8 @@ class SyntheticWorkbenchSession:
         self._source_only = False
         self._document_findings: list[dict] = []
         self._source_metadata: dict | None = None
+        self._chapter_edits: dict[str, dict] = {}
+        self._question_chapter_edits: dict[str, dict] = {}
 
     @classmethod
     def resume_run(cls, run_directory: Path, target_pack: dict) -> "SyntheticWorkbenchSession":
@@ -160,8 +162,12 @@ class SyntheticWorkbenchSession:
         cleaned = Path(run_directory) / "artifacts" / "cleaned.txt"
         if cleaned.is_symlink() or not cleaned.is_file():
             raise DomainError("Resume requires the controlled cleaned artifact")
+        raw = Path(run_directory) / "artifacts" / "raw.txt"
+        if raw.is_symlink() or not raw.is_file():
+            raise DomainError("Resume requires the controlled temporary source pages")
         session = cls(workspace_root=Path(run_directory).parent)
         session._lifecycle = lifecycle
+        session._source_pages = tuple(raw.read_text(encoding="utf-8").split("\n\f\n"))
         session._parse_batch = ExistingParserAdapter().parse(cleaned.read_text(encoding="utf-8"))
         session._source_only = True
         session._source_metadata = validate_source_metadata(metadata, reserved=set())
@@ -170,9 +176,74 @@ class SyntheticWorkbenchSession:
             for index, record in enumerate(session._parse_batch.records, start=1)
         }
         session.questions, parser_findings = materialize_matched_batch(session._parse_batch, mapping)
+        checkpoint = read_checkpoint(run_directory)
+        session._restore_chapter_edits(checkpoint)
         session._qa_result = detect_candidate_damage(session.questions)
         session.findings = parser_findings + session._qa_result.findings
         session.proposals = draft_deterministic_proposals(session.questions, session.findings)
+        saved = tuple(_restore_private_proposal_collections(item) for item in read_private_user_proposals(run_directory))
+        saved_fingerprints = {
+            item["proposal_id"]: item["fingerprint"]
+            for item in checkpoint.get("proposal_fingerprints", [])
+        }
+        if any(
+            saved_fingerprints.get(item.proposal_id) != proposal_fingerprint(
+                finding_id=item.finding_id, question_id=item.question_id,
+                field=item.field, expected_before=item.expected_before,
+                proposed_after=item.proposed_after,
+                requires_source_verification=item.requires_source_verification,
+            )
+            for item in saved
+        ):
+            raise DomainError("Private proposal does not match its content-free checkpoint fingerprint")
+        known_question_ids = {item.question_id for item in session.questions}
+        recovered_user_findings = []
+        known_findings = {item.finding_id for item in session.findings}
+        for proposal in saved:
+            if (
+                proposal.explanation == "Operator complete-question correction."
+                and proposal.finding_id not in known_findings
+                and proposal.question_id in known_question_ids
+            ):
+                recovered_user_findings.append(Finding(
+                    proposal.finding_id, proposal.question_id, proposal.field,
+                    "operator_complete_question_correction", FindingSeverity.BLOCKING,
+                    "Operator changed this field through the complete-question editor.",
+                ))
+        if recovered_user_findings:
+            session.findings = session.findings + tuple(recovered_user_findings)
+        known_findings = {item.finding_id for item in session.findings}
+        if any(item.finding_id not in known_findings for item in saved):
+            raise DomainError("Private proposal cannot be matched to the recovered source-only run")
+        session.proposals = tuple(
+            item for item in session.proposals if item.finding_id not in {saved_item.finding_id for saved_item in saved}
+        ) + saved
+        proposal_ids = {item.proposal_id for item in session.proposals}
+        session._decisions_by_proposal = {
+            item["proposal_id"]: ReviewDecision(
+                item["decision_id"], item["proposal_id"], ReviewAction(item["action"]),
+                "Recovered from private checkpoint.",
+            )
+            for item in checkpoint.get("review_decisions", [])
+            if item["proposal_id"] in proposal_ids
+        }
+        session._verifications_by_proposal = {
+            item["proposal_id"]: SourceVerification(
+                item["verification_id"], item["proposal_id"], item["verified"],
+                "Recovered verified checkpoint event.",
+            )
+            for item in checkpoint.get("verifications", [])
+            if item["proposal_id"] in proposal_ids
+        }
+        finding_ids = {item.finding_id for item in session.findings}
+        session._dispositions_by_finding = {
+            item["finding_id"]: FindingDisposition(
+                item["disposition_id"], item["finding_id"], item["question_id"],
+                DispositionAction(item["action"]), "Recovered from private checkpoint.",
+            )
+            for item in checkpoint.get("dispositions", [])
+            if item["finding_id"] in finding_ids
+        }
         session._events = [SessionEvent("PFV2-EVENT-RECOVERED-000001", "PFV2-CHECKPOINT", "checkpoint:recovered")]
         return session
 
@@ -498,6 +569,20 @@ class SyntheticWorkbenchSession:
         return self.view()
 
     def start_pdf_run(self, content: bytes) -> dict:
+        return self._start_pdf_run(content)
+
+    def start_pdf_run_from_existing_extraction(
+        self, content: bytes, text: str, *, adapter_name: str, page_count: int
+    ) -> dict:
+        return self._start_pdf_run(
+            content, existing_text=text, adapter_name=adapter_name,
+            page_count=page_count,
+        )
+
+    def _start_pdf_run(
+        self, content: bytes, *, existing_text: str | None = None,
+        adapter_name: str | None = None, page_count: int | None = None,
+    ) -> dict:
         if self._workspace_root is None:
             raise DomainError("This session has no private run workspace")
         self._reset_completed_run_for_new_intake()
@@ -510,7 +595,17 @@ class SyntheticWorkbenchSession:
         lifecycle = RunLifecycle.create(self._workspace_root)
         try:
             lifecycle.stage_disposable_copy(content, source_type="pdf")
-            extraction = extract_disposable_copy(lifecycle.run_directory, "pdf")
+            extraction = (
+                ExtractionResult(
+                    existing_text,
+                    tuple(existing_text.split("\n\f\n")),
+                    adapter_name or "validated_existing_extraction",
+                    page_count or len(existing_text.split("\n\f\n")),
+                    len(existing_text),
+                )
+                if existing_text is not None
+                else extract_disposable_copy(lifecycle.run_directory, "pdf")
+            )
             lifecycle.record_extraction(
                 extraction.text,
                 adapter_name=extraction.adapter_name,
@@ -595,6 +690,33 @@ class SyntheticWorkbenchSession:
         self._save_checkpoint()
         return self.view()
 
+    def accept_question_as_is(self, question_id: str) -> dict:
+        """Persist an explicit human acceptance without changing source fields."""
+        self._ensure_active_run_if_configured()
+        question = next((item for item in self.questions if item.question_id == question_id), None)
+        if question is None:
+            raise DomainError("Question is unavailable in this private run")
+        findings = [item for item in self.findings if item.question_id == question_id]
+        if not findings:
+            raise DomainError("Question has no review findings to accept")
+        event_number = len(self._events) + 1
+        for offset, finding in enumerate(findings, start=1):
+            self._dispositions_by_finding[finding.finding_id] = FindingDisposition(
+                disposition_id=f"PFV2-DISP-SESSION-{event_number:06d}-{offset:02d}",
+                finding_id=finding.finding_id,
+                question_id=question_id,
+                action=DispositionAction.ACCEPT_AS_IS,
+                reviewer_note="Operator accepted the complete pipeline question as is.",
+            )
+        self._candidate = None
+        self._comparison = None
+        self._return_lifecycle_to_review()
+        self._events.append(SessionEvent(
+            f"PFV2-EVENT-{event_number:06d}", question_id, "decision:accept_question_as_is"
+        ))
+        self._save_checkpoint()
+        return self.view()
+
     def draft_user_proposal(
         self,
         finding_id: str,
@@ -653,6 +775,166 @@ class SyntheticWorkbenchSession:
         self._save_checkpoint()
         return self.view()
 
+    def save_complete_question_repair(self, question_id: str, values: dict) -> dict:
+        """Save one operator-facing complete-question repair as field proposals.
+
+        The engine still stores field-level audit evidence, while the operator
+        edits one complete question and never has to replay sibling detectors.
+        """
+        self._ensure_active_run_if_configured()
+        question = next((item for item in self.questions if item.question_id == question_id), None)
+        if question is None:
+            raise DomainError("Question is unavailable in this private run")
+        repaired = _validated_complete_question(question, values)
+        existing = [item for item in self.proposals if item.question_id == question_id]
+        replacement_fields = {
+            field for field in ("stem", "choices", "correct_answers", "rationale")
+            if getattr(repaired, field) != getattr(question, field)
+        }
+        if not replacement_fields:
+            return self.view()
+        finding_by_field = {}
+        for finding in self.findings:
+            if finding.question_id == question_id:
+                finding_by_field.setdefault(finding.field, finding)
+        extra_findings = []
+        for field in sorted(replacement_fields - set(finding_by_field)):
+            finding = Finding(
+                f"PFV2-FIND-USER-{question.source_record_id.rsplit('-', 1)[-1] if question.source_record_id else question_id.rsplit('-', 1)[-1]}-{field.upper()}",
+                question_id, field, "operator_complete_question_correction",
+                FindingSeverity.BLOCKING,
+                "Operator changed this field through the complete-question editor.",
+            )
+            finding_by_field[field] = finding
+            extra_findings.append(finding)
+        if extra_findings:
+            self.findings = self.findings + tuple(extra_findings)
+        kept = [item for item in self.proposals if item.question_id != question_id]
+        removed_ids = {item.proposal_id for item in existing}
+        for proposal_id in removed_ids:
+            self._decisions_by_proposal.pop(proposal_id, None)
+            self._verifications_by_proposal.pop(proposal_id, None)
+        next_number = _next_user_proposal_number(self.proposals)
+        for field in sorted(replacement_fields):
+            finding = finding_by_field[field]
+            proposal = Proposal(
+                proposal_id=f"PFV2-PROP-USER-{next_number:06d}",
+                finding_id=finding.finding_id,
+                question_id=question_id,
+                field=field,
+                expected_before=getattr(question, field),
+                proposed_after=getattr(repaired, field),
+                explanation="Operator complete-question correction.",
+                requires_source_verification=False,
+            )
+            kept.append(proposal)
+            self._decisions_by_proposal[proposal.proposal_id] = ReviewDecision(
+                decision_id=f"PFV2-DEC-SESSION-{len(self._events) + next_number:06d}",
+                proposal_id=proposal.proposal_id,
+                action=ReviewAction.APPROVE,
+                reviewer_note="Approved through complete-question editor.",
+            )
+            next_number += 1
+        self.proposals = tuple(kept)
+        self._candidate = None
+        self._comparison = None
+        self._return_lifecycle_to_review()
+        self._events.append(SessionEvent(
+            f"PFV2-EVENT-{len(self._events) + 1:06d}", question_id, "repair:complete_question_saved"
+        ))
+        self._save_checkpoint()
+        return self.view()
+
+    def undo_complete_question_repair(self, question_id: str) -> dict:
+        self._ensure_active_run_if_configured()
+        removed = {
+            item.proposal_id for item in self.proposals
+            if item.question_id == question_id and item.proposal_id.startswith("PFV2-PROP-USER-")
+        }
+        if not removed:
+            raise DomainError("This question has no saved operator correction to undo")
+        self.proposals = tuple(item for item in self.proposals if item.proposal_id not in removed)
+        self.findings = tuple(
+            item for item in self.findings
+            if not (item.question_id == question_id and item.finding_id.startswith("PFV2-FIND-USER-"))
+        )
+        for proposal_id in removed:
+            self._decisions_by_proposal.pop(proposal_id, None)
+            self._verifications_by_proposal.pop(proposal_id, None)
+        self._candidate = None
+        self._comparison = None
+        self._return_lifecycle_to_review()
+        self._events.append(SessionEvent(
+            f"PFV2-EVENT-{len(self._events) + 1:06d}", question_id, "repair:complete_question_undone"
+        ))
+        self._save_checkpoint()
+        return self.view()
+
+    def edit_chapter(self, chapter: int, title: str, new_chapter: int, new_title: str) -> dict:
+        self._ensure_active_run_if_configured()
+        if not isinstance(new_chapter, int) or new_chapter < 1:
+            raise DomainError("Chapter number must be a positive integer")
+        if not isinstance(new_title, str) or not new_title.strip():
+            raise DomainError("Chapter title cannot be blank")
+        affected = [item for item in self.questions if item.chapter == chapter and item.chapter_title == title]
+        if not affected:
+            raise DomainError("Chapter is unavailable in this private run")
+        if any(item.chapter == new_chapter and item.chapter_title != title for item in self.questions if item not in affected):
+            raise DomainError("Chapter number is already assigned to another chapter")
+        key = f"{chapter}|{title}"
+        self._chapter_edits.setdefault(key, {
+            "original_chapter": chapter, "original_title": title,
+        }).update({"chapter": new_chapter, "title": new_title.strip()})
+        affected_ids = {item.question_id for item in affected}
+        self.questions = tuple(
+            replace(item, chapter=new_chapter, chapter_title=new_title.strip()) if item.question_id in affected_ids else item
+            for item in self.questions
+        )
+        self._candidate = None
+        self._comparison = None
+        self._events.append(SessionEvent(f"PFV2-EVENT-{len(self._events)+1:06d}", key, "chapter:edited"))
+        self._save_checkpoint()
+        return self.view()
+
+    def undo_chapter_edit(self, original_chapter: int, original_title: str) -> dict:
+        self._ensure_active_run_if_configured()
+        key = f"{original_chapter}|{original_title}"
+        edit = self._chapter_edits.pop(key, None)
+        if edit is None:
+            raise DomainError("Chapter has no saved edit to undo")
+        current_ids = {
+            item.question_id for item in self.questions
+            if item.chapter == edit["chapter"] and item.chapter_title == edit["title"]
+        }
+        self.questions = tuple(
+            replace(item, chapter=original_chapter, chapter_title=original_title) if item.question_id in current_ids else item
+            for item in self.questions
+        )
+        self._candidate = None
+        self._comparison = None
+        self._events.append(SessionEvent(f"PFV2-EVENT-{len(self._events)+1:06d}", key, "chapter:edit_undone"))
+        self._save_checkpoint()
+        return self.view()
+
+    def reassign_question_chapter(self, question_id: str, chapter: int, title: str) -> dict:
+        self._ensure_active_run_if_configured()
+        target_exists = any(item.chapter == chapter and item.chapter_title == title for item in self.questions)
+        question = next((item for item in self.questions if item.question_id == question_id), None)
+        if question is None or not target_exists:
+            raise DomainError("Question or target chapter is unavailable")
+        self._question_chapter_edits.setdefault(question_id, {
+            "original_chapter": question.chapter, "original_title": question.chapter_title,
+        }).update({"chapter": chapter, "title": title})
+        self.questions = tuple(
+            replace(item, chapter=chapter, chapter_title=title) if item.question_id == question_id else item
+            for item in self.questions
+        )
+        self._candidate = None
+        self._comparison = None
+        self._events.append(SessionEvent(f"PFV2-EVENT-{len(self._events)+1:06d}", question_id, "question:chapter_reassigned"))
+        self._save_checkpoint()
+        return self.view()
+
     def build_isolated_candidate(self) -> dict:
         self._ensure_active_run_if_configured()
         self._candidate = build_candidate(
@@ -707,7 +989,18 @@ class SyntheticWorkbenchSession:
                 warnings.append(f"unusually_small_chapter:{number}")
             if len(items) > 100:
                 warnings.append(f"unusually_large_chapter:{number}")
-            chapter_rows.append({"chapter": number, "title": title, "question_count": len(items)})
+            chapter_row = {"chapter": number, "title": title, "question_count": len(items)}
+            # Keep the audit origin visible to the local UI so an operator can
+            # deliberately undo a bulk metadata correction.  The original
+            # parser value itself remains in the checkpoint edit record.
+            for edit in self._chapter_edits.values():
+                if edit["chapter"] == number and edit["title"] == title:
+                    chapter_row.update({
+                        "original_chapter": edit["original_chapter"],
+                        "original_title": edit["original_title"],
+                    })
+                    break
+            chapter_rows.append(chapter_row)
         warnings.extend(f"duplicated_chapter_number:{number}" for number, titles in seen_numbers.items() if len(titles) > 1)
         serialized_questions = [
             {
@@ -969,17 +1262,15 @@ class SyntheticWorkbenchSession:
         return self.view()
 
     def view_source_page(self, finding_id: str) -> dict:
+        """Return the existing verified previous/current/next source window.
+
+        Reading source evidence is always safe.  It must remain available after
+        a repair is approved so an operator can inspect the source alongside
+        the effective candidate question.
+        """
         if self._lifecycle is None or self._lifecycle.manifest().get("source_type") != "pdf":
             raise DomainError("A temporary source page is available only for an active PDF run")
         case = self._case(finding_id)
-        if case.status not in {
-            ReviewStatus.NEEDS_PROPOSAL,
-            ReviewStatus.AWAITING_DECISION,
-            ReviewStatus.DEFERRED,
-            ReviewStatus.REJECTED,
-            ReviewStatus.AWAITING_SOURCE_VERIFICATION,
-        }:
-            raise DomainError("Source page viewing is unavailable for this review state")
         if not self._source_pages:
             raise DomainError("Temporary source pages are no longer available")
         page_indexes = _source_context_page_indexes(
@@ -989,6 +1280,8 @@ class SyntheticWorkbenchSession:
         if not page_indexes:
             raise DomainError("PrepFlow could not locate one unambiguous temporary source page")
         page_index = page_indexes[0]
+        first = max(0, page_indexes[0] - 1)
+        last = min(len(self._source_pages), page_indexes[-1] + 2)
         self._viewed_source_findings.add(finding_id)
         event_number = len(self._events) + 1
         self._events.append(
@@ -1012,8 +1305,14 @@ class SyntheticWorkbenchSession:
             "text": self._source_pages[page_index],
             "page_range": [page_indexes[0] + 1, page_indexes[-1] + 1],
             "pages": [
-                {"page_number": index + 1, "text": self._source_pages[index]}
-                for index in page_indexes
+                {
+                    "page_number": index + 1,
+                    "role": (
+                        "current" if index in page_indexes else "previous" if index < page_indexes[0] else "next"
+                    ),
+                    "text": self._source_pages[index],
+                }
+                for index in range(first, last)
             ],
             "temporary": True,
             "canonical_write_available": False,
@@ -1304,6 +1603,11 @@ class SyntheticWorkbenchSession:
                     }
                     for item in sorted(self._dispositions_by_finding.values(), key=lambda value: value.disposition_id)
                 ],
+                "chapter_edits": list(self._chapter_edits.values()),
+                "question_chapter_edits": [
+                    {"question_id": question_id, **value}
+                    for question_id, value in sorted(self._question_chapter_edits.items())
+                ],
                 "comparison_counts": comparison_counts,
                 "comparison_group_decisions": [
                     {"group_id": group_id, "action": "approve_exact_group"}
@@ -1315,6 +1619,30 @@ class SyntheticWorkbenchSession:
                 ],
             },
         )
+
+    def _restore_chapter_edits(self, checkpoint: dict) -> None:
+        for edit in checkpoint.get("chapter_edits", []):
+            if not all(key in edit for key in ("original_chapter", "original_title", "chapter", "title")):
+                continue
+            key = f"{edit['original_chapter']}|{edit['original_title']}"
+            affected = {
+                item.question_id for item in self.questions
+                if item.chapter == edit["original_chapter"] and item.chapter_title == edit["original_title"]
+            }
+            self.questions = tuple(
+                replace(item, chapter=edit["chapter"], chapter_title=edit["title"]) if item.question_id in affected else item
+                for item in self.questions
+            )
+            self._chapter_edits[key] = dict(edit)
+        for edit in checkpoint.get("question_chapter_edits", []):
+            question_id = edit.get("question_id")
+            if not isinstance(question_id, str) or not all(key in edit for key in ("original_chapter", "original_title", "chapter", "title")):
+                continue
+            self.questions = tuple(
+                replace(item, chapter=edit["chapter"], chapter_title=edit["title"]) if item.question_id == question_id else item
+                for item in self.questions
+            )
+            self._question_chapter_edits[question_id] = {key: edit[key] for key in ("original_chapter", "original_title", "chapter", "title")}
 
     def _ensure_active_run_if_configured(self) -> None:
         if self._workspace_root is not None and self._lifecycle is None:
@@ -1466,3 +1794,71 @@ def _question_comparison_context(question) -> dict | None:
             for label in question.correct_answers
         ],
     }
+
+
+def _restore_private_proposal_collections(proposal: Proposal) -> Proposal:
+    """JSON stores collections as lists; QuestionRecord stores immutable tuples."""
+    if proposal.field == "correct_answers":
+        return Proposal(
+            proposal.proposal_id, proposal.finding_id, proposal.question_id,
+            proposal.field, tuple(proposal.expected_before), tuple(proposal.proposed_after),
+            proposal.explanation, proposal.requires_source_verification,
+        )
+    if proposal.field == "choices":
+        return Proposal(
+            proposal.proposal_id, proposal.finding_id, proposal.question_id,
+            proposal.field, tuple(tuple(item) for item in proposal.expected_before),
+            tuple(tuple(item) for item in proposal.proposed_after), proposal.explanation,
+            proposal.requires_source_verification,
+        )
+    return proposal
+
+
+def _validated_complete_question(question, values: dict):
+    if not isinstance(values, dict):
+        raise DomainError("Complete question values are required")
+    choices = values.get("choices")
+    if not isinstance(choices, list):
+        raise DomainError("Choices must be provided as labeled text")
+    normalized_choices = tuple(
+        (str(item.get("label", "")).strip().upper(), str(item.get("text", "")).strip())
+        for item in choices if isinstance(item, dict)
+    )
+    labels = tuple(label for label, text in normalized_choices)
+    if len(labels) != len(choices) or not all(labels) or not all(text for _, text in normalized_choices):
+        raise DomainError("Every choice needs a label and text")
+    if len(labels) != len(set(labels)):
+        raise DomainError("Choice labels must be unique")
+    expected_labels = tuple(chr(ord("A") + index) for index in range(len(labels)))
+    if labels != expected_labels:
+        raise DomainError("Choice labels must be ordered A, B, C, and so on")
+    answers = tuple(str(item).strip().upper() for item in values.get("correct_answers", []))
+    if any(answer not in labels for answer in answers):
+        raise DomainError("Each correct-answer label must be one of the choices")
+    if question.question_type in {"multiple_choice", "multiple_response"} and not normalized_choices:
+        raise DomainError("Multiple-choice questions require usable choices")
+    if normalized_choices and not answers:
+        raise DomainError("Select at least one correct answer")
+    if question.question_type == "multiple_choice" and len(answers) > 1:
+        raise DomainError("A single-answer question can have only one correct answer")
+    return replace_question_field(
+        replace_question_field(
+            replace_question_field(
+                replace_question_field(question, "stem", str(values.get("stem", "")).strip()),
+                "choices", normalized_choices,
+            ),
+            "correct_answers", answers,
+        ),
+        "rationale", str(values.get("rationale", "")).strip(),
+    )
+
+
+def _next_user_proposal_number(proposals: tuple[Proposal, ...]) -> int:
+    numbers = []
+    for proposal in proposals:
+        if proposal.proposal_id.startswith("PFV2-PROP-USER-"):
+            try:
+                numbers.append(int(proposal.proposal_id.rsplit("-", 1)[1]))
+            except ValueError:
+                continue
+    return max(numbers, default=0) + 1

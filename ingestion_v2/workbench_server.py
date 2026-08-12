@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
+import hashlib
+from pypdf import PdfReader
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -25,6 +27,65 @@ SOURCE_ONLY_PRESETS = {
     "peds": {"display_name": "Pediatrics", "slug": "pediatrics", "prefix": "Peds"},
 }
 RUNS_DIRECTORY = PROJECT_DIRECTORY / "output" / "v2-runs"
+PRIVATE_SOURCE_DIRECTORY = PROJECT_DIRECTORY / "private_sources"
+CENTRAL_SOURCE_DIRECTORY = Path("/home/charliekeila/projects/prepflow-sources")
+
+
+def approved_pdf_sources(
+    roots: tuple[Path, ...] | Path = (CENTRAL_SOURCE_DIRECTORY, PRIVATE_SOURCE_DIRECTORY),
+) -> tuple[tuple[str, Path, str, int | None, str], ...]:
+    """List approved local PDFs without exposing their filesystem paths."""
+    if isinstance(roots, Path):
+        roots = (roots,)
+    sources = []
+    for root in roots:
+        if not root.is_dir():
+            continue
+        location = "Central source book" if root == CENTRAL_SOURCE_DIRECTORY else "Approved sample"
+        for path in sorted(root.rglob("*.pdf"), key=lambda item: item.name.casefold()):
+            if path.is_symlink() or not path.is_file():
+                continue
+            token = hashlib.sha256(f"{root.name}/{path.relative_to(root)}".encode("utf-8")).hexdigest()[:16]
+            try:
+                page_count = len(PdfReader(str(path)).pages)
+            except Exception:
+                page_count = None
+            sources.append((token, path, path.name, page_count, location))
+    return tuple(sorted(sources, key=lambda item: (item[4] != "Central source book", item[2].casefold())))
+
+
+def filename_metadata(filename: str) -> dict:
+    stem = Path(filename).stem
+    display_name = " ".join(part for part in stem.replace("_", " ").replace("-", " ").split() if part).title() or "New source"
+    slug = "".join(character for character in stem.casefold().replace("-", "_") if character.isalnum() or character == "_").strip("_")[:40] or "new_source"
+    return {"display_name": display_name, "slug": slug, "prefix": display_name[:32]}
+
+
+def validated_existing_extraction(path: Path, filename: str) -> tuple[str, str, int] | None:
+    """Return a reusable extraction only when its source identity is exact."""
+    benchmark = PRIVATE_SOURCE_DIRECTORY / "pediatrics-ocr-source-only-20260809-091026" / "extraction-benchmark.json"
+    text_path = benchmark.parent / "tesseract_ocr_v1.txt"
+    if filename != "pediatrics.pdf" or not benchmark.is_file() or not text_path.is_file():
+        return None
+    try:
+        record = json.loads(benchmark.read_text(encoding="utf-8"))
+        source = record["source_pdf"]
+        summary = record["candidates"]["tesseract_ocr_v1"]["summary"]
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        pages = len(PdfReader(str(path)).pages)
+    except Exception:
+        return None
+    if not (
+        source.get("filename") == filename
+        and source.get("sha256") == digest
+        and source.get("bytes") == path.stat().st_size
+        and summary.get("page_count") == pages
+    ):
+        return None
+    text = text_path.read_text(encoding="utf-8")
+    if not text or len(text.split("\f")) != pages:
+        return None
+    return text, "tesseract_ocr_v1", pages
 REPAIR_WORKBENCH_DIRECTORY = PROJECT_DIRECTORY / "output" / "repair-workbench" / "fundamentals"
 
 
@@ -58,6 +119,26 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/candidate/inspection":
             self._send_json(self.session.candidate_inspection())
             return
+        if parsed.path == "/api/private-sources":
+            self._send_json(
+                {
+                    "sources": [
+                        {
+                            "id": token,
+                            "filename": name,
+                            "page_count": pages,
+                            "kind": kind,
+                            # This is only a readiness hint for the local UI.  The
+                            # start route validates the source again before reuse.
+                            "existing_extraction_available": bool(
+                                validated_existing_extraction(path, name)
+                            ),
+                        }
+                        for token, path, name, pages, kind in approved_pdf_sources()
+                    ]
+                }
+            )
+            return
         if parsed.path == "/api/pack-registry":
             self._send_json({"packs": [{"id": key, "source_only": False} for key in PACK_REGISTRY] + [{"id": key, "source_only": True, "metadata": value} for key, value in SOURCE_ONLY_PRESETS.items()] + [{"id": "new_source", "source_only": True}]})
             return
@@ -87,6 +168,39 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 self._send_json(payload)
                 return
             body = self._read_json()
+            if self.path == "/api/run/start-approved-pdf":
+                source_id = body.get("source_id")
+                source = next((item for item in approved_pdf_sources() if item[0] == source_id), None)
+                if source is None:
+                    raise DomainError("Selected private PDF is unavailable")
+                _, path, filename, _, _ = source
+                reuse = validated_existing_extraction(path, filename)
+                prior_run_id = self.session.view()["run"].get("run_id")
+                try:
+                    payload = (
+                        self.session.start_pdf_run_from_existing_extraction(
+                            path.read_bytes(), reuse[0], adapter_name=reuse[1], page_count=reuse[2]
+                        )
+                        if reuse else self.session.start_pdf_run(path.read_bytes())
+                    )
+                    if payload["run"]["state"] != "failed":
+                        payload = self.session.materialize_source_only(
+                            filename_metadata(filename),
+                            registered_preset=filename == "pediatrics.pdf",
+                        )
+                except Exception as error:
+                    # This endpoint owns the newly created run.  Do not leave an
+                    # unreviewable partial intake behind if post-extraction setup fails.
+                    current_run = self.session.view()["run"]
+                    if current_run.get("run_id") != prior_run_id and current_run["state"] not in {"not_started", "completed"}:
+                        self.session.cleanup_run()
+                    raise DomainError(f"Book setup failed; the temporary run was cleaned: {error}") from error
+                payload["intake"] = {
+                    "extraction": "reused_validated_existing" if reuse else "fresh_native_extraction",
+                    "message": "Using existing extraction" if reuse else "No validated existing extraction; using fresh extraction",
+                }
+                self._send_json(payload)
+                return
             if self.path == "/api/actions":
                 finding_id = body.get("finding_id")
                 if not isinstance(finding_id, str):
@@ -201,6 +315,34 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                     explanation,
                     requires_source_verification=verification,
                 )
+            elif self.path == "/api/question-repairs":
+                question_id = body.get("question_id")
+                values = body.get("values")
+                if not isinstance(question_id, str) or not isinstance(values, dict):
+                    raise DomainError("question_id and complete question values are required")
+                payload = self.session.save_complete_question_repair(question_id, values)
+            elif self.path == "/api/question-repairs/undo":
+                question_id = body.get("question_id")
+                if not isinstance(question_id, str):
+                    raise DomainError("question_id is required")
+                payload = self.session.undo_complete_question_repair(question_id)
+            elif self.path == "/api/questions/accept-as-is":
+                question_id = body.get("question_id")
+                if not isinstance(question_id, str):
+                    raise DomainError("question_id is required")
+                payload = self.session.accept_question_as_is(question_id)
+            elif self.path == "/api/chapters/edit":
+                if not all(isinstance(body.get(key), int) for key in ("chapter", "new_chapter")) or not all(isinstance(body.get(key), str) for key in ("title", "new_title")):
+                    raise DomainError("chapter, title, new_chapter, and new_title are required")
+                payload = self.session.edit_chapter(body["chapter"], body["title"], body["new_chapter"], body["new_title"])
+            elif self.path == "/api/chapters/undo":
+                if not isinstance(body.get("original_chapter"), int) or not isinstance(body.get("original_title"), str):
+                    raise DomainError("original_chapter and original_title are required")
+                payload = self.session.undo_chapter_edit(body["original_chapter"], body["original_title"])
+            elif self.path == "/api/questions/chapter":
+                if not isinstance(body.get("question_id"), str) or not isinstance(body.get("chapter"), int) or not isinstance(body.get("title"), str):
+                    raise DomainError("question_id, chapter, and title are required")
+                payload = self.session.reassign_question_chapter(body["question_id"], body["chapter"], body["title"])
             elif self.path == "/api/source-page":
                 finding_id = body.get("finding_id")
                 if not isinstance(finding_id, str):

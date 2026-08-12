@@ -10,6 +10,8 @@
   let candidateBuildInFlight = false;
   let candidateBuildError = "";
   let actionInFlight = false;
+  let inspection = null;
+  let inspectionIndex = 0;
 
   const labels = {
     approve: "Approve proposal",
@@ -729,6 +731,7 @@
     const comparisonChanges = document.getElementById("comparison-changes");
     const button = document.getElementById("candidate-button");
     const comparisonButton = document.getElementById("comparison-button");
+    const inspectButton = document.getElementById("inspect-candidate-button");
     if (!candidate || candidate.state === "not_built") {
       state.textContent = "Not built";
       detail.textContent = candidateBuildInFlight
@@ -737,6 +740,7 @@
       button.textContent = candidateBuildInFlight ? "Building new v2 Pack…" : "Build new Pack candidate";
       button.disabled = candidateBuildInFlight || payload.session?.mode !== "synthetic_in_memory" || !["review_ready", "candidate_built", "compared", "unmanaged_demo"].includes(payload.run?.state);
       comparisonButton.disabled = true;
+      inspectButton.disabled = true;
       comparisonDetail.textContent = "Comparison has not run.";
       comparisonChanges.replaceChildren();
       return;
@@ -746,6 +750,7 @@
     button.textContent = candidateBuildInFlight ? "Building new v2 Pack…" : "Rebuild new Pack candidate";
     button.disabled = candidateBuildInFlight || payload.run?.state === "completed";
     comparisonButton.disabled = payload.session?.mode !== "synthetic_in_memory" || payload.run?.state === "completed";
+    inspectButton.disabled = false;
     if (payload.comparison?.state === "complete") {
       const identityStatus = payload.comparison.stable_ids_exact ? "stable IDs exact" : "all ID differences documented";
       comparisonDetail.textContent = `Comparison complete · ${identityStatus} · ${payload.comparison.field_change_count} changed field(s).`;
@@ -800,6 +805,33 @@
       comparisonChanges.replaceChildren();
       comparisonButton.textContent = "Compare with benchmark";
     }
+  }
+
+  function renderInspection() {
+    const panel = document.getElementById("candidate-inspection");
+    if (!inspection?.questions?.length) { panel.hidden = true; return; }
+    panel.hidden = false;
+    const question = inspection.questions[inspectionIndex];
+    const overview = inspection.overview;
+    document.getElementById("candidate-overview").innerHTML = [
+      ["Pack", overview.title], ["Chapters", overview.chapter_count], ["Retained", overview.retained_questions],
+      ["Excluded", overview.excluded_questions], ["Fixes", overview.applied_fixes], ["Issues", overview.unresolved_blockers],
+      ["QA", overview.qa_finding_count], ["Hash", overview.candidate_sha256],
+    ].map(([label, value]) => `<span><small>${label}</small><b>${escapeHtml(String(value))}</b></span>`).join("");
+    document.getElementById("inspection-position").textContent = `Question ${inspectionIndex + 1} of ${inspection.questions.length}`;
+    document.getElementById("candidate-chapters").innerHTML = inspection.chapters.map((chapter) => `<span>Chapter ${chapter.chapter ?? "?"}: ${escapeHtml(chapter.title || "Unnamed")} · ${chapter.question_count}</span>`).join("<br>") + (inspection.warnings.length ? `<p>Warnings: ${escapeHtml(inspection.warnings.join(", "))}</p>` : "");
+    document.getElementById("candidate-preview").innerHTML = `<p><b>${escapeHtml(question.question_id)}</b> · ${escapeHtml(chapterLabel(question))} · ${question.position_in_chapter} in chapter</p>${formatQuestionPacket(question)}`;
+    const select = document.getElementById("inspection-chapter");
+    if (!select.options.length) {
+      inspection.chapters.forEach((chapter) => { const option = document.createElement("option"); option.value = String(chapter.chapter); option.textContent = `Chapter ${chapter.chapter ?? "?"}: ${chapter.title || "Unnamed"}`; select.append(option); });
+    }
+  }
+
+  async function loadInspection() {
+    const response = await fetch("/api/candidate/inspection");
+    const result = await response.json();
+    if (!response.ok || result.state !== "ready") throw new Error(result.error || "Build a candidate before inspection.");
+    inspection = result; inspectionIndex = 0; renderInspection();
   }
 
   async function approveExactGroup(groupId) {
@@ -908,6 +940,16 @@
       renderCandidate();
     }
   });
+
+  document.getElementById("inspect-candidate-button").addEventListener("click", () => {
+    loadInspection().catch((error) => { document.getElementById("decision-help").textContent = error.message; });
+  });
+  document.getElementById("inspection-previous").addEventListener("click", () => { if (inspection) { inspectionIndex = Math.max(0, inspectionIndex - 1); renderInspection(); } });
+  document.getElementById("inspection-next").addEventListener("click", () => { if (inspection) { inspectionIndex = Math.min(inspection.questions.length - 1, inspectionIndex + 1); renderInspection(); } });
+  document.getElementById("inspection-chapter").addEventListener("change", (event) => { if (inspection) { const index = inspection.questions.findIndex((item) => String(item.chapter) === event.target.value); if (index >= 0) { inspectionIndex = index; renderInspection(); } } });
+  document.getElementById("inspection-jump").addEventListener("change", (event) => { if (inspection) { const index = Number(event.target.value) - 1; if (index >= 0 && index < inspection.questions.length) { inspectionIndex = index; renderInspection(); } } });
+  document.getElementById("inspection-search").addEventListener("search", (event) => { if (inspection) { const value = event.target.value.trim().toLowerCase(); const index = inspection.questions.findIndex((item) => item.question_id.toLowerCase().includes(value) || item.stem.toLowerCase().includes(value)); if (index >= 0) { inspectionIndex = index; renderInspection(); } } });
+  document.addEventListener("keydown", (event) => { if (inspection && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) { if (event.key === "ArrowLeft") document.getElementById("inspection-previous").click(); if (event.key === "ArrowRight") document.getElementById("inspection-next").click(); } });
 
   document.getElementById("comparison-button").addEventListener("click", () => {
     if (payload.session?.mode !== "synthetic_in_memory") return;

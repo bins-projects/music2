@@ -55,6 +55,9 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 payload["reconciliation"] = reconcile_repairs(records, canonical[0], candidate)
             self._send_json(payload)
             return
+        if parsed.path == "/api/candidate/inspection":
+            self._send_json(self.session.candidate_inspection())
+            return
         if parsed.path == "/api/pack-registry":
             self._send_json({"packs": [{"id": key, "source_only": False} for key in PACK_REGISTRY] + [{"id": key, "source_only": True, "metadata": value} for key, value in SOURCE_ONLY_PRESETS.items()] + [{"id": "new_source", "source_only": True}]})
             return

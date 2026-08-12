@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 
 from pathlib import Path
 
@@ -677,6 +679,69 @@ class SyntheticWorkbenchSession:
         )
         self._save_checkpoint()
         return self.view()
+
+    def candidate_inspection(self) -> dict:
+        """Return local-only source-first candidate inspection data."""
+        if self._candidate is None:
+            return {"state": "not_built"}
+        questions = self._candidate.questions
+        groups: dict[tuple[int | None, str], list] = {}
+        order: list[tuple[int | None, str]] = []
+        for question in questions:
+            key = (question.chapter, question.chapter_title)
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            groups[key].append(question)
+        chapter_rows = []
+        warnings = []
+        seen_numbers: dict[int | None, set[str]] = {}
+        for number, title in order:
+            items = groups[(number, title)]
+            if number is None:
+                warnings.append("questions_without_chapter")
+            if not title.strip():
+                warnings.append(f"unnamed_chapter:{number}")
+            seen_numbers.setdefault(number, set()).add(title)
+            if len(items) < 2:
+                warnings.append(f"unusually_small_chapter:{number}")
+            if len(items) > 100:
+                warnings.append(f"unusually_large_chapter:{number}")
+            chapter_rows.append({"chapter": number, "title": title, "question_count": len(items)})
+        warnings.extend(f"duplicated_chapter_number:{number}" for number, titles in seen_numbers.items() if len(titles) > 1)
+        serialized_questions = [
+            {
+                "question_id": item.question_id,
+                "source_record_id": item.source_record_id,
+                "chapter": item.chapter,
+                "chapter_title": item.chapter_title,
+                "question_type": item.question_type,
+                "stem": item.stem,
+                "choices": [list(choice) for choice in item.choices],
+                "correct_answers": list(item.correct_answers),
+                "rationale": item.rationale,
+                "position_in_chapter": len(groups[(item.chapter, item.chapter_title)][:groups[(item.chapter, item.chapter_title)].index(item) + 1]),
+            }
+            for item in questions
+        ]
+        digest = hashlib.sha256(json.dumps(serialized_questions, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+        return {
+            "state": "ready",
+            "overview": {
+                "title": (self._source_metadata or {}).get("display_name") or "New Pack candidate",
+                "chapter_count": len(chapter_rows),
+                "retained_questions": len(questions),
+                "excluded_questions": self._candidate_view()["documented_exclusion_count"],
+                "applied_fixes": len(self._candidate.applied_proposal_ids),
+                "unresolved_blockers": len(self._candidate.unresolved_finding_ids),
+                "qa_finding_count": len(detect_candidate_damage(questions).findings),
+                "candidate_sha256": digest,
+            },
+            "chapters": chapter_rows,
+            "chapter_count_matches_total": sum(item["question_count"] for item in chapter_rows) == len(questions),
+            "warnings": sorted(set(warnings)),
+            "questions": serialized_questions,
+        }
 
     def record_disposition(
         self, finding_id: str, action: str, target_question_id: str | None = None

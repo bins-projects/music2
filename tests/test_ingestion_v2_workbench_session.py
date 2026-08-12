@@ -8,7 +8,7 @@ from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from ingestion_v2.demo import SYNTHETIC_DOCUMENT
 
-from ingestion_v2.domain import DomainError, Proposal
+from ingestion_v2.domain import Candidate, DomainError, Proposal, QuestionRecord
 from ingestion_v2.recovery import (
     _restore_private_proposal_collections,
     list_completed_runs,
@@ -164,6 +164,24 @@ def test_source_first_accept_as_is_resolves_a_flag_without_a_proposal() -> None:
 
     assert case(accepted, "PFV2-FIND-PARSE-000001")["status"] == "approved"
     assert "PFV2-FIND-PARSE-000001" not in candidate["candidate"]["unresolved_finding_ids"]
+
+
+def test_candidate_inspection_reports_ordered_chapters_and_question_packets() -> None:
+    session = SyntheticWorkbenchSession()
+    session._candidate = Candidate((
+        QuestionRecord("PFQ-test-000000001", 1, "multiple_choice", "First?", (("A", "One"),), ("A",), "First rationale.", "One", "PFV2-REC-000001"),
+        QuestionRecord("PFQ-test-000000002", 2, "completion", "Second?", (), ("Two",), "Second rationale.", "Two", "PFV2-REC-000002"),
+    ))
+
+    inspection = session.candidate_inspection()
+
+    assert inspection["state"] == "ready"
+    assert inspection["overview"]["retained_questions"] == 2
+    assert [item["chapter"] for item in inspection["chapters"]] == [1, 2]
+    assert inspection["chapter_count_matches_total"] is True
+    assert inspection["questions"][0]["question_id"].startswith("PFQ-")
+    assert "stem" in inspection["questions"][0]
+    assert len(inspection["overview"]["candidate_sha256"]) == 64
 
 
 def test_user_proposal_rejects_unchanged_or_unexplained_values() -> None:

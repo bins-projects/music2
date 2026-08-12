@@ -169,8 +169,23 @@
             </div>
             <div class="candidate-actions">
               <button id="candidate-button" type="button">Build new Pack candidate</button>
+              <button id="inspect-candidate-button" type="button" disabled>Inspect candidate</button>
               <button id="comparison-button" type="button" hidden>Legacy diagnostics</button>
             </div>
+          </section>
+
+          <section id="candidate-inspection" class="candidate-inspection" hidden>
+            <div class="panel-heading"><div><p class="eyebrow">CANDIDATE INSPECTION</p><h2>New Pack candidate</h2></div><span id="inspection-position"></span></div>
+            <div id="candidate-overview" class="candidate-overview"></div>
+            <div class="inspection-controls">
+              <button id="inspection-previous" type="button">Previous</button>
+              <button id="inspection-next" type="button">Next</button>
+              <label>Chapter <select id="inspection-chapter"></select></label>
+              <label>Question <input id="inspection-jump" type="number" min="1"></label>
+              <label>Search <input id="inspection-search" type="search" placeholder="Stem or PFQ ID"></label>
+            </div>
+            <div id="candidate-chapters" class="candidate-chapters"></div>
+            <div id="candidate-preview" class="record-value"></div>
           </section>
 
           <footer class="audit-strip">

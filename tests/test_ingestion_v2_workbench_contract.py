@@ -30,6 +30,9 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     assert "/api/repair-desk?q=" in script
     assert "question" in script
     assert "renderLocalStatus" in script
+    assert 'id="candidate-inspection"' in html
+    assert '"/api/candidate/inspection"' in script
+    assert "ArrowLeft" in script
 
 
 def test_workbench_exposes_required_review_information_and_actions() -> None:

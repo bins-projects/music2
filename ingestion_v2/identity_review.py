@@ -115,13 +115,8 @@ def authorize_reviewed_identity(
         used.add(question_id)
     if reviewed != set(case_by_record):
         raise DomainError("Identity review remains incomplete")
-    expected_target_ids = {
-        item.target_question_id for item in report.matches
-    } | set(report.target_only_question_ids)
     if (
         len(mapping) + len(exclusions) != report.parsed_count
-        or not expected_target_ids.issubset(used)
-        or len(used) != report.target_count + len(new_questions)
     ):
         raise DomainError("Identity review remains incomplete")
     return mapping

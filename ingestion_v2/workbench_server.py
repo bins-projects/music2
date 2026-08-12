@@ -177,6 +177,13 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 if target_question_id is not None and not isinstance(target_question_id, str):
                     raise DomainError("target_question_id must be a string")
                 payload = self.session.record_identity_action(record_id, action, target_question_id)
+            elif self.path == "/api/identity/repairs":
+                record_id = body.get("record_id")
+                field = body.get("field")
+                explanation = body.get("explanation")
+                if not isinstance(record_id, str) or not isinstance(field, str) or not isinstance(explanation, str):
+                    raise DomainError("record_id, field, and explanation are required")
+                payload = self.session.draft_identity_field_repair(record_id, field, body.get("proposed_after"), explanation)
             elif self.path == "/api/identity/materialize":
                 payload = self.session.materialize_identity_review()
             elif self.path == "/api/proposals":

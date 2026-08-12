@@ -11,7 +11,7 @@ from ingestion_v2.comparison_categories import (
     categorize_comparison_changes,
 )
 from ingestion_v2.domain import (
-    Candidate, DispositionAction, DomainError, Finding, FindingDisposition,
+    Candidate, DispositionAction, DomainError, Finding, FindingDisposition, FindingSeverity,
     Proposal, QuestionRecord, ReviewAction, ReviewDecision, SourceVerification,
 )
 from ingestion_v2.engine import build_candidate
@@ -136,6 +136,18 @@ def list_completed_runs(workspace_root: Path, protected_pack_ids: set[str]) -> t
     return tuple(sorted(summaries, key=lambda item: item["run_id"], reverse=True))
 
 
+def _restore_private_proposal_collections(proposal: Proposal) -> Proposal:
+    """Restore JSON list values to the collection shape used by QuestionRecord."""
+    if proposal.field == "correct_answers":
+        return Proposal(
+            proposal.proposal_id, proposal.finding_id, proposal.question_id,
+            proposal.field, tuple(proposal.expected_before),
+            tuple(proposal.proposed_after), proposal.explanation,
+            proposal.requires_source_verification,
+        )
+    return proposal
+
+
 def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
     lifecycle = RunLifecycle.open(run_directory)
     manifest = lifecycle.manifest()
@@ -172,6 +184,21 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
         for record_id, item in identity_actions.items()
         if item["action"] == "retain_new_question"
     }
+    reviewed_actions_complete = (
+        len(approvals) + len(exclusions) + len(new_questions) == len(cases)
+        and len(report.matches) + len(approvals) + len(exclusions) + len(new_questions) == report.parsed_count
+    )
+    if manifest.get("stage") == "identity_review" and reviewed_actions_complete:
+        # An earlier UI session may have saved the final decision just before a
+        # restart without advancing the lifecycle. Reconcile only that stale
+        # stage from the checkpointed decisions; no source, answer, proposal,
+        # or Pack data is changed.
+        lifecycle.record_identity_resolution(
+            approved_matches=len(approvals),
+            excluded_records=len(exclusions),
+            retained_new_questions=len(new_questions),
+        )
+        manifest = lifecycle.manifest()
     if report.complete:
         mapping = report.stable_id_by_record_id
     elif manifest.get("stage") == "identity_review":
@@ -215,12 +242,26 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
         draft_deterministic_proposals(questions, findings)
         + draft_benchmark_answer_proposals(questions, benchmark, findings)
     )
-    private_proposals = read_private_user_proposals(run_directory)
+    # Validate the on-disk JSON representation before converting collection
+    # fields back to their immutable domain form. JSON has no tuple type; a
+    # recovered empty answer collection is otherwise `[]` while a parsed
+    # QuestionRecord correctly carries `()`, producing a false stale proposal.
+    stored_private_proposals = read_private_user_proposals(run_directory)
+    identity_repair_findings = []
+    for proposal in stored_private_proposals:
+        if proposal.proposal_id.startswith("PFV2-PROP-USER-IDENTITY-REPAIR-"):
+            suffix = proposal.proposal_id.rsplit("-", 1)[1]
+            identity_repair_findings.append(Finding(
+                f"PFV2-FIND-IDENTITY-REPAIR-{suffix}", proposal.question_id,
+                proposal.field, "identity_matched_field_repair", FindingSeverity.BLOCKING,
+                "Correction staged after identity match; source verification and explicit approval are required.",
+            ))
+    findings += tuple(identity_repair_findings)
     finding_ids = {item.finding_id for item in findings}
     question_ids = {item.question_id for item in questions}
     if any(
         item.finding_id not in finding_ids or item.question_id not in question_ids
-        for item in private_proposals
+        for item in stored_private_proposals
     ):
         raise DomainError("Private proposal cannot be matched to the reconstructed run")
     checkpoint_fingerprints = {
@@ -229,9 +270,13 @@ def recover_run(run_directory: Path, target_pack: dict) -> RecoveredRun:
     }
     if any(
         checkpoint_fingerprints.get(proposal_id) != fingerprint
-        for proposal_id, fingerprint in private_proposal_fingerprints(private_proposals).items()
+        for proposal_id, fingerprint in private_proposal_fingerprints(stored_private_proposals).items()
     ):
         raise DomainError("Private proposal does not match its content-free checkpoint fingerprint")
+    private_proposals = tuple(
+        _restore_private_proposal_collections(item)
+        for item in stored_private_proposals
+    )
     proposals += private_proposals
     proposal_ids = {item.proposal_id for item in proposals}
     proposal_by_fingerprint = {

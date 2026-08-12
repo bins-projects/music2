@@ -13,6 +13,8 @@ from ingestion_v2.domain import (
     ReviewDecision,
     SourceVerification,
     Proposal,
+    Finding,
+    FindingSeverity,
     replace_question_field,
 )
 from ingestion_v2.engine import build_candidate, promotion_readiness
@@ -30,8 +32,8 @@ from ingestion_v2.comparison_groups import (
 from ingestion_v2.review import ReviewStatus, build_review_queue
 from ingestion_v2.review_view import review_queue_view
 from ingestion_v2.run_lifecycle import RunLifecycle
-from ingestion_v2.cleaning import GuardedPageAwareCleaner
-from ingestion_v2.extraction import extract_disposable_copy
+from ingestion_v2.cleaning import CleaningResult, GuardedPageAwareCleaner
+from ingestion_v2.extraction import ExtractionResult, extract_disposable_copy
 from ingestion_v2.parser import ExistingParserAdapter, ParseBatch
 from ingestion_v2.identity import IdentityReport, match_existing_pack_identity
 from ingestion_v2.identity_review import (
@@ -41,7 +43,7 @@ from ingestion_v2.identity_review import (
 )
 from ingestion_v2.pack_bridge import pack_questions_to_domain
 from ingestion_v2.parser_bridge import materialize_matched_batch
-from ingestion_v2.private_proposals import write_private_user_proposals
+from ingestion_v2.private_proposals import read_private_user_proposals, write_private_user_proposals
 from ingestion_v2.qa_adapter import QaResult, detect_candidate_damage
 from ingestion_v2.proposal_adapter import draft_benchmark_answer_proposals, draft_deterministic_proposals
 from ingestion_v2.checkpoint import proposal_fingerprint, write_checkpoint
@@ -78,6 +80,7 @@ class SyntheticWorkbenchSession:
         self._identity_report: IdentityReport | None = None
         self._identity_cases: tuple[IdentityReviewCase, ...] = ()
         self._identity_actions: dict[str, dict[str, str]] = {}
+        self._identity_repair_findings: dict[str, Finding] = {}
         self._identity_mapping: dict[str, str] | None = None
         self._identity_target_pack: dict | None = None
         self._benchmark_questions = None
@@ -102,11 +105,17 @@ class SyntheticWorkbenchSession:
         session._identity_report = recovered.identity_report
         session._identity_cases = recovered.identity_cases
         session._identity_actions = recovered.identity_actions
+        session.proposals = recovered.proposals
+        if session._lifecycle.manifest().get("stage") in {"identity_review", "identity_matched"}:
+            for proposal in read_private_user_proposals(session._lifecycle.run_directory):
+                if proposal.proposal_id.startswith("PFV2-PROP-USER-IDENTITY-REPAIR-"):
+                    record_id = f"PFV2-REC-{proposal.proposal_id.rsplit('-', 1)[1]}"
+                    finding = Finding(f"PFV2-FIND-IDENTITY-REPAIR-{record_id.rsplit('-', 1)[1]}", proposal.question_id, proposal.field, "identity_matched_field_repair", FindingSeverity.BLOCKING, "Field repair staged after identity match; source verification and explicit approval are required.")
+                    session._identity_repair_findings[record_id] = finding
         session._identity_mapping = recovered.identity_mapping
         session._identity_target_pack = target_pack
         session.questions = recovered.questions
         session.findings = recovered.findings
-        session.proposals = recovered.proposals
         session._benchmark_questions = recovered.benchmark
         session._qa_result = recovered.qa_result
         session._decisions_by_proposal = {
@@ -126,6 +135,11 @@ class SyntheticWorkbenchSession:
         raw_path = Path(run_directory) / "artifacts" / "raw.txt"
         if raw_path.is_file() and not raw_path.is_symlink():
             session._source_pages = tuple(raw_path.read_text(encoding="utf-8").split("\n\f\n"))
+        manifest = session._lifecycle.manifest()
+        if manifest.get("raw_text_present"):
+            session._extraction_result = ExtractionResult("", session._source_pages, manifest.get("extraction_adapter", "recovered_private_extraction"), manifest.get("extracted_pages", len(session._source_pages)), manifest.get("extracted_characters", 0))
+        if manifest.get("cleaned_text_present"):
+            session._cleaning_result = CleaningResult("", manifest.get("cleaner_name", "recovered_private_cleaning"), manifest.get("extracted_characters", 0), manifest.get("cleaned_characters", 0), manifest.get("removed_repeated_lines", 0), manifest.get("stripped_repeated_suffixes", 0), manifest.get("protected_repeated_structures", 0), manifest.get("cleaning_meaning_repairs", 0), manifest.get("cleaning_source_specific_rules", 0))
         session._events = [
             SessionEvent("PFV2-EVENT-RECOVERED-000001", "PFV2-CHECKPOINT", "checkpoint:recovered")
         ]
@@ -321,7 +335,8 @@ class SyntheticWorkbenchSession:
                 if key != record_id and value["action"] == "approve"
             } | {item.target_question_id for item in self._identity_report.matches}
             if target_question_id in already_used:
-                raise DomainError("A stable question ID cannot be assigned twice")
+                owner = next((key for key, value in self._identity_actions.items() if key != record_id and value.get("target_question_id") == target_question_id), None)
+                raise DomainError(f"Stable question ID is already assigned to {owner or 'an automatic match'}; inspect that parsed record before changing identity decisions")
             self._identity_actions[record_id] = {
                 "action": action,
                 "target_question_id": target_question_id,
@@ -352,7 +367,6 @@ class SyntheticWorkbenchSession:
         if (
             len(completed) == len(self._identity_cases)
             and len(self._identity_report.matches) + len(approvals) + len(exclusions) + len(new_questions) == self._identity_report.parsed_count
-            and len(self._identity_report.matches) + len(approvals) == self._identity_report.target_count
         ):
             self._identity_mapping = authorize_reviewed_identity(
                 self._identity_report, self._identity_cases, approvals, exclusions, new_questions
@@ -361,6 +375,29 @@ class SyntheticWorkbenchSession:
                 approved_matches=len(approvals), excluded_records=len(exclusions),
                 retained_new_questions=len(new_questions),
             )
+        self._save_checkpoint()
+        return self.view()
+
+    def draft_identity_field_repair(self, record_id: str, field: str, proposed_after, explanation: str) -> dict:
+        """Stage a field repair without changing an already-authorized identity decision."""
+        if self._lifecycle is None or self._parse_batch is None or self._identity_report is None:
+            raise DomainError("Identity matching must be active before staging a field repair")
+        action = self._identity_actions.get(record_id, {})
+        question_id = action.get("target_question_id") or self._identity_report.stable_id_by_record_id.get(record_id)
+        record = next((item for item in self._parse_batch.records if item.record_id == record_id), None)
+        if not question_id or record is None:
+            raise DomainError("Field repair requires an already matched parsed record")
+        question, _ = materialize_matched_batch(ParseBatch((record,), (), self._parse_batch.parser_name), {record_id: question_id})
+        current = getattr(question[0], field)
+        validated = replace_question_field(question[0], field, proposed_after)
+        value = getattr(validated, field)
+        if value == current or not isinstance(explanation, str) or not explanation.strip():
+            raise DomainError("A field repair must change the parsed value and explain the source evidence")
+        suffix = record_id.rsplit("-", 1)[1]
+        finding = Finding(f"PFV2-FIND-IDENTITY-REPAIR-{suffix}", question_id, field, "identity_matched_field_repair", FindingSeverity.BLOCKING, "Field repair staged after identity match; source verification and explicit approval are required.")
+        proposal = Proposal(f"PFV2-PROP-USER-IDENTITY-REPAIR-{suffix}", finding.finding_id, question_id, field, current, value, explanation.strip(), True)
+        self._identity_repair_findings[record_id] = finding
+        self.proposals = tuple(item for item in self.proposals if item.finding_id != finding.finding_id) + (proposal,)
         self._save_checkpoint()
         return self.view()
 
@@ -443,15 +480,13 @@ class SyntheticWorkbenchSession:
             detector_counts=qa_result.detector_counts,
         )
         benchmark = pack_questions_to_domain(self._identity_target_pack)
-        if not {item.question_id for item in benchmark}.issubset(
-            {item.question_id for item in questions}
-        ):
-            raise DomainError("Materialized identity is missing protected stable IDs")
+        staged = tuple(item for item in self.proposals if item.proposal_id.startswith("PFV2-PROP-USER-IDENTITY-REPAIR-"))
         self.questions = questions
-        self.findings = findings + qa_result.findings
+        self.findings = findings + qa_result.findings + tuple(self._identity_repair_findings.values())
         self.proposals = (
             draft_deterministic_proposals(questions, self.findings)
             + draft_benchmark_answer_proposals(questions, benchmark, self.findings)
+            + staged
         )
         self._benchmark_questions = benchmark
         self._qa_result = qa_result
@@ -878,22 +913,24 @@ class SyntheticWorkbenchSession:
             raise DomainError("Source page viewing is unavailable for this review state")
         if not self._source_pages:
             raise DomainError("Temporary source pages are no longer available")
-        needle = _source_search_text(case.question.stem)
-        matches = [
-            index
-            for index, page in enumerate(self._source_pages)
-            if needle and needle in _source_search_text(page)
-        ]
-        if len(matches) != 1:
+        page_indexes = _source_context_page_indexes(
+            case.question.stem,
+            self._source_pages,
+        )
+        if not page_indexes:
             raise DomainError("PrepFlow could not locate one unambiguous temporary source page")
-        page_index = matches[0]
+        page_index = page_indexes[0]
         self._viewed_source_findings.add(finding_id)
         event_number = len(self._events) + 1
         self._events.append(
             SessionEvent(
                 event_id=f"PFV2-EVENT-{event_number:06d}",
                 finding_id=finding_id,
-                event_type=f"source_page:viewed:{page_index + 1}",
+                event_type=(
+                    f"source_page:viewed:{page_index + 1}"
+                    if len(page_indexes) == 1
+                    else f"source_pages:viewed:{page_indexes[0] + 1}-{page_indexes[-1] + 1}"
+                ),
             )
         )
         return {
@@ -904,6 +941,11 @@ class SyntheticWorkbenchSession:
             "page_number": page_index + 1,
             "page_count": len(self._source_pages),
             "text": self._source_pages[page_index],
+            "page_range": [page_indexes[0] + 1, page_indexes[-1] + 1],
+            "pages": [
+                {"page_number": index + 1, "text": self._source_pages[index]}
+                for index in page_indexes
+            ],
             "temporary": True,
             "canonical_write_available": False,
         }
@@ -952,10 +994,11 @@ class SyntheticWorkbenchSession:
         return self.view()
 
     def _queue(self):
+        finding_ids = {item.finding_id for item in self.findings}
         return build_review_queue(
             self.questions,
             self.findings,
-            self.proposals,
+            tuple(item for item in self.proposals if item.finding_id in finding_ids),
             tuple(self._decisions_by_proposal.values()),
             tuple(self._verifications_by_proposal.values()),
             tuple(self._dispositions_by_finding.values()),
@@ -986,6 +1029,11 @@ class SyntheticWorkbenchSession:
             blocking_reasons.append("unreviewed_comparison_field_changes")
         if self._post_group_qa_result is not None and self._post_group_qa_result.findings:
             blocking_reasons.append("post_group_qa_findings")
+        identity_excluded_record_ids = sorted(
+            record_id
+            for record_id, action in self._identity_actions.items()
+            if action.get("action") in {"exclude_parser_debris", "exclude_duplicate"}
+        )
         return {
             "state": "built_in_memory",
             "persistent": False,
@@ -993,6 +1041,11 @@ class SyntheticWorkbenchSession:
             "applied_proposal_ids": list(self._candidate.applied_proposal_ids),
             "unresolved_finding_ids": list(self._candidate.unresolved_finding_ids),
             "excluded_question_ids": list(self._candidate.excluded_question_ids),
+            "excluded_source_record_ids": identity_excluded_record_ids,
+            "documented_exclusion_count": (
+                len(self._candidate.excluded_question_ids)
+                + len(identity_excluded_record_ids)
+            ),
             "promotion_ready": False if self._source_only else readiness.ready and not blocking_reasons,
             "blocking_reasons": blocking_reasons,
         }
@@ -1079,12 +1132,17 @@ class SyntheticWorkbenchSession:
                 "parsed_correct_answers": list(case.parsed_correct_answers),
                 "status": self._identity_actions.get(case.record_id, {}).get("action", "pending"),
                 "selected_target_question_id": self._identity_actions.get(case.record_id, {}).get("target_question_id") or None,
+                "field_repair_staged": case.record_id in self._identity_repair_findings,
                 "suggestions": [item.__dict__ for item in case.suggestions],
             }
             for case in self._identity_cases
         ]
         view["review_approved_count"] = sum(
             item.get("action") == "approve" for item in self._identity_actions.values()
+        )
+        view["unresolved_count"] = sum(
+            self._identity_actions.get(case.record_id, {}).get("action", "pending") in {"pending", "defer"}
+            for case in self._identity_cases
         )
         view["automatic_id_assignments_authorized"] = self._identity_report.complete
         view["reviewed_id_assignments_authorized"] = bool(resolved and self._identity_cases)
@@ -1276,6 +1334,49 @@ def _locate_source_page(value: str, pages: tuple[str, ...]) -> int:
     if len(matches) != 1:
         raise DomainError("PrepFlow could not locate one unambiguous temporary source page")
     return matches[0]
+
+
+def _source_context_page_indexes(value: str, pages: tuple[str, ...]) -> tuple[int, ...]:
+    """Return a verified temporary-source page or contiguous page range.
+
+    A saved parsed stem can contain a trailing page footer which physically
+    follows the question's rationale.  In that case an exact whole-stem search
+    is invalid, but a unique opening anchor still provides trustworthy source
+    provenance.  A range is returned only when unique opening and closing
+    anchors identify its two ends; otherwise ambiguity remains blocked.
+    """
+    needle = _source_search_text(value)
+    if not needle:
+        return ()
+    normalized_pages = tuple(_source_search_text(page) for page in pages)
+    exact_matches = tuple(
+        index for index, page in enumerate(normalized_pages) if needle in page
+    )
+    if len(exact_matches) == 1:
+        return exact_matches
+
+    words = needle.split()
+    opening_anchor = " ".join(words[:12])
+    opening_matches = tuple(
+        index for index, page in enumerate(normalized_pages)
+        if opening_anchor and opening_anchor in page
+    )
+    if len(opening_matches) != 1:
+        return ()
+
+    # A footer or other trailing parser contamination may not exist at the
+    # physical end of the question.  The unique opening anchor is therefore a
+    # valid single-page provenance result.  Only expand to a range when a
+    # distinct, unique closing anchor supports it.
+    for size in range(min(12, len(words)), 3, -1):
+        closing_anchor = " ".join(words[-size:])
+        closing_matches = tuple(
+            index for index, page in enumerate(normalized_pages)
+            if closing_anchor and closing_anchor in page
+        )
+        if len(closing_matches) == 1 and closing_matches[0] >= opening_matches[0]:
+            return tuple(range(opening_matches[0], closing_matches[0] + 1))
+    return opening_matches
 
 
 def _source_search_text(value: str) -> str:

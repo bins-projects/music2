@@ -8,9 +8,13 @@ from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from ingestion_v2.demo import SYNTHETIC_DOCUMENT
 
-from ingestion_v2.domain import DomainError
-from ingestion_v2.recovery import list_completed_runs, list_recoverable_runs
-from ingestion_v2.workbench_session import SyntheticWorkbenchSession
+from ingestion_v2.domain import DomainError, Proposal
+from ingestion_v2.recovery import (
+    _restore_private_proposal_collections,
+    list_completed_runs,
+    list_recoverable_runs,
+)
+from ingestion_v2.workbench_session import SyntheticWorkbenchSession, _source_context_page_indexes
 
 
 def case(payload: dict, finding_id: str) -> dict:
@@ -889,6 +893,51 @@ def test_pdf_source_verification_requires_opening_temporary_page_first(tmp_path)
     assert not private_proposals.exists()
 
 
+def test_source_context_uses_verified_page_range_when_whole_stem_crosses_pages() -> None:
+    """A saved parsed stem need not fit within one physical source page."""
+    source_pages = (
+        "A nurse assesses a patient after a head injury and notes decreasing level of consciousness.",
+        "The nurse recognizes these findings as increased intracranial pressure. Source metadata follows.",
+    )
+    parsed_stem = (
+        "A nurse assesses a patient after a head injury and notes decreasing level of consciousness. "
+        "The nurse recognizes these findings as increased intracranial pressure."
+    )
+
+    assert _source_context_page_indexes(parsed_stem, source_pages) == (0, 1)
+
+
+def test_source_context_uses_unique_saved_opening_provenance_when_footer_is_attached() -> None:
+    source_pages = (
+        "A nurse assesses a patient after a head injury and notes decreasing level of consciousness. "
+        "The question ends here. Rationale and source metadata follow.",
+    )
+    parsed_stem = (
+        "A nurse assesses a patient after a head injury and notes decreasing level of consciousness. "
+        "The question ends here. Powered by TCPDF (www.tcpdf.org)"
+    )
+
+    # The TCPDF footer is physically after the rationale, so a whole-stem
+    # search fails.  The unique question opening is still recorded as the
+    # temporary source provenance; no page is guessed.
+    assert _source_context_page_indexes(parsed_stem, source_pages) == (0,)
+
+
+def test_recovery_restores_empty_answer_collection_before_candidate_build() -> None:
+    stored = Proposal(
+        "PFV2-PROP-USER-000001", "PFV2-FIND-PARSE-000001",
+        "PFQ-test-000000001", "correct_answers", [], ["C"],
+        "Verified from the temporary source.", False,
+    )
+
+    restored = _restore_private_proposal_collections(stored)
+
+    assert restored.expected_before == ()
+    assert restored.proposed_after == ("C",)
+    # The stored JSON form remains untouched for checkpoint fingerprinting.
+    assert stored.expected_before == []
+
+
 def test_pdf_run_rejects_empty_selection_before_creating_workspace(tmp_path) -> None:
     session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
 
@@ -1058,3 +1107,49 @@ def test_resume_rejects_target_pack_mismatch(tmp_path) -> None:
 
     with pytest.raises(DomainError, match="target Pack"):
         SyntheticWorkbenchSession.resume_run(session._lifecycle.run_directory, wrong)
+
+
+def test_recovered_run_retains_extraction_and_cleaning_metrics(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(["Chapter 1: Resume", "MULTIPLE CHOICE", "1. Which?", "a. First", "ANS: A", "First."])
+    target = {"format": "prepflow_pack", "pack_id": "test", "questions": [{"id": "PFQ-test-000000001", "chapter": 1, "type": "mc", "stem": "Which?"}]}
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    session.match_existing_pack(target)
+    resumed = SyntheticWorkbenchSession.resume_run(session._lifecycle.run_directory, target)
+    assert resumed.view()["pipeline"]["extraction"]["adapter"] == "text_pdf_pages_v1"
+    assert resumed.view()["pipeline"]["cleaning"]["cleaner"] == "native_guarded_page_aware_source_neutral_v2"
+
+
+def test_recovery_advances_completed_identity_actions_to_materialization(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(["Chapter 1: Resume", "MULTIPLE CHOICE", "1. Changed?", "a. First", "ANS: A", "Reason."])
+    target = {"format": "prepflow_pack", "pack_id": "test", "questions": [{"id": "PFQ-test-000000001", "chapter": 1, "type": "mc", "stem": "Original?"}]}
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    session.match_existing_pack(target)
+    session.record_identity_action("PFV2-REC-000001", "approve", "PFQ-test-000000001")
+    session._lifecycle._write_manifest({**session._lifecycle.manifest(), "stage": "identity_review", "identity_complete": False})
+    resumed = SyntheticWorkbenchSession.resume_run(session._lifecycle.run_directory, target)
+    assert resumed.view()["run"]["state"] == "identity_matched"
+    assert resumed._identity_mapping == {"PFV2-REC-000001": "PFQ-test-000000001"}
+
+
+
+
+def test_matched_identity_can_stage_a_later_verified_stem_repair(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes([
+        "Chapter 1: Repair", "MULTIPLE CHOICE", "1. Broken stem N/A", "a. enculturation", "ANS: A", "Reason.",
+    ])
+    target = {"format": "prepflow_pack", "pack_id": "test", "questions": [{
+        "id": "PFQ-test-000000001", "chapter": 1, "type": "mc", "stem": "Broken stem.",
+    }]}
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+    session.match_existing_pack(target)
+    session.record_identity_action("PFV2-REC-000001", "approve", "PFQ-test-000000001")
+    staged = session.draft_identity_field_repair("PFV2-REC-000001", "stem", "Broken stem.", "Verified source metadata was not part of the question.")
+    assert staged["pipeline"]["identity"]["review_cases"][0]["field_repair_staged"] is True
+    materialized = session.materialize_identity_review()
+    case = next(item for item in materialized["cases"] if item["field"] == "stem")
+    assert case["question_id"] == "PFQ-test-000000001"
+    assert {"approve", "reject", "defer"}.issubset(case["allowed_actions"])
+    assert case["proposal"]["requires_source_verification"] is True

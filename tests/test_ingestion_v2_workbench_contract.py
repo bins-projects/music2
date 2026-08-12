@@ -22,6 +22,8 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     assert '"/api/actions"' in script
     assert '"/api/dispositions"' in script
     assert 'fetch("/api/candidate"' in script
+    assert "Building new v2 Pack…" in script
+    assert "candidateBuildInFlight" in script
     assert 'fetch("/api/comparison"' in script
     assert "localStorage" not in script
     assert 'id="repair-desk-query"' in html
@@ -108,13 +110,15 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert "IDENTITY_PACKS" in server
     assert "Unknown protected Pack selection" in server
     assert "/api/identity/actions" in script
-    assert "Match selected ID" in script
-    assert "Keep as new question" in script
-    assert "Exclude parser debris" in script
-    assert "Exclude duplicate record" in script
-    assert "Leave unresolved" in script
-    assert 'entry.status === "pending") || identityCases[0]' in script
-    assert "Ranked suggestion only" in script
+    assert "Same question" in script
+    assert "Accept new question" in script
+    assert "Exclude source artifact" in script
+    assert "Exclude duplicate" in script
+    assert "Decide later" in script
+    assert 'unresolvedIdentity.find((entry) => entry.record_id === selectedIdentityRecordId)' in script
+    assert '|| unresolvedIdentity[0]' in script
+    assert '["pending", "defer"].includes(entry.status)' in script
+    assert "Old Pack reference only" in script
     assert "identity-target-preview" in script
     assert "selected?.target_stem" in script
     assert "/api/identity/materialize" in script

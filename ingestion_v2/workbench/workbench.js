@@ -6,6 +6,9 @@
   let selectedIndex = 0;
   let resumableRun = null;
   let selectedNewRunPack = null;
+  let selectedIdentityRecordId = null;
+  let candidateBuildInFlight = false;
+  let candidateBuildError = "";
 
   const labels = {
     approve: "Approve proposal",
@@ -202,6 +205,8 @@
 
   function openProposalEditor(item) {
     const dialog = document.getElementById("proposal-dialog");
+    delete dialog.dataset.identityRepair;
+    delete dialog.dataset.identityRecordId;
     dialog.dataset.findingId = item.finding_id;
     const value = item.proposal?.proposed_value ?? item.preserved_value;
     dialog.dataset.valueType = typeof value === "string" ? "text" : "json";
@@ -214,8 +219,25 @@
     dialog.showModal();
   }
 
+  function openIdentityRepairEditor(item) {
+    const dialog = document.getElementById("proposal-dialog");
+    dialog.dataset.identityRecordId = item.record_id;
+    dialog.dataset.valueType = "text";
+    dialog.dataset.identityRepair = "true";
+    document.getElementById("proposal-value").value = item.parsed_stem || "";
+    document.getElementById("proposal-reason").value = "Verified against temporary source page.";
+    document.getElementById("proposal-verification").checked = true;
+    document.getElementById("proposal-verification").disabled = true;
+    document.getElementById("proposal-error").textContent = "This repair requires source verification and explicit approval after identity review.";
+    dialog.showModal();
+  }
+
   document.getElementById("proposal-cancel").addEventListener("click", () => {
-    document.getElementById("proposal-dialog").close();
+    const dialog = document.getElementById("proposal-dialog");
+    delete dialog.dataset.identityRepair;
+    delete dialog.dataset.identityRecordId;
+    document.getElementById("proposal-verification").disabled = false;
+    dialog.close();
   });
 
   document.getElementById("proposal-form").addEventListener("submit", async (event) => {
@@ -227,11 +249,14 @@
       const proposedAfter = dialog.dataset.valueType === "text"
         ? rawValue
         : JSON.parse(rawValue);
-      const response = await fetch("/api/proposals", {
+      const identityRepair = dialog.dataset.identityRepair === "true";
+      const response = await fetch(identityRepair ? "/api/identity/repairs" : "/api/proposals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           finding_id: dialog.dataset.findingId,
+          record_id: dialog.dataset.identityRecordId,
+          field: "stem",
           proposed_after: proposedAfter,
           explanation: document.getElementById("proposal-reason").value,
           requires_source_verification: document.getElementById("proposal-verification").checked
@@ -240,6 +265,9 @@
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Proposal was rejected.");
       dialog.close();
+      delete dialog.dataset.identityRepair;
+      delete dialog.dataset.identityRecordId;
+      document.getElementById("proposal-verification").disabled = false;
       acceptEnginePayload(result);
     } catch (error) {
       errorNode.textContent = error instanceof SyntaxError
@@ -257,8 +285,14 @@
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Temporary source page is unavailable.");
-      document.getElementById("source-page-title").textContent = `Extracted PDF page ${result.page_number} of ${result.page_count}`;
-      document.getElementById("source-page-text").textContent = result.text;
+      const first = result.page_range?.[0] || result.page_number;
+      const last = result.page_range?.[1] || result.page_number;
+      document.getElementById("source-page-title").textContent = first === last
+        ? `Extracted PDF page ${first} of ${result.page_count}`
+        : `Extracted PDF context · pages ${first}–${last} of ${result.page_count}`;
+      document.getElementById("source-page-text").textContent = result.pages
+        ? result.pages.map((page) => `PAGE ${page.page_number}\n\n${page.text}`).join("\n\n════════════════════════════════════════\n\n")
+        : result.text;
       document.getElementById("source-dialog").showModal();
     } catch (error) {
       document.getElementById("decision-help").textContent = error.message;
@@ -335,10 +369,10 @@
       document.getElementById(labelId).textContent = label;
     };
     if (identityReview && identity?.state !== "not_run") {
-      set("case-count", "case-count-label", identity.parsed_count, "parsed records");
-      set("blocking-count", "blocking-count-label", identity.matched_count, "exact ID matches");
-      set("verified-count", "verified-count-label", identity.finding_count, "source records to classify");
-      set("summary-tail-count", "summary-tail-label", identity.target_only_count, "Pack-only records");
+      set("case-count", "case-count-label", identity.unresolved_count, "questions need review");
+      set("blocking-count", "blocking-count-label", identity.matched_count, "stable IDs retained");
+      set("verified-count", "verified-count-label", identity.review_approved_count, "review decisions saved");
+      set("summary-tail-count", "summary-tail-label", "New v2", "replacement Pack");
       return;
     }
     set("case-count", "case-count-label", cases.length, "review cases");
@@ -358,10 +392,16 @@
     const identityCases = payload.pipeline?.identity?.review_cases || [];
     // Advance past deliberately unresolved cases while any untouched cases
     // remain. Once all cases have a decision, keep one visible for review.
-    const identityCase = identityCases.find((entry) => entry.status === "pending") || identityCases[0];
+    const unresolvedIdentity = identityCases.filter((entry) => ["pending", "defer"].includes(entry.status));
+    const identityCase = unresolvedIdentity.find((entry) => entry.record_id === selectedIdentityRecordId)
+      || unresolvedIdentity[0]
+      || identityCases.find((entry) => entry.record_id === selectedIdentityRecordId)
+      || identityCases[0];
     const blocking = cases.filter((entry) => entry.severity === "blocking" && !["approved", "excluded_record"].includes(entry.status)).length;
     renderSummaryCounts(identityCases, blocking);
-    document.getElementById("queue-position").textContent = `${selectedIndex + 1} / ${cases.length}`;
+    document.getElementById("queue-position").textContent = payload.run?.state === "identity_review"
+      ? `Question ${Math.max(1, unresolvedIdentity.findIndex((entry) => entry.record_id === identityCase?.record_id) + 1)} of ${unresolvedIdentity.length}`
+      : `Question ${selectedIndex + 1} of ${cases.length}`;
     renderRun();
     renderCandidate();
     if (!item) {
@@ -391,14 +431,14 @@
       renderQueue();
       return;
     }
-    document.getElementById("question-meta").textContent = `${item.question_id} · ${chapterLabel(item)}${sourceRecordLabel(item)} · ${item.field}`;
+    document.getElementById("question-meta").textContent = `NEW V2 QUESTION · ${item.question_id} · ${chapterLabel(item)}${sourceRecordLabel(item)} · ${item.field}`;
     document.getElementById("damage-title").textContent = item.damage_type.replaceAll("_", " ");
     const pill = document.getElementById("status-pill");
     pill.textContent = statusLabels[item.status];
     pill.dataset.status = item.status;
     document.getElementById("finding-explanation").textContent = item.explanation;
-    document.getElementById("preserved-card-label").innerHTML = '<span class="dot amber"></span>Preserved complete question';
-    document.getElementById("proposed-card-label").innerHTML = '<span class="dot blue"></span>Proposed complete question';
+    document.getElementById("preserved-card-label").innerHTML = '<span class="dot amber"></span>New v2 question';
+    document.getElementById("proposed-card-label").innerHTML = '<span class="dot blue"></span>Correction to new question';
     document.getElementById("preserved-value").innerHTML = item.preserved_question
       ? formatQuestionPacket(item.preserved_question)
       : formatReviewValue(item.preserved_value, item);
@@ -418,15 +458,14 @@
   }
 
   function renderIdentityCase(item) {
-    document.getElementById("preserved-card-label").innerHTML = '<span class="dot amber"></span>Preserved parsed structure';
-    document.getElementById("proposed-card-label").innerHTML = '<span class="dot blue"></span>Identity evidence';
-    document.getElementById("queue-position").textContent = `${item.record_id} · ${item.status}`;
-    document.getElementById("question-meta").textContent = `${item.record_id} · ${chapterLabel(item)}`;
-    document.getElementById("damage-title").textContent = "Identity review required";
+    document.getElementById("preserved-card-label").innerHTML = '<span class="dot amber"></span>New v2 question';
+    document.getElementById("proposed-card-label").innerHTML = '<span class="dot blue"></span>Old Pack reference';
+    document.getElementById("question-meta").textContent = `NEW V2 QUESTION · ${item.record_id} · ${chapterLabel(item)}`;
+    document.getElementById("damage-title").textContent = "Review this new v2 question";
     const pill = document.getElementById("status-pill");
     pill.textContent = item.status === "pending" ? "Review required" : item.status;
     pill.dataset.status = item.status;
-    document.getElementById("finding-explanation").textContent = "Parsing succeeded, but PrepFlow cannot safely decide whether this is a question, parser debris, or a duplicate. The protected Pack supplies identity evidence only—not corrected content.";
+    document.getElementById("finding-explanation").textContent = "This new v2 question needs a human decision because its old-Pack reference was not unambiguous. The source PDF remains authoritative.";
     const preserved = document.getElementById("preserved-value");
     preserved.replaceChildren();
     const stem = document.createElement("div");
@@ -477,7 +516,7 @@
     select.addEventListener("change", showSelectedSuggestion);
     proposed.append(select, preview);
     showSelectedSuggestion();
-    document.getElementById("proposal-explanation").textContent = "Ranked suggestion only; this is identity evidence. Matching does not copy the Pack's wording or answer into this record.";
+    document.getElementById("proposal-explanation").textContent = "Old Pack reference only. It never replaces this new v2 question’s wording or answer.";
     document.getElementById("verification-card").hidden = true;
     const actions = document.getElementById("actions");
     actions.replaceChildren();
@@ -487,12 +526,28 @@
     source.className = "secondary";
     source.addEventListener("click", () => openIdentitySourceContext(item));
     actions.append(source);
+    if (item.status === "approve") {
+      const matched = document.createElement("strong");
+      matched.textContent = "Identity matched — field repair remains available.";
+      actions.append(matched);
+      const repair = document.createElement("button");
+      repair.type = "button";
+      repair.className = "primary";
+      repair.textContent = item.field_repair_staged ? "Edit field repair" : "Create field repair";
+      repair.addEventListener("click", () => openIdentityRepairEditor(item));
+      actions.append(repair);
+      const next = document.createElement("button");
+      next.type = "button";
+      next.textContent = "Next record";
+      next.addEventListener("click", () => { selectedIdentityRecordId = null; render(); });
+      actions.append(next);
+    }
     [
-      ["approve", "Match selected ID", "primary"],
-      ["retain_new_question", "Keep as new question", "primary"],
-      ["exclude_parser_debris", "Exclude parser debris", "danger"],
-      ["exclude_duplicate", "Exclude duplicate record", "danger"],
-      ["defer", "Leave unresolved", "secondary"]
+      ["approve", "Same question", "primary"],
+      ["retain_new_question", "Accept new question", "primary"],
+      ["exclude_parser_debris", "Exclude source artifact", "danger"],
+      ["exclude_duplicate", "Exclude duplicate", "danger"],
+      ["defer", "Decide later", "secondary"]
     ].forEach(([action, label, style]) => {
       const button = document.createElement("button");
       button.type = "button";
@@ -518,6 +573,7 @@
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Identity decision was rejected.");
+      selectedIdentityRecordId = item.record_id;
       acceptEnginePayload(result);
     } catch (error) {
       document.getElementById("decision-help").textContent = error.message;
@@ -604,17 +660,20 @@
     const comparisonButton = document.getElementById("comparison-button");
     if (!candidate || candidate.state === "not_built") {
       state.textContent = "Not built";
-      detail.textContent = "Builds in memory only. Unresolved findings remain visible.";
-      button.disabled = payload.session?.mode !== "synthetic_in_memory" || !["review_ready", "candidate_built", "compared", "unmanaged_demo"].includes(payload.run?.state);
+      detail.textContent = candidateBuildInFlight
+        ? "Building new v2 Pack…"
+        : candidateBuildError || "Builds in memory only. Unresolved findings remain visible.";
+      button.textContent = candidateBuildInFlight ? "Building new v2 Pack…" : "Build isolated candidate";
+      button.disabled = candidateBuildInFlight || payload.session?.mode !== "synthetic_in_memory" || !["review_ready", "candidate_built", "compared", "unmanaged_demo"].includes(payload.run?.state);
       comparisonButton.disabled = true;
       comparisonDetail.textContent = "Comparison has not run.";
       comparisonChanges.replaceChildren();
       return;
     }
     state.textContent = `${candidate.question_count} questions · ${candidate.applied_proposal_ids.length} approved proposal(s) applied`;
-    detail.textContent = `${candidate.unresolved_finding_ids.length} unresolved finding(s) · ${candidate.excluded_question_ids.length} documented exclusion(s) · promotion remains ${candidate.promotion_ready ? "ready" : "blocked"}.`;
-    button.textContent = "Rebuild isolated candidate";
-    button.disabled = payload.run?.state === "completed";
+    detail.textContent = `${candidate.unresolved_finding_ids.length} unresolved finding(s) · ${candidate.documented_exclusion_count ?? candidate.excluded_question_ids.length} documented exclusion(s) · promotion remains ${candidate.promotion_ready ? "ready" : "blocked"}.`;
+    button.textContent = candidateBuildInFlight ? "Building new v2 Pack…" : "Rebuild isolated candidate";
+    button.disabled = candidateBuildInFlight || payload.run?.state === "completed";
     comparisonButton.disabled = payload.session?.mode !== "synthetic_in_memory" || payload.run?.state === "completed";
     if (payload.comparison?.state === "complete") {
       const identityStatus = payload.comparison.stable_ids_exact ? "stable IDs exact" : "all ID differences documented";
@@ -756,21 +815,27 @@
     document.getElementById("source-dialog").close();
   });
 
-  document.getElementById("candidate-button").addEventListener("click", () => {
-    if (payload.session?.mode !== "synthetic_in_memory") return;
-    fetch("/api/candidate", {
+  document.getElementById("candidate-button").addEventListener("click", async () => {
+    if (payload.session?.mode !== "synthetic_in_memory" || candidateBuildInFlight) return;
+    candidateBuildInFlight = true;
+    candidateBuildError = "";
+    renderCandidate();
+    try {
+      const response = await fetch("/api/candidate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{}"
-    })
-      .then(async (response) => {
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Candidate build failed.");
-        acceptEnginePayload(result);
-      })
-      .catch((error) => {
-        document.getElementById("decision-help").textContent = error.message;
       });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Candidate build failed.");
+      candidateBuildInFlight = false;
+      acceptEnginePayload(result);
+    } catch (error) {
+      candidateBuildInFlight = false;
+      candidateBuildError = error.message;
+      document.getElementById("decision-help").textContent = error.message;
+      renderCandidate();
+    }
   });
 
   document.getElementById("comparison-button").addEventListener("click", () => {

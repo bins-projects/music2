@@ -686,6 +686,7 @@ class SyntheticWorkbenchSession:
         action_map = {
             "leave_blocked": DispositionAction.RETAIN_BLOCKER,
             "exclude_record": DispositionAction.EXCLUDE_RECORD,
+            "accept_as_is": DispositionAction.ACCEPT_AS_IS,
         }
         if action == "restore_record" and action in case.allowed_actions:
             self._dispositions_by_finding.pop(finding_id, None)
@@ -694,7 +695,10 @@ class SyntheticWorkbenchSession:
             self._return_lifecycle_to_review()
             self._save_checkpoint()
             return self.view()
-        if action not in action_map or action not in case.allowed_actions:
+        if action not in action_map or (
+            action not in case.allowed_actions
+            and not (action == "accept_as_is" and case.proposal is None)
+        ):
             raise DomainError(f"Disposition is not allowed for current review state: {action}")
         allowed_targets = {case.finding.question_id}
         if case.finding.related_question_id:

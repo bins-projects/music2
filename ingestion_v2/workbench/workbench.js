@@ -9,6 +9,7 @@
   let selectedIdentityRecordId = null;
   let candidateBuildInFlight = false;
   let candidateBuildError = "";
+  let actionInFlight = false;
 
   const labels = {
     approve: "Approve proposal",
@@ -131,8 +132,8 @@
     const sourceLabel = source ? `${source.display_name} · ${run.run_id || "run pending"}` : (run.run_id ? `Current run · ${run.run_id}` : "No active source");
     const candidate = payload.candidate || {};
     const candidateLabel = candidate.state === "built_in_memory"
-      ? `Isolated candidate · ${candidate.question_count} questions${candidate.promotion_ready ? "" : " · promotion blocked"}`
-      : run.private_checkpoint ? "Private checkpoint available" : "No isolated candidate";
+      ? `New Pack candidate · ${candidate.question_count} questions`
+      : run.private_checkpoint ? "Private checkpoint available" : "No new Pack candidate";
     document.getElementById("local-status-source").textContent = sourceLabel;
     document.getElementById("local-status-candidate").textContent = candidateLabel;
   }
@@ -140,14 +141,33 @@
   function renderActions(item) {
     const actions = document.getElementById("actions");
     actions.replaceChildren();
+    if (["approved", "excluded_record"].includes(item.status)) return;
+    const add = (label, style, callback) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.className = style;
+      button.disabled = actionInFlight;
+      button.addEventListener("click", callback);
+      actions.append(button);
+    };
+    add("Accept and next", "primary", () => {
+      if (item.proposal) takeAction(item, "approve");
+      else takeDuplicateDisposition(item, "accept_as_is");
+    });
+    add("Fix question", "secondary", () => openProposalEditor(item));
+    add("Exclude", "danger", () => openExcludeMenu(item));
+    add("Decide later", "secondary", () => item.proposal ? takeAction(item, "defer") : takeDuplicateDisposition(item, "leave_blocked"));
     if (["needs_proposal", "awaiting_decision", "deferred", "rejected"].includes(item.status)) {
       const source = document.createElement("button");
       source.type = "button";
       source.className = "secondary";
       source.textContent = "Open temporary source page";
       source.addEventListener("click", () => openFindingSource(item));
+      source.textContent = "Open source context";
       actions.append(source);
     }
+    return;
     if (item.damage_type === "complete_duplicate_record" && item.related_question) {
       if (item.status === "excluded_record") {
         const restore = document.createElement("button");
@@ -186,6 +206,9 @@
 
   async function takeDuplicateDisposition(item, action, targetQuestionId = null) {
     try {
+      actionInFlight = true;
+      document.getElementById("decision-help").textContent = "Saving…";
+      renderActions(item);
       const response = await fetch("/api/dispositions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -200,6 +223,8 @@
       acceptEnginePayload(result);
     } catch (error) {
       document.getElementById("decision-help").textContent = error.message;
+    } finally {
+      actionInFlight = false;
     }
   }
 
@@ -208,13 +233,29 @@
     delete dialog.dataset.identityRepair;
     delete dialog.dataset.identityRecordId;
     dialog.dataset.findingId = item.finding_id;
+    dialog.dataset.findingField = item.field;
+    dialog.dataset.questionId = item.question_id;
     const value = item.proposal?.proposed_value ?? item.preserved_value;
     dialog.dataset.valueType = typeof value === "string" ? "text" : "json";
     document.getElementById("proposal-value").value = typeof value === "string"
       ? value
       : JSON.stringify(value, null, 2);
-    document.getElementById("proposal-reason").value = item.proposal?.explanation || "";
-    document.getElementById("proposal-verification").checked = Boolean(item.proposal?.requires_source_verification);
+    document.getElementById("proposal-reason").value = "Operator field correction.";
+    document.getElementById("proposal-verification").checked = false;
+    const picker = document.getElementById("answer-choice-picker");
+    const select = document.getElementById("answer-choice-select");
+    picker.hidden = item.field !== "correct_answers";
+    select.replaceChildren();
+    if (item.field === "correct_answers") {
+      (item.answer_choice_context || []).forEach(([label, text]) => {
+        const option = document.createElement("option");
+        option.value = label;
+        option.textContent = `${label} — ${text}`;
+        option.selected = (item.preserved_value || []).includes(label);
+        select.append(option);
+      });
+      select.addEventListener("change", () => { document.getElementById("proposal-value").value = select.value; }, { once: true });
+    }
     document.getElementById("proposal-error").textContent = "";
     dialog.showModal();
   }
@@ -248,7 +289,7 @@
       const rawValue = document.getElementById("proposal-value").value;
       const proposedAfter = dialog.dataset.valueType === "text"
         ? rawValue
-        : JSON.parse(rawValue);
+        : dialog.dataset.findingField === "correct_answers" ? [document.getElementById("answer-choice-select").value] : JSON.parse(rawValue);
       const identityRepair = dialog.dataset.identityRepair === "true";
       const response = await fetch(identityRepair ? "/api/identity/repairs" : "/api/proposals", {
         method: "POST",
@@ -264,11 +305,17 @@
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Proposal was rejected.");
+      if (!identityRepair) {
+        const approve = await fetch("/api/actions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ finding_id: dialog.dataset.findingId, action: "approve" }) });
+        const approved = await approve.json();
+        if (!approve.ok) throw new Error(approved.error || "Fix was saved but could not be accepted.");
+        acceptEnginePayload(approved, dialog.dataset.questionId);
+      }
       dialog.close();
       delete dialog.dataset.identityRepair;
       delete dialog.dataset.identityRecordId;
       document.getElementById("proposal-verification").disabled = false;
-      acceptEnginePayload(result);
+      if (identityRepair) acceptEnginePayload(result);
     } catch (error) {
       errorNode.textContent = error instanceof SyntaxError
         ? "Proposed value must be valid JSON. Text values need quotation marks."
@@ -299,6 +346,20 @@
     }
   }
 
+  function openExcludeMenu(item) {
+    const actions = document.getElementById("actions");
+    actions.replaceChildren();
+    [
+      ["Duplicate question", "exclude_record"],
+      ["Source/parser artifact", "exclude_record"],
+    ].forEach(([label, action]) => {
+      const button = document.createElement("button");
+      button.type = "button"; button.className = "danger"; button.textContent = label;
+      button.addEventListener("click", () => takeDuplicateDisposition(item, action));
+      actions.append(button);
+    });
+  }
+
   async function openIdentitySourceContext(item) {
     try {
       const response = await fetch("/api/identity/source-context", {
@@ -327,6 +388,9 @@
   async function takeAction(item, action) {
     if (payload.session?.mode === "synthetic_in_memory") {
       try {
+        actionInFlight = true;
+        document.getElementById("decision-help").textContent = "Saving…";
+        renderActions(item);
         const dispositionAction = action === "leave_blocked" || action === "exclude_record";
         const response = await fetch(dispositionAction ? "/api/dispositions" : "/api/actions", {
           method: "POST",
@@ -338,6 +402,8 @@
         acceptEnginePayload(result, action === "reject" ? item.question_id : null);
       } catch (error) {
         document.getElementById("decision-help").textContent = error.message;
+      } finally {
+        actionInFlight = false;
       }
       return;
     }
@@ -393,6 +459,11 @@
     // Advance past deliberately unresolved cases while any untouched cases
     // remain. Once all cases have a decision, keep one visible for review.
     const unresolvedIdentity = identityCases.filter((entry) => ["pending", "defer"].includes(entry.status));
+    const legacyDetails = document.getElementById("legacy-details");
+    legacyDetails.hidden = unresolvedIdentity.length === 0;
+    document.getElementById("legacy-details-text").textContent = unresolvedIdentity.length
+      ? `${unresolvedIdentity.length} record(s) need a stable-ID migration decision. Legacy content is not used to change this new v2 question.`
+      : "";
     const identityCase = unresolvedIdentity.find((entry) => entry.record_id === selectedIdentityRecordId)
       || unresolvedIdentity[0]
       || identityCases.find((entry) => entry.record_id === selectedIdentityRecordId)
@@ -662,17 +733,17 @@
       state.textContent = "Not built";
       detail.textContent = candidateBuildInFlight
         ? "Building new v2 Pack…"
-        : candidateBuildError || "Builds in memory only. Unresolved findings remain visible.";
-      button.textContent = candidateBuildInFlight ? "Building new v2 Pack…" : "Build isolated candidate";
+        : candidateBuildError || "Finish review to build a private new Pack candidate.";
+      button.textContent = candidateBuildInFlight ? "Building new v2 Pack…" : "Build new Pack candidate";
       button.disabled = candidateBuildInFlight || payload.session?.mode !== "synthetic_in_memory" || !["review_ready", "candidate_built", "compared", "unmanaged_demo"].includes(payload.run?.state);
       comparisonButton.disabled = true;
       comparisonDetail.textContent = "Comparison has not run.";
       comparisonChanges.replaceChildren();
       return;
     }
-    state.textContent = `${candidate.question_count} questions · ${candidate.applied_proposal_ids.length} approved proposal(s) applied`;
-    detail.textContent = `${candidate.unresolved_finding_ids.length} unresolved finding(s) · ${candidate.documented_exclusion_count ?? candidate.excluded_question_ids.length} documented exclusion(s) · promotion remains ${candidate.promotion_ready ? "ready" : "blocked"}.`;
-    button.textContent = candidateBuildInFlight ? "Building new v2 Pack…" : "Rebuild isolated candidate";
+    state.textContent = `${candidate.question_count} retained questions · ${candidate.applied_proposal_ids.length} fixes applied`;
+    detail.textContent = `${candidate.unresolved_finding_ids.length} remaining issue(s) · ${candidate.documented_exclusion_count ?? candidate.excluded_question_ids.length} excluded record(s). Review complete.`;
+    button.textContent = candidateBuildInFlight ? "Building new v2 Pack…" : "Rebuild new Pack candidate";
     button.disabled = candidateBuildInFlight || payload.run?.state === "completed";
     comparisonButton.disabled = payload.session?.mode !== "synthetic_in_memory" || payload.run?.state === "completed";
     if (payload.comparison?.state === "complete") {

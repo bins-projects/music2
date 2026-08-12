@@ -15,7 +15,7 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     assert "Not synced to GitHub" in html
     assert "Source PDF is not committed" in html
     assert "Canonical Pack has not been replaced or promoted" in html
-    assert "No canonical write available" in html
+    assert "Publication is separate" in html
     assert "promote_canonical: false" in data
     assert "promote(" not in script
     assert 'fetch("/api/review"' in script
@@ -127,12 +127,12 @@ def test_workbench_exposes_guarded_existing_pack_identity_actions() -> None:
     assert "PFQ-${slug || \"slug\"}-000000001" in script
     assert "SOURCE_ONLY_PRESETS" in server
     assert "Registered source metadata cannot be changed" in server
-    assert "Prepare parsed review" in html
+    assert "Prepare review" in html
     assert 'id="proposal-dialog"' in html
     assert 'id="proposal-value"' in html
     assert "/api/proposals" in script
-    assert "Saving this draft does not approve or apply it" in html
-    assert "Edit ordinary text directly" in html
+    assert "Save fix and next" in html
+    assert "Source context is optional" in html
     assert "Open temporary source page" in script
     assert 'id="view-source-button"' in html
     assert 'id="source-dialog"' in html

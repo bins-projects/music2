@@ -156,6 +156,16 @@ def test_user_authored_proposal_requires_separate_approval_and_verification() ->
     assert len(rebuilt["candidate"]["applied_proposal_ids"]) == 1
 
 
+def test_source_first_accept_as_is_resolves_a_flag_without_a_proposal() -> None:
+    session = SyntheticWorkbenchSession()
+
+    accepted = session.record_disposition("PFV2-FIND-PARSE-000001", "accept_as_is")
+    candidate = session.build_isolated_candidate()
+
+    assert case(accepted, "PFV2-FIND-PARSE-000001")["status"] == "approved"
+    assert "PFV2-FIND-PARSE-000001" not in candidate["candidate"]["unresolved_finding_ids"]
+
+
 def test_user_proposal_rejects_unchanged_or_unexplained_values() -> None:
     session = SyntheticWorkbenchSession()
     preserved = case(session.view(), "PFV2-FIND-PARSE-000001")["preserved_value"]

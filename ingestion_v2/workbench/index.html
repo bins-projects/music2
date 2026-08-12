@@ -10,7 +10,7 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">PREPFLOW FACTORY / INGESTION V2</p>
-        <h1>Review workbench</h1>
+        <h1>Build a new Pack</h1>
       </div>
       <div id="connection-badge" class="safety-badge"><span></span> Synthetic preview · no writes</div>
     </header>
@@ -18,7 +18,7 @@
     <section id="local-status" class="local-status" aria-label="Local workbench status">
       <strong>LOCAL ONLY</strong>
       <span id="local-status-source">No active source</span>
-      <span id="local-status-candidate">No isolated candidate</span>
+      <span id="local-status-candidate">No new Pack candidate</span>
       <span>Not synced to GitHub</span>
       <span>Source PDF is not committed</span>
       <span>Canonical Pack has not been replaced or promoted</span>
@@ -63,7 +63,7 @@
       </section>
 
       <section class="summary" aria-label="Review queue summary">
-        <div><strong id="case-count">0</strong><span id="case-count-label">review cases</span></div>
+        <div><strong id="case-count">0</strong><span id="case-count-label">questions need review</span></div>
         <div><strong id="blocking-count">0</strong><span id="blocking-count-label">blocking</span></div>
         <div><strong id="verified-count">0</strong><span id="verified-count-label">source verified</span></div>
         <div class="candidate-state"><strong id="summary-tail-count">Locked</strong><span id="summary-tail-label">canonical promotion</span></div>
@@ -76,7 +76,7 @@
           <span id="run-artifacts">No disposable source or text artifacts.</span>
           <span id="run-extraction">Extractor has not run.</span>
           <span id="run-cleaning">Cleaner has not run.</span>
-          <span id="run-identity">Identity matcher has not run.</span>
+          <span id="run-identity" hidden>Legacy ID migration unavailable.</span>
           <span id="run-qa">QA detectors have not run.</span>
           <span id="run-proposals">Proposal generator has not run.</span>
         </div>
@@ -86,9 +86,9 @@
           <input id="pdf-input" type="file" accept="application/pdf,.pdf" hidden>
           <button id="complete-run-button" type="button" disabled>Complete and clean run</button>
           <button id="cleanup-run-button" type="button" disabled>Cancel and clean run</button>
-          <button class="identity-button" data-pack-id="fundamentals" type="button" disabled>Match Fundamentals IDs</button>
-          <button class="identity-button" data-pack-id="medical_surgical" type="button" disabled>Match Med-Surg IDs</button>
-          <button id="materialize-identity-button" type="button" disabled>Prepare parsed review</button>
+          <button class="identity-button" data-pack-id="fundamentals" type="button" disabled hidden>Legacy Fundamentals IDs</button>
+          <button class="identity-button" data-pack-id="medical_surgical" type="button" disabled hidden>Legacy Med-Surg IDs</button>
+          <button id="materialize-identity-button" type="button" disabled hidden>Prepare review</button>
         </div>
       </section>
 
@@ -97,7 +97,7 @@
           <div class="panel-heading">
             <div>
               <p class="eyebrow">QUEUE</p>
-              <h2>Needs attention</h2>
+              <h2>Questions to review</h2>
             </div>
             <span id="queue-position"></span>
           </div>
@@ -114,18 +114,18 @@
           </div>
 
           <div class="explanation">
-            <span>Why PrepFlow stopped</span>
+            <span>Review note</span>
             <p id="finding-explanation"></p>
           </div>
 
-          <div class="comparison-grid">
+          <div class="comparison-grid simple-question-grid">
             <section class="value-card preserved-card">
-              <div id="preserved-card-label" class="card-label"><span class="dot amber"></span>Preserved complete question</div>
+              <div id="preserved-card-label" class="card-label"><span class="dot amber"></span>New v2 question</div>
               <div id="preserved-value" class="record-value"></div>
-              <p class="card-note">This value remains unchanged until an authorized repair is built.</p>
+              <p class="card-note">This source-first question is the record you are reviewing.</p>
             </section>
 
-            <section class="value-card proposal-card">
+            <section class="value-card proposal-card" hidden>
               <div id="proposed-card-label" class="card-label"><span class="dot blue"></span>Proposed complete question</div>
               <div id="proposed-value" class="record-value"></div>
               <p id="proposal-explanation" class="card-note"></p>
@@ -154,24 +154,29 @@
             <div id="actions" class="actions"></div>
           </section>
 
+          <details id="legacy-details" class="legacy-details" hidden>
+            <summary>Legacy ID details</summary>
+            <p id="legacy-details-text"></p>
+          </details>
+
           <section class="candidate-panel">
             <div>
-              <p class="eyebrow">ISOLATED CANDIDATE</p>
+              <p class="eyebrow">NEW PACK CANDIDATE</p>
               <strong id="candidate-state">Not built</strong>
-              <p id="candidate-detail">Builds in memory only. Unresolved findings remain visible.</p>
-              <p id="comparison-detail">Comparison has not run.</p>
+              <p id="candidate-detail">Complete review to build a private new Pack candidate.</p>
+              <p id="comparison-detail" hidden>Legacy diagnostics are available only when needed.</p>
               <div id="comparison-changes" class="comparison-changes"></div>
             </div>
             <div class="candidate-actions">
-              <button id="candidate-button" type="button">Build isolated candidate</button>
-              <button id="comparison-button" type="button">Compare with benchmark</button>
+              <button id="candidate-button" type="button">Build new Pack candidate</button>
+              <button id="comparison-button" type="button" hidden>Legacy diagnostics</button>
             </div>
           </section>
 
           <footer class="audit-strip">
-            <span>Original preserved</span>
-            <span>Proposal is not authorization</span>
-            <span>No canonical write available</span>
+            <span>Source-first review</span>
+            <span>Private candidate only</span>
+            <span>Publication is separate</span>
           </footer>
         </article>
       </section>
@@ -179,16 +184,17 @@
 
     <dialog id="proposal-dialog">
       <form id="proposal-form" method="dialog">
-        <p class="eyebrow">USER-AUTHORED PROPOSAL</p>
-        <h2>Draft a reviewable correction</h2>
-        <p class="dialog-help">Edit ordinary text directly. Choices and answers remain structured lists. Saving this draft does not approve or apply it.</p>
-        <label>Proposed value<textarea id="proposal-value" rows="9" required></textarea></label>
-        <label>Why this correction is justified<textarea id="proposal-reason" rows="4" required></textarea></label>
-        <label class="check-row"><input id="proposal-verification" type="checkbox"> Require source verification after approval</label>
+        <p class="eyebrow">FIX QUESTION</p>
+        <h2>Update the flagged field</h2>
+        <p class="dialog-help">The complete question remains visible behind this editor. Source context is optional.</p>
+        <label>Updated value<textarea id="proposal-value" rows="9" required></textarea></label>
+        <label id="answer-choice-picker" hidden>Correct answer<select id="answer-choice-select"></select></label>
+        <textarea id="proposal-reason" hidden></textarea>
+        <input id="proposal-verification" type="checkbox" hidden>
         <p id="proposal-error" class="dialog-error"></p>
         <div class="dialog-actions">
           <button id="proposal-cancel" type="button">Cancel</button>
-          <button class="primary" type="submit">Save proposal</button>
+          <button class="primary" type="submit">Save fix and next</button>
         </div>
       </form>
     </dialog>

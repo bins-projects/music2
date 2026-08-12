@@ -83,7 +83,10 @@ def build_candidate(
     resolved_findings.update(
         disposition.finding_id
         for disposition in dispositions
-        if disposition.action is DispositionAction.EXCLUDE_RECORD
+        if disposition.action in {
+            DispositionAction.EXCLUDE_RECORD,
+            DispositionAction.ACCEPT_AS_IS,
+        }
     )
     for question_id in excluded_question_ids:
         audit_events.append(f"{question_id}:excluded_by_documented_disposition")

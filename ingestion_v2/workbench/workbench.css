@@ -163,6 +163,9 @@ main { padding: 24px clamp(18px, 4vw, 64px) 48px; }
 #source-page-text { max-height: 60vh; margin: 0; padding: 16px; overflow: auto; white-space: pre-wrap; color: #e6eeee; border: 1px solid var(--line); border-radius: 8px; background: #081113; font: 12px/1.55 ui-monospace, monospace; }
 
 .decision-panel { display: flex; justify-content: space-between; gap: 25px; align-items: center; padding: 20px 26px; border-top: 1px solid var(--line); background: #0e1719; }
+.legacy-details { margin: 16px 26px; color: var(--muted); font-size: 12px; }
+.legacy-details summary { color: var(--muted); cursor: pointer; font-weight: 700; }
+.legacy-details p { margin-top: 8px; line-height: 1.5; }
 .decision-panel > div:first-child { display: grid; gap: 5px; }
 .decision-panel > div:first-child p:last-child { color: var(--muted); font-size: 12px; }
 .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }

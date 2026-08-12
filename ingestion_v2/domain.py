@@ -28,6 +28,7 @@ class ReviewAction(str, Enum):
 class DispositionAction(str, Enum):
     RETAIN_BLOCKER = "retain_blocker"
     EXCLUDE_RECORD = "exclude_record"
+    ACCEPT_AS_IS = "accept_as_is"
 
 
 @dataclass(frozen=True)

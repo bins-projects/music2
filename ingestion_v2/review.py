@@ -107,6 +107,8 @@ def build_review_queue(
             disposition and disposition.action is DispositionAction.EXCLUDE_RECORD
         ):
             status, actions = ReviewStatus.EXCLUDED_RECORD, ("restore_record",)
+        elif disposition and disposition.action is DispositionAction.ACCEPT_AS_IS:
+            status, actions = ReviewStatus.APPROVED, ("build_candidate",)
         elif disposition and disposition.action is DispositionAction.RETAIN_BLOCKER:
             status, actions = ReviewStatus.RETAINED_BLOCKER, (
                 "exclude_record",

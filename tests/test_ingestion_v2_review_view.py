@@ -112,6 +112,39 @@ def test_complete_choice_repair_groups_sibling_detectors_into_one_effective_ques
     assert group["unresolved"] is False
 
 
+def test_complete_repair_hides_a_duplicate_sibling_case_from_review_counts() -> None:
+    question = QuestionRecord(
+        question_id="PFQ-synthetic-000000947", chapter=1,
+        question_type="multiple_choice", stem="Which result?",
+        choices=(("A", "One"), ("B", "Two")), correct_answers=("A",),
+        source_record_id="PFV2-REC-000947",
+    )
+    findings = (
+        Finding("PFV2-FIND-QA-0947-A", question.question_id, "choices", "fragment_review__fragment_density", FindingSeverity.BLOCKING, "First detector view."),
+        Finding("PFV2-FIND-QA-0947-B", question.question_id, "choices", "fragment_review__fragment_density", FindingSeverity.BLOCKING, "Repeated detector view."),
+    )
+    finding_for_stem = Finding(
+        "PFV2-FIND-USER-0947-STEM", question.question_id, "stem",
+        "operator_complete_question_correction", FindingSeverity.BLOCKING,
+        "Operator changed the stem.",
+    )
+    # A complete correction normally changes at least one field. Use a stem
+    # proposal so the duplicate choice findings remain the exact UI shape that
+    # previously displayed as stale after recovery.
+    proposal = Proposal(
+        "PFV2-PROP-USER-0947", finding_for_stem.finding_id, question.question_id,
+        "stem", question.stem, "Which laboratory result?",
+        "Operator complete-question correction.",
+    )
+    payload = review_queue_view(build_review_queue(
+        (question,), findings + (finding_for_stem,), (proposal,),
+        (ReviewDecision("PFV2-DEC-0947", proposal.proposal_id, ReviewAction.APPROVE),),
+    ))
+
+    assert payload["summary"]["case_count"] == 0
+    assert payload["summary"]["status_counts"] == {"approved": 1}
+
+
 def test_valid_choice_structure_without_a_saved_decision_remains_unresolved() -> None:
     question = QuestionRecord(
         question_id="PFQ-synthetic-000000355", chapter=1, question_type="multiple_choice",

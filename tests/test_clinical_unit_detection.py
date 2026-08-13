@@ -15,6 +15,16 @@ def test_multiple_supported_clinical_units_remain_valid_prose() -> None:
     assert interleaving_blockers(text) == ()
 
 
+def test_temperature_units_and_choice_shorthand_do_not_look_like_interleaving() -> None:
+    text = (
+        "T: 100.5 °F (38 °C), P: 96 beats/min. "
+        "A DAR note records data (D), action (A), and response (R); "
+        "SBAR item: S. Document diagnosis r/t dehydration."
+    )
+
+    assert interleaving_blockers(text) == ()
+
+
 def test_fragmented_unit_and_overlay_still_block() -> None:
     text = "Serum sodium level 134 m UE q / LS NT O"
 
@@ -37,3 +47,19 @@ def test_mixed_case_near_miss_is_not_exempted() -> None:
     text = "Values include mEQ/l and mEq/Li with UE NT O fragments."
 
     assert interleaving_blockers(text)
+
+
+def test_common_nursing_notation_does_not_trigger_interleaving() -> None:
+    assert interleaving_blockers(
+        "Generation Y and Generation Z use e-mail and LinkedIn."
+    ) == ()
+    assert interleaving_blockers(
+        "Patient report: S. Assessment: A. Recommendation: R."
+    ) == ()
+    assert interleaving_blockers(
+        "Type O blood and a B antigen are documented."
+    ) == ()
+    assert interleaving_blockers(
+        "Periods after Q can be mistaken for I, and the O mistaken for I. "
+        "Write as X mg or 0.X mg."
+    ) == ()

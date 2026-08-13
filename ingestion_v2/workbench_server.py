@@ -26,6 +26,14 @@ IDENTITY_PACKS = PACK_REGISTRY
 SOURCE_ONLY_PRESETS = {
     "peds": {"display_name": "Pediatrics", "slug": "pediatrics", "prefix": "Peds"},
 }
+APPROVED_SOURCE_METADATA = {
+    # These are source names only; content continues through the generic
+    # source-first workflow and never inherits wording from an old Pack.
+    "fundimentals.pdf": {"display_name": "Fundamentals", "slug": "fundamentals", "prefix": "Fundamentals"},
+    "medsurg.pdf": {"display_name": "Medical-Surgical", "slug": "medical_surgical", "prefix": "Med-Surg"},
+    "pharmfinal.pdf": {"display_name": "Pharmacy", "slug": "pharmacy", "prefix": "Pharm"},
+    "pediatrics.pdf": {"display_name": "Pediatrics", "slug": "pediatrics", "prefix": "Peds"},
+}
 RUNS_DIRECTORY = PROJECT_DIRECTORY / "output" / "v2-runs"
 PRIVATE_SOURCE_DIRECTORY = PROJECT_DIRECTORY / "private_sources"
 CENTRAL_SOURCE_DIRECTORY = Path("/home/charliekeila/projects/prepflow-sources")
@@ -61,31 +69,61 @@ def filename_metadata(filename: str) -> dict:
     return {"display_name": display_name, "slug": slug, "prefix": display_name[:32]}
 
 
-def validated_existing_extraction(path: Path, filename: str) -> tuple[str, str, int] | None:
-    """Return a reusable extraction only when its source identity is exact."""
-    benchmark = PRIVATE_SOURCE_DIRECTORY / "pediatrics-ocr-source-only-20260809-091026" / "extraction-benchmark.json"
-    text_path = benchmark.parent / "tesseract_ocr_v1.txt"
-    if filename != "pediatrics.pdf" or not benchmark.is_file() or not text_path.is_file():
-        return None
+def approved_source_metadata(filename: str) -> tuple[dict, bool]:
+    metadata = APPROVED_SOURCE_METADATA.get(filename.casefold())
+    return (dict(metadata), True) if metadata else (filename_metadata(filename), False)
+
+
+def _artifact_priority(path: Path) -> tuple[int, str]:
+    """Prefer explicitly stabilized extraction artifacts when duplicates exist."""
+    name = path.parent.name.casefold()
+    if "-final-" in name or name.endswith("-final"):
+        return (0, name)
+    if "cleaner-ab" in name or "ocr-source-only" in name:
+        return (1, name)
+    if "source-only" in name:
+        return (2, name)
+    return (3, name)
+
+
+def validated_existing_extraction(
+    path: Path, filename: str, *, artifact_root: Path = PRIVATE_SOURCE_DIRECTORY,
+) -> tuple[str, str, int] | None:
+    """Reuse only saved text proven identical to the selected PDF.
+
+    Filename is not identity: SHA-256, byte size, page count, and saved text
+    page structure must agree. Historical Pack content is not consulted.
+    """
     try:
-        record = json.loads(benchmark.read_text(encoding="utf-8"))
-        source = record["source_pdf"]
-        summary = record["candidates"]["tesseract_ocr_v1"]["summary"]
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        byte_count = path.stat().st_size
         pages = len(PdfReader(str(path)).pages)
     except Exception:
         return None
-    if not (
-        source.get("filename") == filename
-        and source.get("sha256") == digest
-        and source.get("bytes") == path.stat().st_size
-        and summary.get("page_count") == pages
-    ):
+    matches = []
+    for benchmark in artifact_root.rglob("extraction-benchmark.json"):
+        if benchmark.is_symlink() or not benchmark.is_file():
+            continue
+        try:
+            record = json.loads(benchmark.read_text(encoding="utf-8"))
+            source = record["source_pdf"]
+            if source.get("sha256") != digest or source.get("bytes") != byte_count:
+                continue
+            for adapter_name, candidate in record.get("candidates", {}).items():
+                summary = candidate.get("summary", {})
+                text_path = benchmark.parent / candidate.get("raw_text_file", "")
+                if (candidate.get("status") != "completed" or summary.get("page_count") != pages
+                    or text_path.is_symlink() or not text_path.is_file()):
+                    continue
+                text = text_path.read_text(encoding="utf-8")
+                if text and len(text.split("\f")) == pages:
+                    matches.append((_artifact_priority(benchmark), adapter_name, text))
+        except (OSError, json.JSONDecodeError, TypeError):
+            continue
+    if not matches:
         return None
-    text = text_path.read_text(encoding="utf-8")
-    if not text or len(text.split("\f")) != pages:
-        return None
-    return text, "tesseract_ocr_v1", pages
+    _, adapter_name, text = min(matches, key=lambda item: (item[0], item[1]))
+    return text, adapter_name, pages
 REPAIR_WORKBENCH_DIRECTORY = PROJECT_DIRECTORY / "output" / "repair-workbench" / "fundamentals"
 
 
@@ -184,9 +222,10 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                         if reuse else self.session.start_pdf_run(path.read_bytes())
                     )
                     if payload["run"]["state"] != "failed":
+                        source_metadata, registered_preset = approved_source_metadata(filename)
                         payload = self.session.materialize_source_only(
-                            filename_metadata(filename),
-                            registered_preset=filename == "pediatrics.pdf",
+                            source_metadata,
+                            registered_preset=registered_preset,
                         )
                 except Exception as error:
                     # This endpoint owns the newly created run.  Do not leave an
@@ -357,6 +396,14 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format: str, *args) -> None:
         return
+
+    def end_headers(self) -> None:
+        # The private local workbench is actively developed and restores the
+        # current checkpoint on restart.  Cached HTML/JavaScript can otherwise
+        # present controls from a prior server version against that live run.
+        # Never let a browser or a service worker retain a stale review UI.
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        super().end_headers()
 
     def _read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))

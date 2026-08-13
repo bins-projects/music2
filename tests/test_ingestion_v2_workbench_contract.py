@@ -190,11 +190,22 @@ def test_grouped_review_supports_explicit_accept_as_is_and_save_confirmation() -
     assert 'self.path == "/api/questions/accept-as-is"' in server
 
 
+def test_duplicate_review_keeps_explicit_exclusion_available_after_acceptance() -> None:
+    script = (WORKBENCH / "workbench.js").read_text(encoding="utf-8")
+
+    assert 'add(`Exclude duplicate ${item.question_id}`' in script
+    assert 'Keeps ${item.related_question.question_id}' in script
+    assert 'takeDuplicateDisposition(item, "exclude_record", item.question_id)' in script
+    assert 'const duplicateIssue = item.issues.find((issue) => issue.damage_type === "complete_duplicate_record")' in script
+    assert 'takeDuplicateDisposition(duplicateCase, "exclude_record", item.question_id)' in script
+
+
 def test_workbench_health_endpoint_is_content_free_and_loopback_bound() -> None:
     server = Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
     assert 'parsed.path == "/api/health"' in server
     assert '"scope": "local_only"' in server
     assert 'ThreadingHTTPServer(("127.0.0.1", args.port)' in server
+    assert 'self.send_header("Cache-Control", "no-store, max-age=0")' in server
 
 
 def test_workbench_has_responsive_layout() -> None:

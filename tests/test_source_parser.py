@@ -1074,6 +1074,122 @@ Planning follows assessment.
     assert questions[0]["correct_answers"] == ["A", "B", "C", "D"]
 
 
+def test_parser_reorders_complete_choice_cycle_split_around_answer_at_page_boundary() -> None:
+    text = """Chapter 5: Nursing Process
+MULTIPLE CHOICE
+12. A patient is restless. Which phase is demonstrated?
+Document shared on https://example.test/source
+\f
+d. Evaluation
+ANS: A
+a. Assessment
+b. Planning
+c. Implementation
+Document shared on https://example.test/source
+\f
+During the assessment step, patient care data are gathered.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert len(questions) == 1
+    assert [choice["label"] for choice in questions[0]["choices"]] == ["A", "B", "C", "D"]
+    assert [choice["text"] for choice in questions[0]["choices"]] == [
+        "Assessment", "Planning", "Implementation", "Evaluation",
+    ]
+    assert questions[0]["correct_answers"] == ["A"]
+    assert questions[0]["rationale"] == "During the assessment step, patient care data are gathered."
+
+
+def test_parser_drops_only_exact_duplicate_choice_answer_pair_inside_rationale() -> None:
+    text = """Chapter 5: Nursing Process
+MULTIPLE CHOICE
+12. A patient is restless. Which phase is demonstrated?
+A. Assessment
+B. Planning
+C. Implementation
+D. Evaluation
+ANS: A
+During the assessment step, patient care data are gathered.
+D. Evaluation
+ANS: A
+The nurse uses those data to plan care.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["choices"] == [
+        {"label": "A", "text": "Assessment"},
+        {"label": "B", "text": "Planning"},
+        {"label": "C", "text": "Implementation"},
+        {"label": "D", "text": "Evaluation"},
+    ]
+    assert questions[0]["correct_answers"] == ["A"]
+    assert questions[0]["rationale"] == (
+        "During the assessment step, patient care data are gathered. "
+        "The nurse uses those data to plan care."
+    )
+
+
+def test_parser_reorders_complete_cycle_scattered_across_page_prose() -> None:
+    text = """Chapter 5: Nursing Process
+MULTIPLE CHOICE
+14. Which step is demonstrated?
+A. Assessment
+B. Planning
+Repeated source prose from a preceding layout column.
+D. Evaluation
+ANS: A
+C. Implementation
+The rationale follows the choice block.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["choices"] == [
+        {"label": "A", "text": "Assessment"},
+        {"label": "B", "text": "Planning"},
+        {"label": "C", "text": "Implementation"},
+        {"label": "D", "text": "Evaluation"},
+    ]
+    assert questions[0]["correct_answers"] == ["A"]
+    assert questions[0]["rationale"] == (
+        "Repeated source prose from a preceding layout column. "
+        "The rationale follows the choice block."
+    )
+
+
+def test_parser_splits_spaced_choice_marker_embedded_in_question_stem() -> None:
+    text = """Chapter 1: Safety
+MULTIPLE CHOICE
+1. Which laboratory value is urgent? a . Potassium 6.8 mEq/L
+B. Sodium 134 mEq/L
+C. Magnesium 2.3 mEq/L
+ANS: A
+Reason.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["stem"] == "Which laboratory value is urgent?"
+    assert questions[0]["choices"][0] == {"label": "A", "text": "Potassium 6.8 mEq/L"}
+
+
+def test_parser_normalizes_spaced_choice_marker_on_its_own_line() -> None:
+    text = """Chapter 1: Safety
+MULTIPLE CHOICE
+1. Which laboratory value is urgent?
+a . Potassium 6.8 mEq/L
+B. Sodium 134 mEq/L
+ANS: A
+Reason.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["choices"][0] == {"label": "A", "text": "Potassium 6.8 mEq/L"}
+
+
 def test_parser_recovers_attributed_single_word_completion_answer() -> None:
     text = """Chapter 8: Pain
 COMPLETION
@@ -1131,6 +1247,53 @@ The patient can verify two identifiers.
         {"label": "C", "text": "Check the chart."},
         {"label": "D", "text": "Check room number."},
     ]
+
+
+def test_parser_recovers_immediate_choice_with_layout_spaced_marker() -> None:
+    text = """Chapter 1: Medication Safety
+MULTIPLE CHOICE
+1. Which action is best?
+A. First action B . Second action
+C. Third action
+D. Fourth action
+ANS: B
+The second action is best.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["choices"] == [
+        {"label": "A", "text": "First action"},
+        {"label": "B", "text": "Second action"},
+        {"label": "C", "text": "Third action"},
+        {"label": "D", "text": "Fourth action"},
+    ]
+    assert questions[0]["correct_answers"] == ["B"]
+
+
+def test_parser_recovers_choice_label_and_period_split_across_page_break() -> None:
+    text = """Chapter 1: Medication Safety
+MULTIPLE CHOICE
+1. Which action is best?
+A. First action
+B
+\f
+. Second action
+C. Third action
+D. Fourth action
+ANS: B
+The second action is best.
+"""
+
+    questions = parse_source_questions(text)
+
+    assert questions[0]["choices"] == [
+        {"label": "A", "text": "First action"},
+        {"label": "B", "text": "Second action"},
+        {"label": "C", "text": "Third action"},
+        {"label": "D", "text": "Fourth action"},
+    ]
+    assert questions[0]["correct_answers"] == ["B"]
     assert questions[0]["correct_answers"] == ["B"]
 
 

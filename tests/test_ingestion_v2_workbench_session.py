@@ -204,6 +204,29 @@ def test_validated_existing_extraction_starts_review_without_native_extraction(t
     assert payload["run"]["state"] == "identity_pending"
 
 
+def test_validated_source_recovery_survives_source_only_restart(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes(["unused by the validated extraction"])
+    primary = (
+        "Chapter 1: Recovery\nMULTIPLE CHOICE\n"
+        "1. The nurse NfoUllRowSsIthNeGnTuBrsi.ngCprMocess?\n"
+        "a. First\nb. Second\nANS: A\nReason."
+    )
+    alternate = primary.replace(
+        "NfoUllRowSsIthNeGnTuBrsi.ngCprMocess", "follows the nursing process"
+    )
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run_from_existing_extraction(
+        pdf, primary, adapter_name="pypdf_plain_v1", page_count=1,
+        corroborating_texts=(alternate,),
+    )
+    assert "follows the nursing process" in session._parse_batch.records[0].stem
+    session.materialize_source_only({"display_name": "Recovery", "slug": "recovery", "prefix": "Recovery"})
+
+    resumed = SyntheticWorkbenchSession.resume_source_only_run(session._lifecycle.run_directory)
+    assert "follows the nursing process" in resumed.questions[0].stem
+    assert (session._lifecycle.run_directory / "artifacts" / "source-recovery.json").is_file()
+
+
 def test_complete_question_editor_repairs_grouped_choice_damage_and_undoes_safely() -> None:
     session = SyntheticWorkbenchSession()
     question = QuestionRecord(
@@ -280,6 +303,67 @@ def test_source_only_recovery_preserves_complete_unflagged_correction_and_approv
     assert group["effective_question"]["stem"] == "Which answer is best?"
     assert group["status"] == "approved"
     assert any(item.action.value == "approve" for item in resumed._decisions_by_proposal.values())
+
+
+def test_registered_source_metadata_allows_its_own_reserved_identity(tmp_path) -> None:
+    pdf = synthetic_pdf_bytes([
+        "Chapter 1: Medical-Surgical", "MULTIPLE CHOICE", "1. Which?",
+        "a. One", "b. Two", "ANS: B", "Two is correct.",
+    ])
+    session = SyntheticWorkbenchSession(workspace_root=tmp_path / "runs")
+    session.start_pdf_run(pdf)
+
+    payload = session.materialize_source_only(
+        {"display_name": "Medical-Surgical", "slug": "medical_surgical", "prefix": "Med-Surg"},
+        registered_preset=True,
+    )
+
+    assert payload["run"]["source_metadata"] == {
+        "display_name": "Medical-Surgical",
+        "slug": "medical_surgical",
+        "prefix": "Med-Surg",
+    }
+    assert session.questions[0].question_id == "PFQ-medical_surgical-000000001"
+
+
+def test_accepted_duplicate_can_be_reopened_and_excluded() -> None:
+    session = SyntheticWorkbenchSession()
+    first = QuestionRecord(
+        "PFQ-recovery-000000001", 1, "multiple_choice", "Duplicate?",
+        (("A", "One"),), ("A",), "Reason.", "Chapter", "PFV2-REC-000001",
+    )
+    duplicate = replace(first, question_id="PFQ-recovery-000000002", source_record_id="PFV2-REC-000002")
+    finding = Finding(
+        "PFV2-FIND-QA-000001", duplicate.question_id, "stem", "complete_duplicate_record",
+        FindingSeverity.BLOCKING, "Duplicate.", related_question_id=first.question_id,
+    )
+    session.questions, session.findings, session.proposals = (first, duplicate), (finding,), ()
+
+    session.record_disposition(finding.finding_id, "accept_as_is")
+    # The review UI must be able to correct a prior keep-both decision without
+    # forcing the operator to replay that decision first.
+    excluded = session.record_disposition(finding.finding_id, "exclude_record")
+    assert excluded["cases"][0]["status"] == "excluded_record"
+
+
+def test_complete_question_repair_preserves_completion_answer_text() -> None:
+    session = SyntheticWorkbenchSession()
+    question = QuestionRecord(
+        "PFQ-completion-000000001", 1, "completion", "The pressure is ____ footer.",
+        (), ("intracranial pressure",), "Reason.", "Chapter", "PFV2-REC-000001",
+    )
+    session.questions = (question,)
+    session.findings = ()
+    session.proposals = ()
+
+    payload = session.save_complete_question_repair(question.question_id, {
+        "stem": "The pressure is ____.", "choices": [],
+        "correct_answers": ["intracranial pressure"], "rationale": "Reason.",
+    })
+
+    repaired = payload["question_groups"][0]["effective_question"]
+    assert repaired["stem"] == "The pressure is ____."
+    assert repaired["correct_answers"] == ["intracranial pressure"]
 
 
 def test_source_only_accept_as_is_persists_all_question_findings_through_recovery(tmp_path) -> None:
@@ -541,7 +625,7 @@ def test_managed_session_runs_document_through_lifecycle_and_final_cleanup(tmp_p
         "cleaner": "native_guarded_page_aware_source_neutral_v2",
         "removed_repeated_lines": 0,
         "stripped_repeated_suffixes": 0,
-        "protected_repeated_structures": 11,
+        "protected_repeated_structures": 13,
         "meaning_repairs": 0,
         "source_specific_rules": 0,
     }

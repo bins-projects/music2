@@ -21,6 +21,17 @@ MARKETPLACE_PROMOTION_RE = re.compile(
     r"^(?:Want to earn|extra per year[?])",
     re.IGNORECASE,
 )
+# This exact, non-educational overlay is present in the Fundamentals source.
+# It is removed wherever it is overprinted on otherwise valid source text.
+# No partial or reordered letter sequence is eligible here.
+NURSINGTB_BRANDING_RE = re.compile(
+    r"\s*(?:"
+    r"fundamentals\s+of\s+nursing\s+\d+(?:st|nd|rd|th)\s+edition\s+"
+    r"yoost\s+test\s+bank(?:\s+nursingtb[.]com)?"
+    r"|nursingtb[.]com"
+    r")(?:\s+(?:U|S|N|T|O)){0,5}",
+    re.IGNORECASE,
+)
 ANSWER_KEY_RE = re.compile(
     r"^(?:ans(?:wer)?|correct(?:\s+answer)?)\s*:",
     re.IGNORECASE,
@@ -251,7 +262,10 @@ def _clean_page(
 
     cleaned = []
     for line in lines:
-        stripped_line = line
+        stripped_line, branding_count = NURSINGTB_BRANDING_RE.subn("", line)
+        if branding_count:
+            stripped_line = stripped_line.rstrip()
+            stripped += branding_count
 
         # Parser control lines are educational syntax, not containers for
         # page-edge suffix noise. Guard them again at application time so a
@@ -278,8 +292,19 @@ def _clean_page(
 
 def _is_educational_shape(value: str) -> bool:
     lowered = value.casefold()
+    # A page edge is not, by itself, evidence that a repeated line is page
+    # noise. Some source PDFs repeat page content during extraction, including
+    # the opening line of a rationale. Preserve ordinary prose as well as the
+    # parser-control shapes below; only short/header-like repeated edge lines
+    # remain eligible for the generic noise rule.
+    prose_words = re.findall(r"[A-Za-z][A-Za-z'-]*", value)
+    is_body_prose = (
+        len(prose_words) >= 6
+        and any(character.islower() for character in value)
+    )
     return bool(
-        _is_protected_structural_line(value)
+        is_body_prose
+        or _is_protected_structural_line(value)
         or re.match(r"^(?:chapter|section)\s+\d+\b", value, re.IGNORECASE)
         or re.match(r"^\d+[.)]\s+", value)
         or re.match(r"^[a-z][.)]\s+", value, re.IGNORECASE)

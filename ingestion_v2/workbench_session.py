@@ -51,6 +51,11 @@ from ingestion_v2.proposal_adapter import draft_benchmark_answer_proposals, draf
 from ingestion_v2.checkpoint import proposal_fingerprint, read_checkpoint, write_checkpoint
 from ingestion_v2.recovery import recover_run
 from ingestion_v2.source_intake import validate_source_metadata
+from ingestion_v2.source_reconciliation import (
+    apply_recovery_plan,
+    reconcile_corroborated_fields,
+    recovery_plan,
+)
 
 
 @dataclass(frozen=True)
@@ -169,6 +174,12 @@ class SyntheticWorkbenchSession:
         session._lifecycle = lifecycle
         session._source_pages = tuple(raw.read_text(encoding="utf-8").split("\n\f\n"))
         session._parse_batch = ExistingParserAdapter().parse(cleaned.read_text(encoding="utf-8"))
+        plan = lifecycle.source_recovery_plan()
+        if plan is not None:
+            try:
+                session._parse_batch = apply_recovery_plan(session._parse_batch, plan)
+            except ValueError as error:
+                raise DomainError("Saved source recovery does not match the recovered source") from error
         session._source_only = True
         session._source_metadata = validate_source_metadata(metadata, reserved=set())
         mapping = {
@@ -572,16 +583,18 @@ class SyntheticWorkbenchSession:
         return self._start_pdf_run(content)
 
     def start_pdf_run_from_existing_extraction(
-        self, content: bytes, text: str, *, adapter_name: str, page_count: int
+        self, content: bytes, text: str, *, adapter_name: str, page_count: int,
+        corroborating_texts: tuple[str, ...] = (),
     ) -> dict:
         return self._start_pdf_run(
             content, existing_text=text, adapter_name=adapter_name,
-            page_count=page_count,
+            page_count=page_count, corroborating_texts=corroborating_texts,
         )
 
     def _start_pdf_run(
         self, content: bytes, *, existing_text: str | None = None,
         adapter_name: str | None = None, page_count: int | None = None,
+        corroborating_texts: tuple[str, ...] = (),
     ) -> dict:
         if self._workspace_root is None:
             raise DomainError("This session has no private run workspace")
@@ -623,6 +636,18 @@ class SyntheticWorkbenchSession:
             )
             self._cleaning_result = cleaning
             self._parse_batch = ExistingParserAdapter().parse(cleaning.text)
+            if corroborating_texts:
+                alternatives = tuple(
+                    ExistingParserAdapter().parse(GuardedPageAwareCleaner().clean(text).text)
+                    for text in corroborating_texts
+                    if text.strip()
+                )
+                recovered = reconcile_corroborated_fields(self._parse_batch, alternatives)
+                try:
+                    lifecycle.record_source_recovery(recovery_plan(self._parse_batch, recovered))
+                except ValueError as error:
+                    raise DomainError("Validated source recovery could not be recorded") from error
+                self._parse_batch = recovered
             if not self._parse_batch.records:
                 self._document_findings = [{"finding_id": "PFV2-DOCUMENT-000001", "severity": "blocking", "damage_type": "zero_parsed_records", "explanation": "No questions were parsed. This PDF may require another extraction strategy or OCR."}]
                 lifecycle.fail("zero_parsed_records")
@@ -645,7 +670,17 @@ class SyntheticWorkbenchSession:
             raise DomainError("Parse a PDF before starting source-only review")
         reserved = {"fundamentals", "medical_surgical", "pharmacy", "pediatrics", "fund", "medsurg", "pharm", "peds"}
         if registered_preset:
-            reserved -= {str(source_metadata.get("slug", "")).casefold(), "peds"}
+            # Registered source metadata is selected by the local server, not
+            # entered as arbitrary New Source metadata.  Its own stable slug
+            # and friendly prefix are therefore allowed while every *other*
+            # registered namespace remains protected.
+            registered_slug = str(source_metadata.get("slug", "")).casefold()
+            registered_prefix = "".join(
+                character
+                for character in str(source_metadata.get("prefix", "")).casefold()
+                if character.isalnum()
+            )
+            reserved -= {registered_slug, registered_prefix}
         metadata = validate_source_metadata(source_metadata, reserved=reserved)
         mapping = {record.record_id: f"PFQ-{metadata['slug']}-{index:09d}" for index, record in enumerate(self._parse_batch.records, start=1)}
         self.questions, parser_findings = materialize_matched_batch(self._parse_batch, mapping)
@@ -1046,7 +1081,11 @@ class SyntheticWorkbenchSession:
             "exclude_record": DispositionAction.EXCLUDE_RECORD,
             "accept_as_is": DispositionAction.ACCEPT_AS_IS,
         }
-        if action == "restore_record" and action in case.allowed_actions:
+        # A saved disposition is an explicit operator decision, but it must
+        # remain revisable.  In particular, an accepted-as-is duplicate may
+        # later be documented as an exclusion without recreating the question
+        # or losing its source-backed review history.
+        if action == "restore_record" and case.disposition is not None:
             self._dispositions_by_finding.pop(finding_id, None)
             self._candidate = None
             self._comparison = None
@@ -1056,6 +1095,11 @@ class SyntheticWorkbenchSession:
         if action not in action_map or (
             action not in case.allowed_actions
             and not (action == "accept_as_is" and case.proposal is None)
+            and not (
+                action == "exclude_record"
+                and case.disposition is not None
+                and case.disposition.action == DispositionAction.ACCEPT_AS_IS
+            )
         ):
             raise DomainError(f"Disposition is not allowed for current review state: {action}")
         allowed_targets = {case.finding.question_id}
@@ -1832,8 +1876,14 @@ def _validated_complete_question(question, values: dict):
     expected_labels = tuple(chr(ord("A") + index) for index in range(len(labels)))
     if labels != expected_labels:
         raise DomainError("Choice labels must be ordered A, B, C, and so on")
-    answers = tuple(str(item).strip().upper() for item in values.get("correct_answers", []))
-    if any(answer not in labels for answer in answers):
+    # Completion answers are ordinary source text, not choice labels.  Keep
+    # their spelling intact while still requiring labels for choice questions.
+    answers = (
+        tuple(str(item).strip() for item in values.get("correct_answers", []))
+        if question.question_type == "completion"
+        else tuple(str(item).strip().upper() for item in values.get("correct_answers", []))
+    )
+    if question.question_type != "completion" and any(answer not in labels for answer in answers):
         raise DomainError("Each correct-answer label must be one of the choices")
     if question.question_type in {"multiple_choice", "multiple_response"} and not normalized_choices:
         raise DomainError("Multiple-choice questions require usable choices")

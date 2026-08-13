@@ -68,11 +68,31 @@ SPLIT_SUFFIX_RE = re.compile(
 )
 WORD_RE = re.compile(r"\b[A-Za-z]+\b")
 CLINICAL_UNIT_RE = re.compile(
-    r"\b(?:mEq|mmol|mg|mcg|g|mL|L)/(?:L|dL|kg|min)\b"
+    r"\b(?:mEq|mmol|mg|mcg|g|mL|L)/(?:L|dL|kg|min)\b|(?<![A-Za-z])°\s*[CF]\b",
+    re.IGNORECASE,
 )
 DOTTED_ABBREVIATION_RE = re.compile(r"\b(?:[A-Za-z]\.){2,}")
 UPPERCASE_ENUMERATION_RE = re.compile(r"\b(?:[A-Z],\s*){2,}(?:and\s+)?[A-Z]\b")
 IMMUNOGLOBULIN_SYMBOL_RE = re.compile(r"\bimmunoglobulin\s+E\b", re.IGNORECASE)
+PARENTHETICAL_LETTER_MARKER_RE = re.compile(r"\([A-Za-z]\)")
+COLON_CHOICE_MARKER_RE = re.compile(r":\s*[A-G](?=\s|$)", re.IGNORECASE)
+NURSING_SHORTHAND_RE = re.compile(r"\br\s*/\s*t\b", re.IGNORECASE)
+VITAL_SIGN_LABEL_RE = re.compile(r"\b(?:T|P|R)\s*:\s*\d", re.IGNORECASE)
+# These source-valid notations contain single capitals or camel case that the
+# interleaving heuristic would otherwise mistake for damaged text. Keep the
+# exceptions semantic and narrow rather than accepting arbitrary fragments.
+GENERATION_COHORT_RE = re.compile(r"\bGeneration\s+[XYZ]\b", re.IGNORECASE)
+SBAR_PART_MARKER_RE = re.compile(r":\s*[SBAR](?=\s|$)", re.IGNORECASE)
+BLOOD_GROUP_NOTATION_RE = re.compile(
+    r"\b(?:[ABO]|AB)\s+(?:antigen|blood)\b|\b(?:classified\s+as|Type)\s+(?:[ABO]|AB)\b",
+    re.IGNORECASE,
+)
+ABBREVIATION_EXPLANATION_RE = re.compile(
+    r"\bPeriods\s+after\s+Q\s+can\s+be\s+mistaken\s+for\s+I,\s+and\s+the\s+O\s+mistaken\s+for\s+I\b"
+    r"|\bWrite\s+as\s+X\s+mg\s+or\s+0\.X\s+mg\b",
+    re.IGNORECASE,
+)
+TECHNOLOGY_NAME_RE = re.compile(r"\b(?:e-mail|LinkedIn)\b", re.IGNORECASE)
 APOSTROPHE_MARKS = {"'", "‘", "’"}
 
 
@@ -113,7 +133,19 @@ def interleaving_blockers(text: str) -> tuple[str, ...]:
         lambda match: " " * len(match.group(0)),
         analysis_text,
     )
-    for protected in (UPPERCASE_ENUMERATION_RE, IMMUNOGLOBULIN_SYMBOL_RE):
+    for protected in (
+        UPPERCASE_ENUMERATION_RE,
+        IMMUNOGLOBULIN_SYMBOL_RE,
+        PARENTHETICAL_LETTER_MARKER_RE,
+        COLON_CHOICE_MARKER_RE,
+        SBAR_PART_MARKER_RE,
+        NURSING_SHORTHAND_RE,
+        VITAL_SIGN_LABEL_RE,
+        GENERATION_COHORT_RE,
+        BLOOD_GROUP_NOTATION_RE,
+        ABBREVIATION_EXPLANATION_RE,
+        TECHNOLOGY_NAME_RE,
+    ):
         analysis_text = protected.sub(lambda match: " " * len(match.group(0)), analysis_text)
     word_matches = tuple(WORD_RE.finditer(analysis_text))
     words = [match.group(0) for match in word_matches]

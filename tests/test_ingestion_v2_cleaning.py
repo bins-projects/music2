@@ -104,6 +104,39 @@ def test_cleaner_preserves_a_rationale_across_a_page_break() -> None:
     assert result.stripped_repeated_suffixes == 0
 
 
+def test_cleaner_preserves_repeated_body_prose_at_page_edges() -> None:
+    """Repeated extraction content must not be mistaken for a footer.
+
+    Fundamentals has an extraction where this opening rationale line occurs at
+    the top of three adjacent pages. Removing it loses the beginning of the
+    rationale before parsing can associate the remaining continuation.
+    """
+    opening = (
+        "During the assessment step, patient care data are gathered through "
+        "observation, interviews,"
+    )
+    source = "\n\f\n".join(
+        f"{opening}\nUnique continuation {index}."
+        for index in range(3)
+    )
+
+    result = GuardedPageAwareCleaner().clean(source)
+
+    assert result.text.count(opening) == 3
+    assert result.removed_repeated_lines == 0
+
+
+def test_cleaner_strips_only_exact_inline_nursingtb_branding() -> None:
+    result = GuardedPageAwareCleaner().clean(
+        "The correct choice is C. NURSINGTB.COM U S\n"
+        "Fundamentals of Nursing 2nd Edition Yoost Test Bank NURSINGTB.COM\n"
+        "The rationale remains source content."
+    )
+
+    assert result.text == "The correct choice is C.\n\nThe rationale remains source content."
+    assert result.stripped_repeated_suffixes == 2
+
+
 def test_cleaner_strips_repeated_marketplace_attribution_inside_choices() -> None:
     watermark = (
         "Stuvia.com - The Marketplace to Buy and Sell your Study Material\n"

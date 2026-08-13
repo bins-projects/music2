@@ -149,7 +149,6 @@
   function renderActions(item) {
     const actions = document.getElementById("actions");
     actions.replaceChildren();
-    if (["approved", "excluded_record"].includes(item.status)) return;
     const add = (label, style, callback) => {
       const button = document.createElement("button");
       button.type = "button";
@@ -159,6 +158,29 @@
       button.addEventListener("click", callback);
       actions.append(button);
     };
+    // A duplicate finding always identifies the later record as the duplicate
+    // and its related record as the retained copy.  Unlike an ordinary review
+    // decision, an earlier "Accept as is" must remain revisable here: it is
+    // not a safe substitute for an explicit duplicate exclusion.
+    if (item.damage_type === "complete_duplicate_record" && item.related_question) {
+      if (item.status === "excluded_record") {
+        add(`Undo exclusion of ${item.disposition.question_id}`, "secondary", () =>
+          takeDuplicateDisposition(item, "restore_record"));
+      } else {
+        add(`Exclude duplicate ${item.question_id}`, "danger", () =>
+          takeDuplicateDisposition(item, "exclude_record", item.question_id));
+        const retained = document.createElement("p");
+        retained.className = "action-help";
+        retained.textContent = `Keeps ${item.related_question.question_id}; both records otherwise remain unchanged.`;
+        actions.append(retained);
+        if (item.status !== "approved") {
+          add("Keep both", "secondary", () => takeDuplicateDisposition(item, "accept_as_is"));
+          add("Decide later", "secondary", () => takeDuplicateDisposition(item, "leave_blocked"));
+        }
+      }
+      return;
+    }
+    if (["approved", "excluded_record"].includes(item.status)) return;
     add("Accept and next", "primary", () => {
       if (item.proposal) takeAction(item, "approve");
       else takeDuplicateDisposition(item, "accept_as_is");
@@ -174,27 +196,6 @@
       source.addEventListener("click", () => openFindingSource(item));
       source.textContent = "Open source context";
       actions.append(source);
-    }
-    return;
-    if (item.damage_type === "complete_duplicate_record" && item.related_question) {
-      if (item.status === "excluded_record") {
-        const restore = document.createElement("button");
-        restore.type = "button";
-        restore.className = "secondary";
-        restore.textContent = `Undo exclusion of ${item.disposition.question_id}`;
-        restore.addEventListener("click", () => takeDuplicateDisposition(item, "restore_record"));
-        actions.append(restore);
-        return;
-      }
-      [item, item.related_question].forEach((record) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "danger";
-        button.textContent = `Exclude ${record.question_id}`;
-        button.addEventListener("click", () => takeDuplicateDisposition(item, "exclude_record", record.question_id));
-        actions.append(button);
-      });
-      return;
     }
     item.allowed_actions.filter((action) => labels[action]).forEach((action) => {
       const button = document.createElement("button");
@@ -669,6 +670,20 @@
       const button = document.createElement("button"); button.type = "button"; button.className = style; button.textContent = text; button.disabled = actionInFlight; button.addEventListener("click", callback); actions.append(button);
     };
     add("Open source context", "secondary", () => openFindingSource({ finding_id: item.finding_ids[0] }));
+    // The simplified UI groups detector findings by source question.  Keep an
+    // explicit whole-record duplicate decision reachable from that grouped
+    // card, including after a prior keep-both/accept-as-is decision.
+    const duplicateIssue = item.issues.find((issue) => issue.damage_type === "complete_duplicate_record");
+    const duplicateCase = duplicateIssue && payload.cases.find((entry) => entry.finding_id === duplicateIssue.finding_id);
+    if (duplicateCase?.related_question) {
+      if (duplicateCase.status === "excluded_record") {
+        add(`Undo exclusion of ${duplicateCase.disposition.question_id}`, "secondary", () =>
+          takeDuplicateDisposition(duplicateCase, "restore_record"));
+      } else {
+        add(`Exclude duplicate ${item.question_id}`, "danger", () =>
+          takeDuplicateDisposition(duplicateCase, "exclude_record", item.question_id));
+      }
+    }
     if (item.unresolved) add("Accept as is", "secondary", () => acceptQuestionAsIs(item));
     add(item.has_fix ? "Edit fix" : "Fix question", "primary", () => openProposalEditor(item));
     if (item.has_fix) add("Undo fix", "danger", () => undoCompleteQuestionRepair(item));

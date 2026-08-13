@@ -176,6 +176,34 @@ class RunLifecycle:
         self._write_manifest(manifest)
         return manifest
 
+    def record_source_recovery(self, plan: dict) -> dict:
+        """Persist a private, validated alternate-reading recovery plan.
+
+        The plan is scoped to this disposable run and is replayed only when its
+        before-hashes match the saved cleaned source parse on recovery.
+        """
+        manifest = self._require_stage("cleaned")
+        if not isinstance(plan, dict) or plan.get("format") != "prepflow_v2_source_recovery":
+            raise DomainError("Source recovery plan is malformed")
+        self._atomic_write_text(
+            self._owned_path("artifacts", "source-recovery.json"),
+            json.dumps(plan, indent=2, ensure_ascii=False) + "\n",
+        )
+        manifest["source_recovery_present"] = True
+        self._write_manifest(manifest)
+        return manifest
+
+    def source_recovery_plan(self) -> dict | None:
+        path = self._owned_path("artifacts", "source-recovery.json")
+        if not path.exists():
+            return None
+        if path.is_symlink() or not path.is_file():
+            raise DomainError("Source recovery artifact is unsafe")
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise DomainError("Source recovery artifact is malformed") from error
+
     def record_source_only_review(self, *, parsed_records: int, finding_count: int, source_metadata: dict) -> dict:
         manifest = self._require_stage("identity_pending")
         manifest.update(stage="review_ready", parsed_records=parsed_records, finding_count=finding_count, source_only=True, source_metadata=source_metadata, promotion_ready=False)
@@ -359,6 +387,7 @@ class RunLifecycle:
             ("incoming", "source.bin"),
             ("artifacts", "raw.txt"),
             ("artifacts", "cleaned.txt"),
+            ("artifacts", "source-recovery.json"),
             ("artifacts", "user_proposals.private.json"),
         }
         if (directory, filename) not in allowed:

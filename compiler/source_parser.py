@@ -55,7 +55,7 @@ PAGE_ARTIFACT_RE = re.compile(
 )
 INLINE_FIRST_CHOICE_RE = re.compile(
     r"^(\d+\.\s+.+?\?)\s*(?:[A-Z][A-Z .]{0,48}\s+)?"
-    r"([a-gA-G])\.\s+(.+)$"
+    r"([a-gA-G])\s*[.)]\s+(.+)$"
 )
 CHOICE_SENTENCE_END_RE = re.compile(r"[.!?][)\\\"'”’‖]*$")
 
@@ -191,6 +191,196 @@ def normalize_multiline_ordered_answers(
         index += 1
 
     return normalized
+
+
+def reorder_page_wrapped_choice_cycle(lines: list[str]) -> list[str]:
+    """Restore an A–D choice cycle split around its answer key by page order.
+
+    Some two-column PDFs emit the final choice and answer key before the first
+    choices when a physical page boundary falls through the choice block.  We
+    repair only a complete, unique conventional label cycle whose answer is
+    one of those labels. All intervening material must be page transport
+    noise; educational text is never moved or discarded.
+    """
+    reordered: list[str] = []
+    index = 0
+
+    def transport(value: str) -> bool:
+        return not value or value == PAGE_BREAK_MARKER or bool(
+            SOURCE_SHARE_FOOTER_RE.match(value)
+        )
+
+    while index < len(lines):
+        first = CHOICE_RE.match(lines[index])
+        if not first:
+            reordered.append(lines[index])
+            index += 1
+            continue
+
+        before = [lines[index]]
+        cursor = index + 1
+        while cursor < len(lines):
+            if transport(lines[cursor]):
+                cursor += 1
+                continue
+            choice = CHOICE_RE.match(lines[cursor])
+            if choice:
+                before.append(lines[cursor])
+                cursor += 1
+                continue
+            break
+
+        if cursor >= len(lines) or not ANSWER_RE.match(lines[cursor]):
+            reordered.append(lines[index])
+            index += 1
+            continue
+        answer_index = cursor
+        answer_labels = extract_answer_labels(ANSWER_RE.match(lines[cursor]).group(1))
+        cursor += 1
+        after = []
+        while cursor < len(lines) and transport(lines[cursor]):
+            cursor += 1
+        while cursor < len(lines):
+            choice = CHOICE_RE.match(lines[cursor])
+            if not choice:
+                break
+            after.append(lines[cursor])
+            cursor += 1
+            while cursor < len(lines) and transport(lines[cursor]):
+                cursor += 1
+
+        combined = before + after
+        labels = [CHOICE_RE.match(value).group(1).upper() for value in combined]
+        expected = [chr(ord("A") + offset) for offset in range(len(labels))]
+        if (
+            len(combined) >= 3
+            and len(set(labels)) == len(labels)
+            and sorted(labels) == expected
+            and answer_labels
+            and set(answer_labels).issubset(labels)
+            and after
+        ):
+            by_label = {CHOICE_RE.match(value).group(1).upper(): value for value in combined}
+            reordered.extend(by_label[label] for label in expected)
+            reordered.append(lines[answer_index])
+            index = cursor
+            continue
+
+        reordered.append(lines[index])
+        index += 1
+
+    return reordered
+
+
+def remove_repeated_choice_answer_pair(lines: list[str]) -> list[str]:
+    """Drop an exact duplicate choice/answer pair repeated inside a rationale.
+
+    A few page-layout extractions repeat the last choice and answer key again
+    after the first lines of rationale text.  The original pair is retained;
+    this only removes a later pair when it exactly repeats both a choice and
+    the answer already seen in the *same numbered question*.  It is not a
+    content inference and cannot change a differing choice or answer.
+    """
+    cleaned: list[str] = []
+    seen_choices: dict[str, str] = {}
+    primary_answers: tuple[str, ...] | None = None
+    index = 0
+
+    while index < len(lines):
+        line = lines[index]
+        if QUESTION_RE.match(line):
+            seen_choices = {}
+            primary_answers = None
+
+        choice = CHOICE_RE.match(line)
+        if choice and primary_answers is not None:
+            cursor = index + 1
+            while cursor < len(lines) and lines[cursor] in {"", PAGE_BREAK_MARKER}:
+                cursor += 1
+            answer = ANSWER_RE.match(lines[cursor]) if cursor < len(lines) else None
+            label = choice.group(1).upper()
+            choice_text = choice.group(2).strip()
+            if (
+                answer
+                and seen_choices.get(label) == choice_text
+                and tuple(extract_answer_labels(answer.group(1))) == primary_answers
+            ):
+                index = cursor + 1
+                continue
+
+        if choice:
+            seen_choices[choice.group(1).upper()] = choice.group(2).strip()
+
+        answer = ANSWER_RE.match(line)
+        if answer and primary_answers is None:
+            primary_answers = tuple(extract_answer_labels(answer.group(1)))
+
+        cleaned.append(line)
+        index += 1
+
+    return cleaned
+
+
+def reorder_scattered_complete_choice_cycle(lines: list[str]) -> list[str]:
+    """Recover a complete A–G cycle split around a page-layout interruption.
+
+    This handles the remaining layout shape where some choices occur after the
+    answer key, with repeated source prose between them.  It acts only when a
+    single numbered question contains one complete, unique conventional cycle
+    and one answer key, and at least one choice is physically after that key.
+    The original prose stays in place; only the known choice/answer control
+    lines are moved together before it.
+    """
+    output: list[str] = []
+    index = 0
+    while index < len(lines):
+        if not QUESTION_RE.match(lines[index]):
+            output.append(lines[index])
+            index += 1
+            continue
+
+        end = index + 1
+        while end < len(lines) and not QUESTION_RE.match(lines[end]):
+            end += 1
+        segment = lines[index:end]
+        choice_entries = [
+            (position, match)
+            for position, value in enumerate(segment)
+            if (match := CHOICE_RE.match(value))
+        ]
+        answer_entries = [
+            (position, match)
+            for position, value in enumerate(segment)
+            if (match := ANSWER_RE.match(value))
+        ]
+        labels = [match.group(1).upper() for _, match in choice_entries]
+        expected = [chr(ord("A") + offset) for offset in range(len(labels))]
+        if (
+            len(choice_entries) >= 3
+            and len(choice_entries) == len(set(labels))
+            and sorted(labels) == expected
+            and len(answer_entries) == 1
+            and any(position > answer_entries[0][0] for position, _ in choice_entries)
+            and set(extract_answer_labels(answer_entries[0][1].group(1))).issubset(labels)
+        ):
+            choice_positions = {position for position, _ in choice_entries}
+            answer_position = answer_entries[0][0]
+            by_label = {
+                match.group(1).upper(): segment[position]
+                for position, match in choice_entries
+            }
+            insertion = min(choice_positions)
+            for position, value in enumerate(segment):
+                if position == insertion:
+                    output.extend(by_label[label] for label in expected)
+                    output.append(segment[answer_position])
+                if position in choice_positions or position == answer_position:
+                    continue
+                output.append(value)
+        else:
+            output.extend(segment)
+        index = end
+    return output
 
 
 def normalize_inline_answers(lines: list[str]) -> list[str]:
@@ -354,6 +544,17 @@ def normalize_split_choices(lines: list[str]) -> list[str]:
             last_choice_label = None
 
     while index < len(lines):
+        # Some PDF readers insert a space between a choice label and its
+        # punctuation (``a . First choice``). This is still an explicit
+        # conventional marker, so normalize it without interpreting prose.
+        spaced_choice = re.match(r"^([a-gA-G])\s+[.)]\s+(.+)$", lines[index])
+        if spaced_choice:
+            append_line(
+                f"{spaced_choice.group(1).upper()}. {spaced_choice.group(2).strip()}"
+            )
+            index += 1
+            continue
+
         # Some copied PDF layers put the next choice label on a separate
         # line before a downloader attribution, e.g. "A. First" followed by
         # "B Downloaded by: ... . Second". Recover only the immediate
@@ -405,15 +606,47 @@ def normalize_split_choices(lines: list[str]) -> list[str]:
             index += 1
             continue
 
+        # Layout extraction can keep the next choice marker on the same line
+        # but insert a space before its punctuation: ``A. First B . Second``.
+        # Recover only the immediate alphabetical successor.  This moves
+        # existing source text into its own choice and deliberately leaves
+        # answer labels unchanged.
+        inline_spaced_choice = re.match(
+            r"^([a-gA-G])\.\s+(.+?)\s+([a-gA-G])\s+[.)]\s+(.+)$",
+            lines[index],
+        )
         if (
-            index + 1 < len(lines)
-            and re.fullmatch(r"[a-gA-G]", lines[index])
-            and re.match(r"^\.\s+\S", lines[index + 1])
+            inline_spaced_choice
+            and ord(inline_spaced_choice.group(3).upper())
+            == ord(inline_spaced_choice.group(1).upper()) + 1
         ):
             append_line(
-                f"{lines[index]}. {lines[index + 1][1:].strip()}"
+                f"{inline_spaced_choice.group(1).upper()}. "
+                f"{inline_spaced_choice.group(2).strip()}"
             )
-            index += 2
+            append_line(
+                f"{inline_spaced_choice.group(3).upper()}. "
+                f"{inline_spaced_choice.group(4).strip()}"
+            )
+            index += 1
+            continue
+
+        # A PDF page boundary may fall between a bare choice label and its
+        # leading period (``B`` / page break / ``. Second choice``).  Preserve
+        # the physical page marker for provenance but join this one exact,
+        # conventional choice shape before parsing.
+        period_index = index + 1
+        while period_index < len(lines) and lines[period_index] in {"", PAGE_BREAK_MARKER}:
+            period_index += 1
+        if (
+            re.fullmatch(r"[a-gA-G]", lines[index])
+            and period_index < len(lines)
+            and re.match(r"^\.\s+\S", lines[period_index])
+        ):
+            append_line(
+                f"{lines[index]}. {lines[period_index][1:].strip()}"
+            )
+            index = period_index + 1
             continue
 
         if (
@@ -721,7 +954,10 @@ def parse_source_questions(
     lines = normalize_split_choices(lines)
     lines = normalize_inline_answers(lines)
     lines = normalize_multiline_ordered_answers(lines)
+    lines = reorder_page_wrapped_choice_cycle(lines)
     lines = number_unnumbered_questions(lines)
+    lines = remove_repeated_choice_answer_pair(lines)
+    lines = reorder_scattered_complete_choice_cycle(lines)
 
     # Join chapter headings that were wrapped across PDF-extracted lines.
     joined_lines: list[str] = []

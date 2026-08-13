@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import Counter
+
 from ingestion_v2.review import ReviewQueue
 from ingestion_v2.domain import ReviewAction, replace_question_field
 
@@ -32,6 +34,11 @@ def _question_packet(question, *, changed_field: str | None = None, proposed_val
 def review_queue_view(queue: ReviewQueue) -> dict:
     """Return the source-neutral, read-only payload consumed by the workbench UI."""
     groups = _question_groups(queue)
+    # The human workflow is one decision per source question. A complete
+    # correction can deliberately resolve several detector findings, including
+    # repeated findings that share a field, so raw case statuses must not make
+    # the UI report a stale unresolved item after that decision is saved.
+    group_statuses = Counter(item["status"] for item in groups)
     return {
         "format": "prepflow_v2_review_queue",
         "version": "1.0",
@@ -42,7 +49,7 @@ def review_queue_view(queue: ReviewQueue) -> dict:
             "blocking_case_count": sum(
                 item["unresolved"] and item["blocking"] for item in groups
             ),
-            "status_counts": dict(queue.status_counts),
+            "status_counts": dict(sorted(group_statuses.items())),
         },
         "cases": [
             {

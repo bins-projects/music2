@@ -1,4 +1,6 @@
 from pathlib import Path
+import hashlib
+import json
 
 from ingestion_v2.workbench_server import approved_pdf_sources, filename_metadata, validated_existing_extraction
 
@@ -30,6 +32,11 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     assert "localStorage" not in script
     assert 'id="repair-desk-query"' in html
     assert "/api/repair-desk?q=" in script
+    assert '"Repair this question"' in script
+    assert '"Replace in Pack"' in script
+    assert '"/api/repair-desk/question?question_id="' in script
+    assert 'fetch("/api/repair-desk/replace"' in script
+    assert 'replace_canonical_pack_question' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
     assert "question" in script
     assert "renderLocalStatus" in script
     assert 'id="candidate-inspection"' in html
@@ -231,3 +238,54 @@ def test_existing_ocr_artifact_is_reused_only_for_exact_source_identity(tmp_path
     source.write_bytes(b"not a real PDF")
 
     assert validated_existing_extraction(source, "pediatrics.pdf") is None
+
+
+def test_manual_pack_replacement_preserves_id_position_and_writes_backup(tmp_path) -> None:
+    from ingestion_v2.workbench_server import replace_canonical_pack_question
+
+    pack_path = tmp_path / "fundamentals.prepflow.json"
+    backup_root = tmp_path / "backups"
+    original = {
+        "format": "prepflow_pack", "version": "1.0", "pack_id": "fundamentals",
+        "title": "Fundamentals",
+        "questions": [
+            {
+                "id": "PFQ-fundamentals-000000001", "chapter": 1,
+                "chapter_title": "One", "type": "mc", "stem": "Before?",
+                "choices": [{"label": "A", "text": "Old"}, {"label": "B", "text": "Other"}],
+                "correct_answers": ["A"], "rationale": "Before rationale.",
+            },
+            {
+                "id": "PFQ-fundamentals-000000002", "chapter": 1,
+                "chapter_title": "One", "type": "mc", "stem": "Untouched?",
+                "choices": [{"label": "A", "text": "Yes"}],
+                "correct_answers": ["A"], "rationale": "Untouched rationale.",
+            },
+        ],
+    }
+    pack_path.write_text(json.dumps(original), encoding="utf-8")
+    digest = hashlib.sha256(pack_path.read_bytes()).hexdigest()
+
+    result = replace_canonical_pack_question(
+        "PFQ-fundamentals-000000001",
+        {
+            "stem": "After?",
+            "choices": [{"label": "A", "text": "New"}, {"label": "B", "text": "Other"}],
+            "correct_answers": ["A"],
+            "rationale": "After rationale.",
+        },
+        digest,
+        registry={"fundamentals": pack_path},
+        backup_root=backup_root,
+    )
+
+    updated = json.loads(pack_path.read_text(encoding="utf-8"))
+    assert [item["id"] for item in updated["questions"]] == [
+        "PFQ-fundamentals-000000001", "PFQ-fundamentals-000000002"
+    ]
+    assert updated["questions"][0]["stem"] == "After?"
+    assert updated["questions"][1] == original["questions"][1]
+    assert result["question_count"] == 2
+    backups = list(backup_root.glob("*.prepflow.json"))
+    assert len(backups) == 1
+    assert json.loads(backups[0].read_text(encoding="utf-8")) == original

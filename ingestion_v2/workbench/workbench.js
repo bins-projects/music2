@@ -94,13 +94,71 @@
     }
     try {
       const response = await fetch(`/api/repair-desk?q=${encodeURIComponent(normalized)}`);
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Repair Desk lookup failed.");
-      const rows = payload.matches.map((item) => `<li><b>${escapeHtml(item.question_id)}</b> · ${escapeHtml(item.location)}${item.repair_id ? ` · ${escapeHtml(item.repair_id)}` : ""}${item.finding_id ? ` · ${escapeHtml(item.finding_id)}` : ""}</li>`).join("");
-      result.innerHTML = rows ? `<ul>${rows}</ul>` : "No matching stable ID was found in the protected lookup locations.";
+      const lookup = await response.json();
+      if (!response.ok) throw new Error(lookup.error || "Repair Desk lookup failed.");
+      result.replaceChildren();
+      if (!lookup.matches.length) {
+        result.textContent = "No matching stable ID was found in the protected lookup locations.";
+      } else {
+        const list = document.createElement("ul");
+        lookup.matches.forEach((item) => {
+          const row = document.createElement("li");
+          const label = document.createElement("span");
+          label.innerHTML = `<b>${escapeHtml(item.question_id)}</b> · ${escapeHtml(item.location)}${item.repair_id ? ` · ${escapeHtml(item.repair_id)}` : ""}${item.finding_id ? ` · ${escapeHtml(item.finding_id)}` : ""}`;
+          row.append(label);
+          if (item.location === "canonical_pack") {
+            const repair = document.createElement("button");
+            repair.type = "button";
+            repair.className = "secondary";
+            repair.textContent = "Repair this question";
+            repair.addEventListener("click", () => openManualPackEditor(item.question_id));
+            row.append(repair);
+          }
+          list.append(row);
+        });
+        result.append(list);
+      }
       const url = new URL(window.location.href);
       url.searchParams.set("question", normalized);
       window.history.replaceState({}, "", url);
+    } catch (error) {
+      result.textContent = error.message;
+    }
+  }
+
+  async function openManualPackEditor(questionId) {
+    const result = document.getElementById("repair-desk-results");
+    try {
+      const response = await fetch(`/api/repair-desk/question?question_id=${encodeURIComponent(questionId)}`);
+      const lookup = await response.json();
+      if (!response.ok) throw new Error(lookup.error || "Question could not be opened.");
+      const question = lookup.question;
+      const dialog = document.getElementById("proposal-dialog");
+      delete dialog.dataset.completeQuestionId;
+      delete dialog.dataset.identityRepair;
+      delete dialog.dataset.identityRecordId;
+      dialog.dataset.manualPackQuestionId = questionId;
+      dialog.dataset.manualPackSha256 = lookup.pack_sha256;
+      dialog.dataset.manualOriginalAnswers = JSON.stringify(question.correct_answers || []);
+      document.getElementById("edit-stem").value = question.stem || "";
+      document.getElementById("edit-rationale").value = question.rationale || "";
+      const chapterSelect = document.getElementById("edit-question-chapter");
+      chapterSelect.replaceChildren(new Option(
+        `Chapter ${question.chapter}: ${question.chapter_title}`,
+        `${question.chapter}|${question.chapter_title}`,
+        true,
+        true
+      ));
+      chapterSelect.disabled = true;
+      const editable = {
+        ...question,
+        choices: (question.choices || []).map((choice) => [choice.label, choice.text]),
+      };
+      renderChoiceEditor(editable, question.type);
+      document.getElementById("proposal-error").textContent =
+        `Installed ${lookup.pack_id.replaceAll("_", "-")} Pack · stable ID and position will be preserved.`;
+      dialog.querySelector('button[type="submit"]').textContent = "Replace in Pack";
+      dialog.showModal();
     } catch (error) {
       result.textContent = error.message;
     }
@@ -276,6 +334,11 @@
 
   function openCompleteQuestionEditor(item) {
     const dialog = document.getElementById("proposal-dialog");
+    delete dialog.dataset.manualPackQuestionId;
+    delete dialog.dataset.manualPackSha256;
+    delete dialog.dataset.manualOriginalAnswers;
+    document.getElementById("edit-question-chapter").disabled = false;
+    dialog.querySelector('button[type="submit"]').textContent = "Save fix";
     const question = item.effective_question || item.original_question;
     dialog.dataset.completeQuestionId = item.question_id;
     document.getElementById("edit-stem").value = question.stem || "";
@@ -358,6 +421,11 @@
     const dialog = document.getElementById("proposal-dialog");
     delete dialog.dataset.identityRepair;
     delete dialog.dataset.identityRecordId;
+    delete dialog.dataset.manualPackQuestionId;
+    delete dialog.dataset.manualPackSha256;
+    delete dialog.dataset.manualOriginalAnswers;
+    document.getElementById("edit-question-chapter").disabled = false;
+    dialog.querySelector('button[type="submit"]').textContent = "Save fix";
     document.getElementById("proposal-verification").disabled = false;
     dialog.close();
   });
@@ -367,6 +435,45 @@
     const dialog = document.getElementById("proposal-dialog");
     const errorNode = document.getElementById("proposal-error");
     try {
+      if (dialog.dataset.manualPackQuestionId) {
+        const choices = [...document.querySelectorAll(".choice-editor-row")].map((row) => ({
+          label: row.querySelector(".edit-choice-label").value,
+          text: row.querySelector(".edit-choice-text").value,
+        }));
+        const selectedAnswers = [...document.querySelectorAll("#answer-choice-select input:checked")]
+          .map((node) => node.value);
+        const values = {
+          stem: document.getElementById("edit-stem").value,
+          choices,
+          correct_answers: selectedAnswers.length
+            ? selectedAnswers
+            : JSON.parse(dialog.dataset.manualOriginalAnswers || "[]"),
+          rationale: document.getElementById("edit-rationale").value,
+        };
+        if (!window.confirm(
+          `Replace ${dialog.dataset.manualPackQuestionId} in the installed Pack? The stable ID and position will remain unchanged.`
+        )) return;
+        const response = await fetch("/api/repair-desk/replace", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            question_id: dialog.dataset.manualPackQuestionId,
+            pack_sha256: dialog.dataset.manualPackSha256,
+            values,
+          }),
+        });
+        const replacement = await response.json();
+        if (!response.ok) throw new Error(replacement.error || "Pack question could not be replaced.");
+        dialog.close();
+        const repairedId = replacement.question_id;
+        delete dialog.dataset.manualPackQuestionId;
+        delete dialog.dataset.manualPackSha256;
+        delete dialog.dataset.manualOriginalAnswers;
+        document.getElementById("edit-question-chapter").disabled = false;
+        dialog.querySelector('button[type="submit"]').textContent = "Save fix";
+        document.getElementById("repair-desk-results").textContent =
+          `${repairedId} replaced in ${replacement.pack_id.replaceAll("_", "-")} · backup ${replacement.backup}`;
+        return;
+      }
       if (dialog.dataset.completeQuestionId) {
         const choices = [...document.querySelectorAll(".choice-editor-row")].map((row) => ({
           label: row.querySelector(".edit-choice-label").value,

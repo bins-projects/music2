@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import copy
+from datetime import datetime, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 import hashlib
+import os
+import tempfile
 from pypdf import PdfReader
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -11,7 +15,7 @@ from urllib.parse import parse_qs, urlparse
 from ingestion_v2.domain import DomainError
 from ingestion_v2.recovery import list_completed_runs, list_recoverable_runs
 from ingestion_v2.workbench_session import SyntheticWorkbenchSession
-from compiler.repair import load_pack
+from compiler.repair import RepairError, find_question, load_pack, validate_candidate_question
 from ingestion_v2.repair_desk import load_json, reconcile_repairs, repair_desk_lookup
 
 
@@ -127,6 +131,129 @@ def validated_existing_extraction(
 REPAIR_WORKBENCH_DIRECTORY = PROJECT_DIRECTORY / "output" / "repair-workbench" / "fundamentals"
 
 
+def canonical_pack_question(question_id: str) -> tuple[str, Path, dict, dict]:
+    """Resolve one immutable ID to exactly one installed canonical Pack."""
+    matches = []
+    for pack_id, path in PACK_REGISTRY.items():
+        pack = load_pack(path)
+        try:
+            question = find_question(pack, question_id)
+        except RepairError as error:
+            if str(error).startswith("Question not found:"):
+                continue
+            raise DomainError(str(error)) from error
+        matches.append((pack_id, path, pack, question))
+    if not matches:
+        raise DomainError(f"Installed Pack question not found: {question_id}")
+    if len(matches) != 1:
+        raise DomainError(f"Question ID is not unique across installed Packs: {question_id}")
+    return matches[0]
+
+
+def _atomic_write_bytes(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as file:
+            file.write(data)
+            file.flush()
+            os.fsync(file.fileno())
+        temporary.replace(path)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def replace_canonical_pack_question(
+    question_id: str,
+    values: dict,
+    expected_pack_sha256: str,
+    *,
+    registry: dict[str, Path] = PACK_REGISTRY,
+    backup_root: Path | None = None,
+) -> dict:
+    """Atomically replace one canonical question while preserving ID and order."""
+    matches = []
+    for pack_id, path in registry.items():
+        pack = load_pack(path)
+        try:
+            question = find_question(pack, question_id)
+        except RepairError as error:
+            if str(error).startswith("Question not found:"):
+                continue
+            raise DomainError(str(error)) from error
+        matches.append((pack_id, path, pack, question))
+    if len(matches) != 1:
+        message = "not found" if not matches else "not unique"
+        raise DomainError(f"Installed Pack question is {message}: {question_id}")
+    pack_id, path, pack, original = matches[0]
+    original_bytes = path.read_bytes()
+    current_sha256 = hashlib.sha256(original_bytes).hexdigest()
+    if expected_pack_sha256 != current_sha256:
+        raise DomainError("Pack changed after lookup; search again before replacing the question")
+    if not isinstance(values, dict):
+        raise DomainError("Complete replacement values are required")
+
+    replacement = copy.deepcopy(original)
+    for field in ("stem", "rationale"):
+        if not isinstance(values.get(field), str):
+            raise DomainError(f"Replacement {field} must be text")
+        replacement[field] = values[field].strip()
+    choices = values.get("choices")
+    answers = values.get("correct_answers")
+    if not isinstance(choices, list) or not all(
+        isinstance(item, dict) and isinstance(item.get("label"), str)
+        and isinstance(item.get("text"), str) for item in choices
+    ):
+        raise DomainError("Replacement choices are malformed")
+    if not isinstance(answers, list) or not all(isinstance(item, str) for item in answers):
+        raise DomainError("Replacement correct answers are malformed")
+    replacement["choices"] = [
+        {"label": item["label"].strip().upper(), "text": item["text"].strip()}
+        for item in choices
+    ]
+    replacement["correct_answers"] = [item.strip() for item in answers]
+    replacement["id"] = question_id
+    try:
+        validate_candidate_question(replacement)
+    except RepairError as error:
+        raise DomainError(str(error)) from error
+
+    updated = copy.deepcopy(pack)
+    indexes = [
+        index for index, question in enumerate(updated["questions"])
+        if question.get("id") == question_id
+    ]
+    if len(indexes) != 1:
+        raise DomainError(f"Question ID is not unique inside Pack: {question_id}")
+    updated["questions"][indexes[0]] = replacement
+    ids = [question.get("id") for question in updated["questions"]]
+    if len(ids) != len(set(ids)):
+        raise DomainError("Pack contains duplicate question IDs")
+    try:
+        for question in updated["questions"]:
+            validate_candidate_question(question)
+    except RepairError as error:
+        raise DomainError(f"Pack validation failed: {error}") from error
+
+    encoded = (json.dumps(updated, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+    backup_directory = backup_root or (PROJECT_DIRECTORY / "output" / "pack-backups")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    backup_path = backup_directory / f"{pack_id}-{stamp}-{current_sha256[:12]}.prepflow.json"
+    _atomic_write_bytes(backup_path, original_bytes)
+    _atomic_write_bytes(path, encoded)
+    return {
+        "status": "replaced_in_pack",
+        "pack_id": pack_id,
+        "question_id": question_id,
+        "question": replacement,
+        "question_count": len(updated["questions"]),
+        "pack_sha256": hashlib.sha256(encoded).hexdigest(),
+        "backup": str(backup_path.relative_to(PROJECT_DIRECTORY)),
+    }
+
+
 class WorkbenchHandler(SimpleHTTPRequestHandler):
     session = SyntheticWorkbenchSession(workspace_root=RUNS_DIRECTORY)
 
@@ -153,6 +280,22 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
             if candidate and records:
                 payload["reconciliation"] = reconcile_repairs(records, canonical[0], candidate)
             self._send_json(payload)
+            return
+        if parsed.path == "/api/repair-desk/question":
+            question_id = parse_qs(parsed.query).get("question_id", [""])[0]
+            if not question_id:
+                self._send_json({"error": "question_id is required"}, status=400)
+                return
+            try:
+                pack_id, path, _, question = canonical_pack_question(question_id)
+                self._send_json({
+                    "pack_id": pack_id,
+                    "question_id": question_id,
+                    "question": question,
+                    "pack_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                })
+            except DomainError as error:
+                self._send_json({"error": str(error)}, status=400)
             return
         if parsed.path == "/api/candidate/inspection":
             self._send_json(self.session.candidate_inspection())
@@ -240,7 +383,15 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 }
                 self._send_json(payload)
                 return
-            if self.path == "/api/actions":
+            if self.path == "/api/repair-desk/replace":
+                question_id = body.get("question_id")
+                pack_sha256 = body.get("pack_sha256")
+                if not isinstance(question_id, str) or not isinstance(pack_sha256, str):
+                    raise DomainError("question_id and pack_sha256 are required")
+                payload = replace_canonical_pack_question(
+                    question_id, body.get("values"), pack_sha256
+                )
+            elif self.path == "/api/actions":
                 finding_id = body.get("finding_id")
                 if not isinstance(finding_id, str):
                     raise DomainError("finding_id is required")

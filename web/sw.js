@@ -1,12 +1,13 @@
 importScripts("./pack-precache.js");
 
-const CACHE_NAME = `prepflow-pwa-v5-generic-pack-catalog-${self.PREPFLOW_PACK_PRECACHE.version}`;
+const CACHE_NAME = `prepflow-pwa-v6-question-references-${self.PREPFLOW_PACK_PRECACHE.version}`;
 
 const APP_FILES = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./question-reference-rules.js",
   "./generic-pack-catalog.css",
   "./canonical-question-types.css",
   "./data/pack-catalog.json",

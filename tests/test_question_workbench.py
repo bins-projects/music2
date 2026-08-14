@@ -14,8 +14,8 @@ import ingestion_v2.question_publisher as question_publisher
 from ingestion_v2.prepflow_question_workbench_launcher import command
 from ingestion_v2.question_publisher import prepare_public_worktree, publication_readiness, publish_saved_operation
 from ingestion_v2.question_workbench import (
-    QuestionWorkbenchError, apply_operation_to_pack, canonical_type_inventory, evaluate_answer,
-    load_ledger, save_operation,
+    QuestionWorkbenchError, apply_operation_to_pack, canonical_type_inventory, chapter_inventory,
+    concise_question_reference, evaluate_answer, load_ledger, save_operation, search_questions,
     TYPE_DEFINITIONS,
 )
 from ingestion_v2.workbench_server import WorkbenchHandler
@@ -53,6 +53,53 @@ def test_inventory_reports_all_installed_stored_values():
     assert set(inventory) == {"mc", "multiple_choice", "multiple_response", "completion", "ordered_response"}
     assert all(item["supported"] for item in inventory.values())
 
+
+
+def test_chapter_inventory_uses_natural_numeric_order():
+    questions = []
+    for number in (1, 10, 2):
+        candidate = question(question_id=f"PFQ-test-{number:09d}")
+        candidate.update(chapter=number, chapter_title=f"Chapter {number}")
+        questions.append(candidate)
+    assert [item["chapter"] for item in chapter_inventory(pack(*questions))] == [1, 2, 10]
+
+
+def test_browse_search_scopes_paginates_and_prioritizes_exact_matches():
+    questions = []
+    for number, chapter, stem in (
+        (1, 1, "Dose"),
+        (2, 1, "Dose timing for a child"),
+        (3, 2, "Respiratory assessment"),
+        (4, 2, "Long multiline\nstem"),
+    ):
+        candidate = question(question_id=f"PFQ-test-{number:09d}")
+        candidate.update(chapter=chapter, chapter_title=f"Chapter {chapter}", stem=stem)
+        questions.append(candidate)
+    installed = pack(*questions)
+
+    first = search_questions("test", installed, "", page=1, page_size=2)
+    assert first["total"] == 4 and first["has_next"]
+    assert [item["question_id"] for item in first["results"]] == [
+        "PFQ-test-000000001", "PFQ-test-000000002"
+    ]
+    chapter = search_questions("test", installed, "", chapter="2")
+    assert chapter["total"] == 2
+    assert {item["chapter"] for item in chapter["results"]} == {2}
+    exact_text = search_questions("test", installed, "Dose")
+    assert [item["question_id"] for item in exact_text["results"]] == [
+        "PFQ-test-000000001", "PFQ-test-000000002"
+    ]
+    for query in ("3", "PFQ-test-000000003", "Test • Ref 3"):
+        exact = search_questions("test", installed, query)
+        assert exact["total"] == 1
+        assert exact["results"][0]["question_id"] == "PFQ-test-000000003"
+        assert exact["results"][0]["reference"] == "Test • Ref 3"
+
+
+def test_concise_reference_never_invents_a_missing_or_invalid_id():
+    assert concise_question_reference("Pediatrics", "PFQ-pediatrics-000000003") == "Pediatrics • Ref 3"
+    assert concise_question_reference("Pediatrics", "") == "Reference unavailable"
+    assert concise_question_reference("Pediatrics", "temporary-3") == "Reference unavailable"
 
 @pytest.mark.parametrize("kind,correct,wrong", [
     ("mc", ["A"], ["B"]), ("multiple_choice", ["A"], ["B"]), ("multiple_response", ["B", "A"], ["A"]),
@@ -295,6 +342,10 @@ def test_unified_server_serves_both_stations_health_and_shared_pack_discovery():
         question_packs = json.loads(get("/api/question-workbench")[2])["packs"]
         installed = {item["id"] for item in ingestion_packs if not item["source_only"]}
         assert installed == {item["id"] for item in question_packs}
+        browse = json.loads(get("/api/question-workbench/search?pack_id=fundamentals&q=3&page_size=2")[2])
+        assert browse["results"][0]["question_id"] == "PFQ-fundamentals-000000003"
+        assert browse["results"][0]["reference"] == "Fundamentals of Nursing • Ref 3"
+        assert browse["page_size"] == 2 and browse["has_next"]
     finally:
         server.shutdown()
         server.server_close()
@@ -327,6 +378,11 @@ def test_ui_contract_has_two_states_final_actions_preview_and_mobile_layout():
     assert 'option.hidden=option.value==="multiple_choice"' in script
     assert "@media(max-width:760px)" in css
     assert ".header-actions" in css and ".station-nav" in css
+    for text in ("All chapters", "renderBrowseResults", "stepQuestion", "backToResults", "openCurrentForRepair", "browseRequest"):
+        assert text in script
+    for text in ("Back to results", "Previous question", "Next question", "Open this question for repair"):
+        assert text in html
+    assert ".result{" in css and ".record-navigation" in css and ".canonical-record" in css
     ingestion_html = Path("ingestion_v2/workbench/index.html").read_text()
     ingestion_css = Path("ingestion_v2/workbench/workbench.css").read_text()
     assert 'href="/questions/"' in ingestion_html and "Repair &amp; Add Questions" in ingestion_html

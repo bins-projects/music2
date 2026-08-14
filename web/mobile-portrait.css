@@ -545,33 +545,65 @@ html.mobile-portrait #quiz-screen:not([hidden]) .question-page {
     var(--mobile-paper-header-height)
     auto
     auto
+    auto
     minmax(0, 1fr)
     var(--mobile-paper-footer-height) !important;
+  align-content: stretch !important;
 }
 
 html.mobile-portrait #quiz-screen:not([hidden]) .question-page .quiz-page-meta {
   grid-row: 1 !important;
 }
 
-html.mobile-portrait #quiz-screen:not([hidden]) .question-page .quiz-page-label {
+html.mobile-portrait #quiz-screen:not([hidden]) .question-page .quiz-reference-bar {
   grid-row: 2 !important;
+  grid-template-columns: 1fr !important;
+  gap: .2rem !important;
+  margin: .25rem 0 .35rem !important;
 }
 
-html.mobile-portrait #quiz-screen:not([hidden]) .question-page .mobile-question-instruction {
+html.mobile-portrait #quiz-screen:not([hidden]) .quiz-question-id {
+  color: #34445d !important;
+  font-size: clamp(.68rem, 2.9vw, .78rem) !important;
+}
+
+html.mobile-portrait #quiz-screen:not([hidden]) .quiz-reference-actions {
+  justify-content: flex-start !important;
+}
+
+html.mobile-portrait #quiz-screen:not([hidden]) .quiz-reference-action {
+  min-height: 32px !important;
+  padding: .35rem .5rem !important;
+  font-size: clamp(.58rem, 2.45vw, .68rem) !important;
+}
+
+html.mobile-portrait #quiz-screen:not([hidden]) .question-copy-status {
+  min-height: .72rem !important;
+  font-size: .62rem !important;
+}
+
+html.mobile-portrait #quiz-screen:not([hidden]) .question-page .quiz-page-label {
   grid-row: 3 !important;
 }
 
-html.mobile-portrait #quiz-screen:not([hidden]) .question-page .quiz-page-scroll {
+html.mobile-portrait #quiz-screen:not([hidden]) .question-page .mobile-question-instruction {
   grid-row: 4 !important;
+}
+
+html.mobile-portrait #quiz-screen:not([hidden]) .question-page .quiz-page-scroll {
+  grid-row: 5 !important;
   align-self: stretch !important;
+  align-content: start !important;
+  justify-content: flex-start !important;
   width: 100% !important;
   height: auto !important;
   max-height: none !important;
+  padding-top: .4rem !important;
   scrollbar-gutter: auto !important;
 }
 
 html.mobile-portrait #quiz-screen:not([hidden]) .question-page .mobile-question-actions {
-  grid-row: 5 !important;
+  grid-row: 6 !important;
 }
 
 html.mobile-portrait #quiz-screen:not([hidden]) .response-page {

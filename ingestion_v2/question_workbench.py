@@ -113,7 +113,19 @@ def chapter_inventory(pack: dict[str, Any]) -> list[dict[str, Any]]:
     chapters: dict[tuple[Any, str], None] = {}
     for question in pack.get("questions", []):
         chapters[(question.get("chapter"), str(question.get("chapter_title") or ""))] = None
-    return [{"chapter": number, "chapter_title": title} for number, title in sorted(chapters, key=lambda item: (str(item[0]), item[1]))]
+    def natural_key(item: tuple[Any, str]) -> tuple[Any, ...]:
+        number, title = item
+        parts = re.split(r"(\d+)", str(number))
+        normalized = tuple(
+            (0, int(part)) if part.isdigit() else (1, part.casefold())
+            for part in parts if part
+        )
+        return normalized + ((2, title.casefold()),)
+
+    return [
+        {"chapter": number, "chapter_title": title}
+        for number, title in sorted(chapters, key=natural_key)
+    ]
 
 
 def _derived_namespace(pack_id: str) -> str:
@@ -240,27 +252,73 @@ def evaluate_answer(question: dict[str, Any], selected: Any) -> dict[str, Any]:
     return {"is_correct": is_correct, "correct_answers": correct}
 
 
-def search_questions(pack_id: str, pack: dict[str, Any], query: str) -> list[dict[str, Any]]:
+def concise_question_reference(pack_title: str, question_id: str) -> str:
+    match = ID_RE.fullmatch(str(question_id or ""))
+    if not match:
+        return "Reference unavailable"
+    return f"{pack_title} • Ref {int(match.group(2))}"
+
+
+def search_questions(
+    pack_id: str,
+    pack: dict[str, Any],
+    query: str,
+    *,
+    chapter: str | None = None,
+    page: int = 1,
+    page_size: int = 40,
+) -> dict[str, Any]:
+    """Return one predictable, scoped page of installed canonical records."""
     needle = query.strip().casefold()
-    numeric = needle.isdigit()
-    matches = []
-    for question in pack.get("questions", []):
+    reference_match = re.search(r"(?:^|\b)ref\s*#?\s*(\d+)\b", needle)
+    numeric_reference = int(needle) if needle.isdigit() else (
+        int(reference_match.group(1)) if reference_match else None
+    )
+    pack_title = str(pack.get("title") or pack_id)
+    matches: list[tuple[int, int, dict[str, Any]]] = []
+    for index, question in enumerate(pack.get("questions", [])):
+        if chapter not in (None, "") and str(question.get("chapter")) != str(chapter):
+            continue
         question_id = str(question.get("id") or "")
         suffix = question_id.rsplit("-", 1)[-1]
-        searchable_text = " ".join([
-            str(question.get("stem") or ""),
-            str(question.get("chapter_title") or ""),
-            str(question.get("rationale") or ""),
-            " ".join(str(item.get("text") or "") for item in question.get("choices", []) if isinstance(item, dict)),
-        ]).casefold()
-        if (not needle or needle in question_id.casefold() or needle in searchable_text
-                or (numeric and suffix.isdigit() and int(suffix) == int(needle))):
-            matches.append({
-                "pack_id": pack_id, "question_id": question_id,
-                "chapter": question.get("chapter"), "chapter_title": question.get("chapter_title"),
-                "type": question.get("type"), "stem": question.get("stem"),
-            })
-    return matches[:100]
+        exact_reference = (
+            numeric_reference is not None
+            and suffix.isdigit()
+            and int(suffix) == numeric_reference
+        )
+        exact_id = bool(needle) and question_id.casefold() == needle
+        stem = str(question.get("stem") or "")
+        exact_stem = bool(needle) and stem.casefold() == needle
+        partial_id = bool(needle) and needle in question_id.casefold()
+        partial_stem = bool(needle) and needle in stem.casefold()
+        if needle and not (exact_reference or exact_id or exact_stem or partial_id or partial_stem):
+            continue
+        rank = 0 if (exact_reference or exact_id or exact_stem) else 1
+        matches.append((rank, index, {
+            "pack_id": pack_id,
+            "pack_title": pack_title,
+            "question_id": question_id,
+            "reference": concise_question_reference(pack_title, question_id),
+            "chapter": question.get("chapter"),
+            "chapter_title": question.get("chapter_title"),
+            "type": question.get("type") or question.get("question_type"),
+            "stem": stem,
+        }))
+    matches.sort(key=lambda item: (item[0], item[1]))
+    total = len(matches)
+    page_size = max(1, min(int(page_size), 100))
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page = max(1, min(int(page), total_pages))
+    start = (page - 1) * page_size
+    return {
+        "results": [item[2] for item in matches[start:start + page_size]],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "has_previous": page > 1,
+        "has_next": page < total_pages,
+    }
 
 
 def save_operation(

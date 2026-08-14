@@ -614,7 +614,7 @@ def main() -> None:
         # forwarder can reach the process.
         server = ThreadingHTTPServer((args.host, args.port), WorkbenchHandler)
     print(f"PrepFlow v2 private workbench: http://{args.host}:{args.port}/")
-    print("Private checkpoints enabled; no canonical Pack writes or promotion.")
+    print("Private checkpoints enabled; direct Pack replacement requires explicit confirmation.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -15,8 +15,23 @@
       <label>Pack<select id="pack"></select></label>
       <label id="chapter-wrap" hidden>Chapter<select id="chapter"></select></label>
       <label id="type-wrap" hidden>Question type<select id="type"></select></label>
-      <form id="search-form"><label>Find a question<input id="search" type="search" placeholder="Question text, number, or full PFQ ID"></label><button>Search</button></form>
+      <form id="search-form"><label>Search or browse questions<input id="search" type="search" placeholder="Stem text, Ref number, or full PFQ ID"></label><button>Search / Browse</button></form>
       <div id="search-results" class="results" aria-live="polite"></div>
+    </section>
+    <section id="record-view" class="panel record-view" hidden aria-label="Complete installed question record">
+      <div class="record-navigation">
+        <button id="back-to-results" type="button" class="secondary">Back to results</button>
+        <strong id="record-position"></strong>
+        <div class="record-step-actions">
+          <button id="previous-question" type="button" class="secondary">Previous question</button>
+          <button id="next-question" type="button" class="secondary">Next question</button>
+        </div>
+      </div>
+      <div id="browse-record-meta" class="record-meta"></div>
+      <h2 id="browse-record-stem"></h2>
+      <div id="browse-record-body" class="browse-record-body"></div>
+      <details class="canonical-record"><summary>Complete canonical record</summary><pre id="browse-record-json"></pre></details>
+      <div class="editor-actions"><button id="open-for-repair" type="button">Open this question for repair</button></div>
     </section>
     <section id="editor" class="panel" hidden>
       <div class="editor-heading"><div><p class="eyebrow" id="editor-mode"></p><h2 id="question-id">Permanent ID assigned when saved</h2></div><span id="save-state"></span></div>

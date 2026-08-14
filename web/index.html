@@ -240,8 +240,12 @@
       <div class="mobile-quiz-scene" aria-hidden="true"></div>
       <div class="quiz-book">
         <section class="quiz-page question-page">
-          <div class="quiz-page-meta"><strong id="quiz-subject"></strong><span id="quiz-position"></span></div>
-          <div id="quiz-question-id" class="quiz-question-id" aria-label="Stable question ID"></div>
+          <div class="quiz-page-meta"><strong id="quiz-subject"></strong><span id="quiz-position" aria-label="Quiz-session progress"></span></div>
+          <div class="quiz-reference-bar">
+            <div id="quiz-question-id" class="quiz-question-id" aria-label="Permanent question reference"></div>
+            <div class="quiz-reference-actions"><button id="copy-question-id" class="quiz-reference-action" type="button">Copy ID</button><button id="copy-question-report" class="quiz-reference-action" type="button">Copy question report</button></div>
+            <span id="question-copy-status" class="question-copy-status" aria-live="polite"></span>
+          </div>
           <div class="quiz-page-label">Question</div>
           <p id="mobile-question-instruction" class="mobile-question-instruction" hidden></p>
           <div class="quiz-page-scroll"><h2 id="question-stem"></h2></div>
@@ -282,6 +286,7 @@
   <script src="navigation-rules.js?v=20260721-1"></script>
   <script src="selection-rules.js?v=20260721-1"></script>
   <script src="resume-rules.js?v=20260726-progress-1"></script>
+  <script src="question-reference-rules.js?v=20260814-1"></script>
   <script src="display-rules.js?v=20260721-1"></script>
   <script src="order-rules.js?v=20260721-1"></script>
   <script src="app.js?v=20260728-per-book-selection-summary-1"></script>

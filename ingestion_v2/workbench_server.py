@@ -353,11 +353,25 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/question-workbench/search":
             query = parse_qs(parsed.query)
             pack_id, text = query.get("pack_id", [""])[0], query.get("q", [""])[0]
+            chapter = query.get("chapter", [""])[0]
+            try:
+                page = int(query.get("page", ["1"])[0])
+                page_size = int(query.get("page_size", ["40"])[0])
+            except ValueError:
+                self._send_json({"error": "page and page_size must be integers"}, status=400)
+                return True
             _, packs = installed_question_packs()
             if pack_id not in packs:
                 self._send_json({"error": "Selected Pack is unavailable"}, status=400)
             else:
-                self._send_json({"results": search_questions(pack_id, packs[pack_id], text)})
+                self._send_json(search_questions(
+                    pack_id,
+                    packs[pack_id],
+                    text,
+                    chapter=chapter or None,
+                    page=page,
+                    page_size=page_size,
+                ))
             return True
         if parsed.path == "/api/question-workbench/question":
             query = parse_qs(parsed.query)

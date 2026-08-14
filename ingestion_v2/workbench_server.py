@@ -244,6 +244,11 @@ def replace_canonical_pack_question(
     backup_path = backup_directory / f"{pack_id}-{stamp}-{current_sha256[:12]}.prepflow.json"
     _atomic_write_bytes(backup_path, original_bytes)
     _atomic_write_bytes(path, encoded)
+    backup_label = (
+        str(backup_path.relative_to(PROJECT_DIRECTORY))
+        if backup_path.is_relative_to(PROJECT_DIRECTORY)
+        else str(backup_path)
+    )
     return {
         "status": "replaced_in_pack",
         "pack_id": pack_id,
@@ -251,7 +256,7 @@ def replace_canonical_pack_question(
         "question": replacement,
         "question_count": len(updated["questions"]),
         "pack_sha256": hashlib.sha256(encoded).hexdigest(),
-        "backup": str(backup_path.relative_to(PROJECT_DIRECTORY)),
+        "backup": backup_label,
     }
 
 

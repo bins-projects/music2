@@ -34,7 +34,7 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     assert "/api/repair-desk?q=" in script
     assert '"Repair this question"' in script
     assert '"Replace in Pack"' in script
-    assert '"/api/repair-desk/question?question_id="' in script
+    assert "/api/repair-desk/question?question_id=" in script
     assert 'fetch("/api/repair-desk/replace"' in script
     assert 'replace_canonical_pack_question' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
     assert '"pediatrics": PROJECT_DIRECTORY / "packs" / "pediatrics.prepflow.json"' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")

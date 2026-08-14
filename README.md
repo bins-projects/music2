@@ -1,5 +1,13 @@
 # PrepFlow
 
+## Open the private Workbench
+
+[![Open Workbench in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/bins-projects/prepflow-dev?quickstart=1&ref=feat%2Fingestion-workbench)
+
+Click the button, keep **feat/ingestion-workbench** selected, and choose **Create codespace**. The first launch installs the Python dependency and then opens the private PrepFlow Workbench automatically. Later, reopen the same Codespace from [Your Codespaces](https://github.com/codespaces) to keep its private `output/` checkpoints.
+
+Do not delete the Codespace until any important run artifacts have been exported or copied elsewhere. Creating a different Codespace starts with a clean `output/` directory.
+
 PrepFlow is a browser-based nursing study application built around organized question Packs.
 
 It lets students build a quiz from selected nursing chapters, study one question at a time, review the correct answer and rationale, and repeat missed questions until they are mastered.

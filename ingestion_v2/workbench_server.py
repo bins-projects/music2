@@ -441,6 +441,12 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the local private PrepFlow v2 workbench.")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument(
+        "--host",
+        choices=("127.0.0.1", "0.0.0.0"),
+        default="127.0.0.1",
+        help="Bind address; use 0.0.0.0 only behind a private forwarded port.",
+    )
     return parser
 
 
@@ -448,8 +454,14 @@ def main() -> None:
     args = build_parser().parse_args()
     if not 1024 <= args.port <= 65535:
         raise SystemExit("Port must be between 1024 and 65535")
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), WorkbenchHandler)
-    print(f"PrepFlow v2 private workbench: http://127.0.0.1:{args.port}/")
+    if args.host == "127.0.0.1":
+        # Keep the ordinary local launch loopback-only.
+        server = ThreadingHTTPServer(("127.0.0.1", args.port), WorkbenchHandler)
+    else:
+        # Codespaces requires an all-interface bind before its private port
+        # forwarder can reach the process.
+        server = ThreadingHTTPServer((args.host, args.port), WorkbenchHandler)
+    print(f"PrepFlow v2 private workbench: http://{args.host}:{args.port}/")
     print("Private checkpoints enabled; no canonical Pack writes or promotion.")
     try:
         server.serve_forever()

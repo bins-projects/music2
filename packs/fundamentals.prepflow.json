@@ -7110,11 +7110,8 @@
       "source_record_id": "PFV2-REC-000229"
     },
     {
-      "id": "PFQ-fundamentals-000000230",
       "chapter": 10,
       "chapter_title": "Documentation, Electronic Health Records, and Reporting",
-      "type": "mc",
-      "stem": "The nurse understands which statement about the use of electronic health records is true?",
       "choices": [
         {
           "label": "A",
@@ -7134,11 +7131,13 @@
         }
       ],
       "correct_answers": [
-        "A",
-        "C"
+        "A"
       ],
+      "id": "PFQ-fundamentals-000000230",
       "rationale": "Adoption of an EHR system produces major cost savings through gains in productivity and error reduction, which ultimately improves patient health status. The most common benefits of electronic records are increased delivery of guideline-based care, better monitoring, reduced medication errors, and decreased use of care. Use of EHRs can reduce storage space, allow simultaneous access by multiple users, facilitate easy duplication for sharing or backup, and increase portability in environments using wireless systems and hand-held devices. Although data are often entered by keyboard, they can also be entered by means of dictated voice recordings, light pens, or handwriting and pattern recognition systems.",
-      "source_record_id": "PFV2-REC-000230"
+      "source_record_id": "PFV2-REC-000230",
+      "stem": "The nurse understands which statement about the use of electronic health records is true?",
+      "type": "mc"
     },
     {
       "id": "PFQ-fundamentals-000000231",
@@ -11365,11 +11364,8 @@
       "source_record_id": "PFV2-REC-000366"
     },
     {
-      "id": "PFQ-fundamentals-000000367",
       "chapter": 15,
       "chapter_title": "Nursing Informatics",
-      "type": "mc",
-      "stem": "One classification system for nursing informatics competencies uses technical, utility, and leadership categories. The nurse recognizes leadership competencies involve which concept?",
       "choices": [
         {
           "label": "A",
@@ -11391,8 +11387,11 @@
       "correct_answers": [
         "A"
       ],
-      "rationale": "",
-      "source_record_id": "PFV2-REC-000367"
+      "id": "PFQ-fundamentals-000000367",
+      "rationale": "none",
+      "source_record_id": "PFV2-REC-000367",
+      "stem": "One classification system for nursing informatics competencies uses technical, utility, and leadership categories. The nurse recognizes leadership competencies involve which concept?",
+      "type": "mc"
     },
     {
       "id": "PFQ-fundamentals-000000368",
@@ -16150,11 +16149,8 @@
       "source_record_id": "PFV2-REC-000519"
     },
     {
-      "id": "PFQ-fundamentals-000000520",
       "chapter": 21,
       "chapter_title": "Ethnicity and Cultural Assessment",
-      "type": "mc",
-      "stem": "A patient has hypertension and is on a very-low-sodium diet. However, the patient is going to celebrate an important religious holiday soon that includes many food items high in sodium. What action by the nurse is best?",
       "choices": [
         {
           "label": "A",
@@ -16174,11 +16170,13 @@
         }
       ],
       "correct_answers": [
-        "C",
         "C"
       ],
+      "id": "PFQ-fundamentals-000000520",
       "rationale": "Food has important meaning to many people, especially when they are part of celebrations, religious, or cultural activities. The nurse should collaborate with the patient and dietitian and try to find ways to incorporate some of these items. The nurse should not just tell the patient she can‘t have them. Increasing the medications or encouraging the patient to be nonadherent could lead to adverse outcomes.",
-      "source_record_id": "PFV2-REC-000520"
+      "source_record_id": "PFV2-REC-000520",
+      "stem": "A patient has hypertension and is on a very-low-sodium diet. However, the patient is going to celebrate an important religious holiday soon that includes many food items high in sodium. What action by the nurse is best?",
+      "type": "mc"
     },
     {
       "id": "PFQ-fundamentals-000000521",
@@ -30116,11 +30114,8 @@
       "source_record_id": "PFV2-REC-000957"
     },
     {
-      "id": "PFQ-fundamentals-000000958",
       "chapter": 39,
       "chapter_title": "Fluid, Electrolytes, and Acid-Base Balance",
-      "type": "mc",
-      "stem": "The nurse is caring for a patient who has a central venous catheter (CVC). Which nursing intervention is the most important for the nurseto include in the patient‘s plan of care?",
       "choices": [
         {
           "label": "A",
@@ -30140,11 +30135,13 @@
         }
       ],
       "correct_answers": [
-        "B",
-        "C"
+        "B"
       ],
+      "id": "PFQ-fundamentals-000000958",
       "rationale": "Strict sterile procedure is mandatory when changing CVC dressings because of the high risk of septicemia and/or sepsis. The other actions are appropriate, but not of the highest priority.",
-      "source_record_id": "PFV2-REC-000958"
+      "source_record_id": "PFV2-REC-000958",
+      "stem": "The nurse is caring for a patient who has a central venous catheter (CVC). Which nursing intervention is the most important for the nurseto include in the patient‘s plan of care?",
+      "type": "mc"
     },
     {
       "id": "PFQ-fundamentals-000000959",
@@ -30447,11 +30444,8 @@
       "source_record_id": "PFV2-REC-000968"
     },
     {
-      "id": "PFQ-fundamentals-000000969",
       "chapter": 39,
       "chapter_title": "Fluid, Electrolytes, and Acid-Base Balance",
-      "type": "mc",
-      "stem": "The nurse is caring for a hospitalized patient with hyperparathyroid disease and a serum calcium level of 14.2 mg/dL. What is the priority intervention of the nurse?",
       "choices": [
         {
           "label": "A",
@@ -30471,11 +30465,13 @@
         }
       ],
       "correct_answers": [
-        "A",
-        "C"
+        "A"
       ],
+      "id": "PFQ-fundamentals-000000969",
       "rationale": "The patient with hypercalcemia should always call for assistance before getting out of bed because of the risk of falling due to muscle weakness, soft bones, and lethargy. Diaphoresis and decreased urine output are not common symptoms of hypercalcemia. Teaching stress-relieving techniques is not a priority.",
-      "source_record_id": "PFV2-REC-000969"
+      "source_record_id": "PFV2-REC-000969",
+      "stem": "The nurse is caring for a hospitalized patient with hyperparathyroid disease and a serum calcium level of 14.2 mg/dL. What is the priority intervention of the nurse?",
+      "type": "mc"
     },
     {
       "id": "PFQ-fundamentals-000000970",

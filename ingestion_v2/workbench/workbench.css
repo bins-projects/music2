@@ -37,6 +37,10 @@ h1 { margin-top: 5px; font-size: clamp(25px, 3vw, 38px); letter-spacing: -.035em
 h2 { font-size: 18px; letter-spacing: -.015em; }
 .eyebrow { color: var(--cyan); font: 700 11px/1.3 ui-monospace, monospace; letter-spacing: .13em; }
 
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.station-link { display: inline-flex; align-items: center; min-height: 38px; padding: 8px 13px; color: #071513; border: 1px solid var(--cyan); border-radius: 9px; background: var(--cyan); font-size: 12px; font-weight: 850; text-decoration: none; }
+.station-link:focus-visible { outline: 3px solid #75a7ff88; outline-offset: 2px; }
+
 .safety-badge {
   display: flex;
   gap: 9px;
@@ -237,6 +241,8 @@ dialog .check-row { display: flex; align-items: center; gap: 9px; }
 
 @media (max-width: 520px) {
   .topbar { align-items: flex-start; gap: 18px; flex-direction: column; }
+  .topbar-actions { width: 100%; align-items: stretch; flex-direction: column; }
+  .station-link { justify-content: center; }
   .summary { grid-template-columns: 1fr; }
   .explanation { grid-template-columns: 1fr; gap: 8px; }
   .record-heading { align-items: flex-start; flex-direction: column; }

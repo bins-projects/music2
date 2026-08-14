@@ -1,8 +1,10 @@
 # Repair and Add Questions Workbench
 
-The private Workbench is the single-operator station for repairing existing Pack questions and adding new ones. Codespaces starts it through `.devcontainer/start-question-workbench.sh`. The launcher verifies private `master`, both expected remotes, clean tracked state, and synchronization before it creates or updates the separate `prepflow-public-release` worktree. If that path is unavailable, the Workbench still starts in save-only mode.
+Repair & Add Questions is an integrated station inside the private PrepFlow Workbench. Codespaces starts one server through `.devcontainer/start-workbench.sh`, forwards only port 8765, and opens Ingestion & Clean at `/`. The `Repair & Add Questions` navigation button opens `/questions/` on the same origin, and `Back to Ingestion & Clean` returns to `/`. The unified launcher verifies private `master`, both expected remotes, clean tracked state, and synchronization before it creates or updates the separate `prepflow-public-release` worktree. If that path is unavailable, the unified Workbench still starts and Repair & Add remains in save-only mode.
 
 The operator sees only `Publishable` or `Publishing unavailable — will save`. Readiness is recalculated on load, selection changes, and immediately before the final action. No environment opt-in, readiness button, or confirmation dialog is required.
+
+The standalone `ingestion_v2.question_workbench_server` entry point is an isolated localhost development harness only. It is not started by Codespaces and does not compete for port 8765.
 
 ## Repair workflow
 

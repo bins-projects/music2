@@ -10,7 +10,7 @@ import os
 import tempfile
 from pypdf import PdfReader
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from ingestion_v2.domain import DomainError
 from ingestion_v2.recovery import list_completed_runs, list_recoverable_runs
@@ -19,13 +19,32 @@ from compiler.repair import RepairError, find_question, load_pack, validate_cand
 from ingestion_v2.repair_desk import load_json, reconcile_repairs, repair_desk_lookup
 from ingestion_v2.repair_publish import append_repair_log, repair_log_entry
 from ingestion_v2.repair_publish import live_publish_enabled, publish_pack_repair, publish_preflight
+from ingestion_v2.question_publisher import publication_readiness, publish_saved_operation
+from ingestion_v2.question_workbench import (
+    QuestionWorkbenchError,
+    canonical_type_inventory,
+    chapter_inventory,
+    evaluate_answer,
+    list_operations,
+    operation_by_id,
+    save_operation,
+    search_questions,
+    update_operation,
+)
 from tools.pack_catalog import installed_pack_registry
 
 
 WORKBENCH_DIRECTORY = Path(__file__).with_name("workbench")
+QUESTION_WORKBENCH_DIRECTORY = Path(__file__).with_name("question_workbench_ui")
 PROJECT_DIRECTORY = Path(__file__).resolve().parent.parent
 PACK_DIRECTORY = PROJECT_DIRECTORY / "packs"
 REPAIR_LOG_PATH = PROJECT_DIRECTORY / "docs" / "REPAIR_LOG.md"
+QUESTION_LEDGER_PATH = Path(
+    os.environ.get(
+        "PREPFLOW_QUESTION_LEDGER",
+        PROJECT_DIRECTORY / "output" / "question-workbench" / "operations.json",
+    )
+)
 
 
 def installed_identity_packs() -> dict[str, Path]:
@@ -48,6 +67,21 @@ APPROVED_SOURCE_METADATA = {
 RUNS_DIRECTORY = PROJECT_DIRECTORY / "output" / "v2-runs"
 PRIVATE_SOURCE_DIRECTORY = PROJECT_DIRECTORY / "private_sources"
 CENTRAL_SOURCE_DIRECTORY = Path("/home/charliekeila/projects/prepflow-sources")
+
+
+def installed_question_packs() -> tuple[dict[str, Path], dict[str, dict]]:
+    """Load installed Packs once for the integrated Question Workbench request."""
+    registry = installed_identity_packs()
+    return registry, {pack_id: load_pack(path) for pack_id, path in registry.items()}
+
+
+def configured_public_worktree() -> Path | None:
+    value = os.environ.get("PREPFLOW_PUBLIC_WORKTREE")
+    return Path(value).resolve() if value else None
+
+
+def question_publication_readiness() -> dict:
+    return publication_readiness(PROJECT_DIRECTORY, configured_public_worktree())
 
 
 def approved_pdf_sources(
@@ -284,10 +318,179 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(WORKBENCH_DIRECTORY), **kwargs)
 
+    def translate_path(self, path: str) -> str:
+        parsed_path = unquote(urlparse(path).path)
+        if parsed_path == "/questions" or parsed_path.startswith("/questions/"):
+            relative = parsed_path.removeprefix("/questions/") if parsed_path != "/questions" else ""
+            directory = QUESTION_WORKBENCH_DIRECTORY.resolve()
+            candidate = (directory / relative).resolve()
+            if candidate != directory and directory not in candidate.parents:
+                return str(directory / "__not_found__")
+            return str(directory / "index.html") if candidate == directory else str(candidate)
+        return super().translate_path(path)
+
+    def _handle_question_get(self, parsed) -> bool:
+        if parsed.path == "/api/question-workbench":
+            _, packs = installed_question_packs()
+            self._send_json({
+                "packs": [
+                    {
+                        "id": pack_id,
+                        "title": pack.get("title", pack_id),
+                        "chapters": chapter_inventory(pack),
+                        "question_count": len(pack["questions"]),
+                    }
+                    for pack_id, pack in packs.items()
+                ],
+                "types": canonical_type_inventory(packs),
+                "operations": list_operations(QUESTION_LEDGER_PATH),
+                "readiness": question_publication_readiness(),
+            })
+            return True
+        if parsed.path == "/api/question-workbench/readiness":
+            self._send_json(question_publication_readiness())
+            return True
+        if parsed.path == "/api/question-workbench/search":
+            query = parse_qs(parsed.query)
+            pack_id, text = query.get("pack_id", [""])[0], query.get("q", [""])[0]
+            _, packs = installed_question_packs()
+            if pack_id not in packs:
+                self._send_json({"error": "Selected Pack is unavailable"}, status=400)
+            else:
+                self._send_json({"results": search_questions(pack_id, packs[pack_id], text)})
+            return True
+        if parsed.path == "/api/question-workbench/question":
+            query = parse_qs(parsed.query)
+            pack_id = query.get("pack_id", [""])[0]
+            question_id = query.get("question_id", [""])[0]
+            registry, packs = installed_question_packs()
+            question = next((
+                copy.deepcopy(item)
+                for item in packs.get(pack_id, {}).get("questions", [])
+                if item.get("id") == question_id
+            ), None)
+            if question is None:
+                self._send_json({"error": "Question was not found"}, status=404)
+            else:
+                self._send_json({
+                    "pack_id": pack_id,
+                    "question": question,
+                    "pack_sha256": hashlib.sha256(registry[pack_id].read_bytes()).hexdigest(),
+                })
+            return True
+        if parsed.path == "/api/question-workbench/operation":
+            operation_id = parse_qs(parsed.query).get("operation_id", [""])[0]
+            try:
+                self._send_json(operation_by_id(QUESTION_LEDGER_PATH, operation_id))
+            except QuestionWorkbenchError as error:
+                self._send_json({"error": str(error)}, status=404)
+            return True
+        return False
+
+    def _handle_question_post(self) -> bool:
+        if not self.path.startswith("/api/question-workbench/"):
+            return False
+        try:
+            body = self._read_json()
+            if self.path == "/api/question-workbench/grade":
+                self._send_json(evaluate_answer(body.get("question") or {}, body.get("answer")))
+                return True
+            if self.path in {"/api/question-workbench/save", "/api/question-workbench/action"}:
+                _, packs = installed_question_packs()
+                pack_id = str(body.get("pack_id") or "")
+                if pack_id not in packs:
+                    raise QuestionWorkbenchError("Selected Pack is unavailable")
+                operation_type = str(body.get("operation_type") or "")
+                original = None
+                if operation_type == "repair":
+                    question_id = str((body.get("question") or {}).get("id") or "")
+                    original = next((
+                        copy.deepcopy(item) for item in packs[pack_id]["questions"]
+                        if item.get("id") == question_id
+                    ), None)
+                    existing_id = body.get("operation_id")
+                    if existing_id:
+                        original = operation_by_id(QUESTION_LEDGER_PATH, str(existing_id)).get("original_question")
+                    if original is None:
+                        raise QuestionWorkbenchError("Repair target was not found")
+                readiness = question_publication_readiness()
+                operation = save_operation(
+                    QUESTION_LEDGER_PATH,
+                    operation_type=operation_type,
+                    pack_id=pack_id,
+                    pack=packs[pack_id],
+                    question=body.get("question") or {},
+                    original_question=original,
+                    operation_id=body.get("operation_id"),
+                    blocker=readiness.get("reason"),
+                )
+                if self.path.endswith("/action"):
+                    readiness = question_publication_readiness()
+                    if readiness["ready"]:
+                        result = publish_saved_operation(
+                            PROJECT_DIRECTORY, configured_public_worktree(), QUESTION_LEDGER_PATH,
+                            operation["operation_id"], readiness=readiness,
+                        )
+                        operation = operation_by_id(QUESTION_LEDGER_PATH, operation["operation_id"])
+                        self._send_json({
+                            "operation": operation,
+                            "readiness": question_publication_readiness(),
+                            "publication": result,
+                        })
+                        return True
+                    operation = update_operation(
+                        QUESTION_LEDGER_PATH, operation["operation_id"], blocker=readiness.get("reason")
+                    )
+                self._send_json({"operation": operation, "readiness": readiness}, status=201)
+                return True
+            if self.path == "/api/question-workbench/publish":
+                operation_id = str(body.get("operation_id") or "")
+                operation = operation_by_id(QUESTION_LEDGER_PATH, operation_id)
+                stage = (operation.get("publication") or {}).get("stage")
+                recovering = (
+                    operation.get("state") == "publishing"
+                    and stage in {"private_committed", "private_published", "public_committed"}
+                )
+                readiness = question_publication_readiness()
+                if not readiness["ready"] and not recovering:
+                    self._send_json({
+                        "error": readiness["reason"], "readiness": readiness,
+                    }, status=409)
+                    return True
+                result = publish_saved_operation(
+                    PROJECT_DIRECTORY, configured_public_worktree(), QUESTION_LEDGER_PATH,
+                    operation_id, readiness={"ready": True} if recovering else readiness,
+                )
+                self._send_json({
+                    "operation": operation_by_id(QUESTION_LEDGER_PATH, operation_id),
+                    "publication": result,
+                    "readiness": question_publication_readiness(),
+                })
+                return True
+            self._send_json({"error": "Unknown question Workbench action"}, status=404)
+        except (QuestionWorkbenchError, ValueError, RuntimeError) as error:
+            self._send_json({"error": str(error)}, status=400)
+        return True
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/api/health":
-            self._send_json({"status": "ok", "scope": "local_only"})
+            self._send_json({
+                "status": "ok",
+                "scope": "local_only",
+                "workbench": "unified",
+                "stations": {
+                    "ingestion_clean": {"available": True, "path": "/"},
+                    "repair_add_questions": {"available": True, "path": "/questions/"},
+                },
+            })
+            return
+        if parsed.path == "/questions":
+            self.send_response(308)
+            self.send_header("Location", "/questions/")
+            self.end_headers()
+            return
+        if self._handle_question_get(parsed):
             return
         if parsed.path == "/api/repair-desk":
             query = parse_qs(parsed.query).get("q", [""])[0]
@@ -387,6 +590,8 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
+        if self._handle_question_post():
+            return
         try:
             if self.path == "/api/run/start-pdf":
                 payload = self.session.start_pdf_run(self._read_pdf_body())

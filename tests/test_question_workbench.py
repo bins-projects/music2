@@ -1,6 +1,9 @@
 import copy
 import json
+from http.server import ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
+from urllib.request import urlopen
 import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
@@ -8,12 +11,14 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 
 import ingestion_v2.question_publisher as question_publisher
+from ingestion_v2.prepflow_question_workbench_launcher import command
 from ingestion_v2.question_publisher import prepare_public_worktree, publication_readiness, publish_saved_operation
 from ingestion_v2.question_workbench import (
     QuestionWorkbenchError, apply_operation_to_pack, canonical_type_inventory, evaluate_answer,
     load_ledger, save_operation,
     TYPE_DEFINITIONS,
 )
+from ingestion_v2.workbench_server import WorkbenchHandler
 from tools.pack_catalog import write_catalog
 
 
@@ -257,6 +262,53 @@ def test_dirty_public_worktree_is_never_discarded(tmp_path):
     assert (public / "packs" / "test.prepflow.json").read_text() == "operator work"
 
 
+def test_unified_server_serves_both_stations_health_and_shared_pack_discovery():
+    server = ThreadingHTTPServer(("127.0.0.1", 0), WorkbenchHandler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+
+    def get(path):
+        with urlopen(base + path) as response:
+            return response.status, response.headers, response.read()
+
+    try:
+        status, _, body = get("/api/health")
+        health = json.loads(body)
+        assert status == 200 and health["workbench"] == "unified"
+        assert health["stations"] == {
+            "ingestion_clean": {"available": True, "path": "/"},
+            "repair_add_questions": {"available": True, "path": "/questions/"},
+        }
+        assert b"Build a new Pack" in get("/")[2]
+        assert b"Repair &amp; Add Questions" in get("/")[2]
+        assert b"Repair and add questions" in get("/questions/")[2]
+        assert b"Back to Ingestion &amp; Clean" in get("/questions/")[2]
+        assert b"function preferredType" in get("/questions/questions.js")[2]
+        assert b"Repair and add questions" in get("/questions/")[2]
+
+        ingestion_packs = json.loads(get("/api/pack-registry")[2])["packs"]
+        question_packs = json.loads(get("/api/question-workbench")[2])["packs"]
+        installed = {item["id"] for item in ingestion_packs if not item["source_only"]}
+        assert installed == {item["id"] for item in question_packs}
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_codespaces_starts_one_unified_server_on_one_forwarded_port():
+    launch = command(Path.cwd(), "0.0.0.0", 8765)
+    assert launch[-5:] == ["ingestion_v2.workbench_server", "--host", "0.0.0.0", "--port", "8765"]
+    devcontainer = json.loads(Path(".devcontainer/devcontainer.json").read_text())
+    assert devcontainer["postStartCommand"] == "bash .devcontainer/start-workbench.sh"
+    assert devcontainer["forwardPorts"] == [8765]
+    start = Path(".devcontainer/start-workbench.sh").read_text()
+    assert "prepflow_question_workbench_launcher" in start
+    assert '"workbench": "unified"' in start
+    assert "8766" not in start
+
+
 def test_ui_contract_has_two_states_final_actions_preview_and_mobile_layout():
     root = Path("ingestion_v2/question_workbench_ui")
     html = (root / "index.html").read_text(); script = (root / "questions.js").read_text(); css = (root / "questions.css").read_text()
@@ -270,3 +322,8 @@ def test_ui_contract_has_two_states_final_actions_preview_and_mobile_layout():
     assert 'function preferredType(){ return "mc"; }' in script
     assert 'option.hidden=option.value==="multiple_choice"' in script
     assert "@media(max-width:760px)" in css
+    assert ".header-actions" in css and ".station-nav" in css
+    ingestion_html = Path("ingestion_v2/workbench/index.html").read_text()
+    ingestion_css = Path("ingestion_v2/workbench/workbench.css").read_text()
+    assert 'href="/questions/"' in ingestion_html and "Repair &amp; Add Questions" in ingestion_html
+    assert ".topbar-actions" in ingestion_css and "@media (max-width: 520px)" in ingestion_css

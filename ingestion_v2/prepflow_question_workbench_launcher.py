@@ -51,11 +51,11 @@ def prepare(repository: Path) -> dict:
 def command(repository: Path, host: str, port: int) -> list[str]:
     python = repository / ".venv" / "bin" / "python"
     if not python.is_file(): python = Path(sys.executable)
-    return [str(python), "-m", "ingestion_v2.question_workbench_server", "--host", host, "--port", str(port)]
+    return [str(python), "-m", "ingestion_v2.workbench_server", "--host", host, "--port", str(port)]
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Launch the private Repair and Add Questions Workbench")
+    parser = argparse.ArgumentParser(description="Launch the unified private PrepFlow Workbench")
     parser.add_argument("--repository", type=Path, default=DEFAULT_REPOSITORY)
     parser.add_argument("--host", default="0.0.0.0" if os.environ.get("CODESPACES") else "127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)

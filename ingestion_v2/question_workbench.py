@@ -199,10 +199,20 @@ def validate_question(question: dict[str, Any]) -> dict[str, Any]:
     stored_type = str(normalized.get("type") or "")
     if stored_type not in TYPE_DEFINITIONS:
         raise QuestionWorkbenchError(f"Legacy question type is not fully supported: {stored_type or 'missing'}")
-    for field in ("id", "chapter_title", "stem", "rationale"):
+    for field in ("id", "chapter_title", "stem"):
         if not isinstance(normalized.get(field), str) or not normalized[field].strip():
             raise QuestionWorkbenchError(f"Question {field.replace('_', ' ')} is required")
         normalized[field] = normalized[field].strip()
+
+    rationale = normalized.get("rationale")
+    if not isinstance(rationale, str):
+        raise QuestionWorkbenchError("Question rationale must be text")
+    normalized["rationale"] = rationale.strip()
+    if (
+        not normalized["rationale"]
+        and normalized.get("rationale_source_status") != "not_provided"
+    ):
+        raise QuestionWorkbenchError("Question rationale is required")
     if normalized.get("chapter") is None:
         raise QuestionWorkbenchError("Question chapter is required")
     answers = normalized.get("correct_answers")

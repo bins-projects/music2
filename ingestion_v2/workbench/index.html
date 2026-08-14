@@ -12,7 +12,10 @@
         <p class="eyebrow">PREPFLOW FACTORY / INGESTION V2</p>
         <h1>Build a new Pack</h1>
       </div>
-      <div id="connection-badge" class="safety-badge"><span></span> Synthetic preview · no writes</div>
+      <div class="topbar-actions">
+        <a class="station-link" href="/questions/">Repair &amp; Add Questions</a>
+        <div id="connection-badge" class="safety-badge"><span></span> Synthetic preview · no writes</div>
+      </div>
     </header>
 
     <section id="local-status" class="local-status" aria-label="Local workbench status">
@@ -25,11 +28,6 @@
     </section>
 
     <main>
-      <section class="repair-desk" aria-label="Repair Desk lookup">
-        <div><p class="eyebrow">REPAIR DESK</p><strong>Locate a stable question ID</strong></div>
-        <form id="repair-desk-form"><label><span class="sr-only">Stable question ID or numeric suffix</span><input id="repair-desk-query" type="search" placeholder="PFQ-fundamentals-000000108 or 108"></label><button type="submit">Lookup</button></form>
-        <div id="repair-desk-results" class="repair-desk-results" aria-live="polite">Read-only lookup across canonical references, isolated candidates, queues, exclusions, and repair records.</div>
-      </section>
       <section id="factory-home" class="factory-home" aria-label="Private factory start">
         <div class="home-heading">
           <div><p class="eyebrow">PRIVATE FACTORY</p><h2>What would you like to do?</h2></div>
@@ -150,6 +148,15 @@
           <details id="legacy-details" class="legacy-details" hidden>
             <summary>Legacy ID details</summary>
             <p id="legacy-details-text"></p>
+          </details>
+
+          <details id="record-locator-details" class="legacy-details">
+            <summary>Advanced diagnostics</summary>
+            <section class="record-locator" aria-label="Internal record locator">
+              <div><p class="eyebrow">INTERNAL RECORD LOCATOR</p><strong>Locate a record across review artifacts</strong></div>
+              <form id="record-locator-form"><label><span class="sr-only">Stable record ID or numeric suffix</span><input id="record-locator-query" type="search" placeholder="PFQ-fundamentals-000000108 or 108"></label><button type="submit">Locate</button></form>
+              <div id="record-locator-results" class="record-locator-results" aria-live="polite">Read-only lookup across canonical references, isolated candidates, queues, exclusions, and diagnostic records.</div>
+            </section>
           </details>
 
           <section class="candidate-panel">

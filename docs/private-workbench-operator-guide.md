@@ -18,7 +18,7 @@ Only if the launcher is unavailable, use this troubleshooting fallback from the 
 .venv/bin/python -m ingestion_v2.workbench_server
 ```
 
-Open http://127.0.0.1:8765/.
+Open http://127.0.0.1:8765/. Ingestion & Clean is always the primary entry page. Use `Repair & Add Questions` in the top navigation to open the integrated question station at `/questions/`; use `Back to Ingestion & Clean` to return. Both stations share the same server, origin, and forwarded port.
 
 ## Start an intake
 

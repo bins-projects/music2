@@ -50,14 +50,17 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     assert "candidateBuildInFlight" in script
     assert 'fetch("/api/comparison"' in script
     assert "localStorage" not in script
-    assert 'id="repair-desk-query"' in html
+    assert 'id="record-locator-details"' in html
+    assert 'id="record-locator-query"' in html
+    assert "INTERNAL RECORD LOCATOR" in html and "Advanced diagnostics" in html
+    assert "REPAIR DESK" not in html and "Locate a stable question ID" not in html
     assert "/api/repair-desk?q=" in script
-    assert '"Repair this question"' in script
-    assert '"Replace in Pack"' in script
-    assert "/api/repair-desk/question?question_id=" in script
-    assert 'fetch("/api/repair-desk/replace"' in script
-    assert "/api/repair-publish/preflight?pack_id=" in script
-    assert "publishStatus.textContent" in script
+    assert '"Repair this question"' not in script
+    assert "openManualPackEditor" not in script
+    assert 'fetch("/api/repair-desk/replace"' not in script
+    server = Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
+    assert 'parsed.path == "/api/repair-desk/question"' in server
+    assert 'self.path == "/api/repair-desk/replace"' in server
     assert '"/api/repair-publish/status"' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
     assert 'self.path == "/api/repair-publish"' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
     assert 'replace_canonical_pack_question' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")

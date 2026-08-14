@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PrepFlow — Repair and Add Questions</title><link rel="stylesheet" href="questions.css">
+</head>
+<body>
+  <header><div><p class="eyebrow">PRIVATE PREPFLOW WORKBENCH</p><h1>Repair and add questions</h1></div><div class="header-actions"><a class="station-nav" href="/">Back to Ingestion &amp; Clean</a><div id="readiness" class="state" aria-live="polite">Checking…</div></div></header>
+  <main>
+    <nav class="operations" aria-label="Question operation">
+      <button class="active" data-mode="repair">Repair existing question</button>
+      <button data-mode="addition">Add new question</button>
+    </nav>
+    <section class="panel setup">
+      <label>Pack<select id="pack"></select></label>
+      <label id="chapter-wrap" hidden>Chapter<select id="chapter"></select></label>
+      <label id="type-wrap" hidden>Question type<select id="type"></select></label>
+      <form id="search-form"><label>Find a question<input id="search" type="search" placeholder="Question text, number, or full PFQ ID"></label><button>Search</button></form>
+      <div id="search-results" class="results" aria-live="polite"></div>
+    </section>
+    <section id="editor" class="panel" hidden>
+      <div class="editor-heading"><div><p class="eyebrow" id="editor-mode"></p><h2 id="question-id">Permanent ID assigned when saved</h2></div><span id="save-state"></span></div>
+      <div id="record-meta" class="record-meta"></div>
+      <label>Stem<textarea id="stem" rows="4"></textarea></label>
+      <section id="items-section"><div class="row"><strong id="items-title">Choices</strong><button id="add-item" type="button" class="secondary">Add item</button></div><div id="items"></div></section>
+      <section><strong id="answers-title">Correct answer</strong><div id="answers"></div></section>
+      <label>Rationale<textarea id="rationale" rows="4"></textarea></label>
+      <label>Supported notes (optional)<textarea id="notes" rows="2"></textarea></label>
+      <p id="validation" class="message" aria-live="polite"></p>
+      <div class="editor-actions"><button id="preview-button" type="button" class="secondary">Preview and test</button><button id="final-action" type="button"></button></div>
+    </section>
+    <section id="preview" class="panel preview" hidden aria-label="Interactive learner preview">
+      <div class="row"><div><p class="eyebrow">LEARNER PREVIEW</p><h2>Try the question</h2></div><button id="back-to-edit" type="button" class="secondary">Return to editing</button></div>
+      <p id="preview-stem" class="preview-stem"></p><div id="preview-answers"></div>
+      <button id="preview-submit" type="button">Submit answer</button><div id="preview-feedback" class="feedback" hidden></div>
+    </section>
+    <section class="panel"><div class="row"><div><p class="eyebrow">SAVED OPERATIONS</p><h2>Pending repairs and additions</h2></div><button id="refresh" type="button" class="secondary">Refresh</button></div><div id="pending" class="pending"></div></section>
+  </main><script src="questions.js"></script>
+</body></html>

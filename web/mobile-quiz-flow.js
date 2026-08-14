@@ -308,7 +308,11 @@
     answerReview.replaceChildren();
     answerInstruction = event.detail.questionType === "multiple_response"
       ? "Select all that apply"
-      : "Choose one answer";
+      : event.detail.questionType === "completion"
+        ? "Enter your answer"
+        : event.detail.questionType === "ordered_response"
+          ? "Put the responses in order"
+          : "Choose one answer";
     instruction.textContent = answerInstruction;
     const packPath = event.detail.packPath || "";
     subjectAccent = packPath.includes("pharmacy")

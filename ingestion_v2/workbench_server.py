@@ -350,7 +350,19 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/repair-publish/preflight":
             configured = os.environ.get("PREPFLOW_PUBLIC_WORKTREE")
-            self._send_json(publish_preflight(PROJECT_DIRECTORY, Path(configured) if configured else None))
+            pack_id = parse_qs(parsed.query).get("pack_id", [""])[0]
+            packs = installed_identity_packs()
+            allowed = set()
+            if pack_id in packs:
+                allowed = {
+                    str(packs[pack_id].relative_to(PROJECT_DIRECTORY)),
+                    "docs/REPAIR_LOG.md",
+                    "web/pack-precache.js",
+                }
+            self._send_json(publish_preflight(
+                PROJECT_DIRECTORY, Path(configured) if configured else None,
+                allowed_private=allowed,
+            ))
             return
         if parsed.path == "/api/repair-publish/status":
             self._send_json({"live_publish_enabled": live_publish_enabled(dict(os.environ))})

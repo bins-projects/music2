@@ -470,26 +470,28 @@
         delete dialog.dataset.manualOriginalAnswers;
         document.getElementById("edit-question-chapter").disabled = false;
         dialog.querySelector('button[type="submit"]').textContent = "Save fix";
-        document.getElementById("repair-desk-results").textContent =
+        const results = document.getElementById("repair-desk-results");
+        const publishStatus = document.createElement("span");
+        publishStatus.textContent =
           `${repairedId} replaced in ${replacement.pack_id.replaceAll("_", "-")} · backup ${replacement.backup}`;
+        results.replaceChildren(publishStatus);
         const preflight = document.createElement("button");
         preflight.type = "button";
         preflight.className = "secondary";
         preflight.textContent = "Check publish readiness";
         preflight.addEventListener("click", async () => {
-          const status = document.getElementById("repair-desk-results");
           try {
-            const check = await fetch("/api/repair-publish/preflight");
+            const check = await fetch(`/api/repair-publish/preflight?pack_id=${encodeURIComponent(replacement.pack_id)}`);
             const report = await check.json();
             if (!check.ok) throw new Error(report.error || "Publish readiness check failed.");
-            status.textContent = report.ready
-              ? "Publish dry-run passed. Live publishing remains disabled."
+            publishStatus.textContent = report.ready
+              ? "Publish readiness passed."
               : `Publish dry-run blocked: ${report.reasons.join(" · ")}`;
           } catch (error) {
-            status.textContent = error.message;
+            publishStatus.textContent = error.message;
           }
         });
-        document.getElementById("repair-desk-results").append(" ", preflight);
+        results.append(" ", preflight);
         const live = await fetch("/api/repair-publish/status").then((response) => response.json());
         if (live.live_publish_enabled) {
           const publish = document.createElement("button");
@@ -502,11 +504,15 @@
               body: JSON.stringify({ pack_id: replacement.pack_id }),
             });
             const published = await response.json();
-            document.getElementById("repair-desk-results").textContent = response.ok
+            publishStatus.textContent = response.ok
               ? `Published · private ${published.private_commit} · public ${published.public_commit}`
               : published.error || "Publish failed.";
+            if (response.ok) {
+              preflight.disabled = true;
+              publish.disabled = true;
+            }
           });
-          document.getElementById("repair-desk-results").append(" ", publish);
+          results.append(" ", publish);
         }
         return;
       }

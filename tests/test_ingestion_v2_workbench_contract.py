@@ -56,7 +56,8 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     assert '"Replace in Pack"' in script
     assert "/api/repair-desk/question?question_id=" in script
     assert 'fetch("/api/repair-desk/replace"' in script
-    assert '"/api/repair-publish/preflight"' in script
+    assert "/api/repair-publish/preflight?pack_id=" in script
+    assert "publishStatus.textContent" in script
     assert '"/api/repair-publish/status"' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
     assert 'self.path == "/api/repair-publish"' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
     assert 'replace_canonical_pack_question' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")

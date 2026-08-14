@@ -280,8 +280,12 @@ def test_unified_server_serves_both_stations_health_and_shared_pack_discovery():
             "ingestion_clean": {"available": True, "path": "/"},
             "repair_add_questions": {"available": True, "path": "/questions/"},
         }
-        assert b"Build a new Pack" in get("/")[2]
-        assert b"Repair &amp; Add Questions" in get("/")[2]
+        landing = get("/")[2]
+        assert b"Build a new Pack" in landing
+        assert landing.count(b"Repair &amp; Add Questions") == 1
+        assert b"REPAIR DESK" not in landing
+        assert b"Locate a stable question ID" not in landing
+        assert b"<details id=\"record-locator-details\"" in landing
         assert b"Repair and add questions" in get("/questions/")[2]
         assert b"Back to Ingestion &amp; Clean" in get("/questions/")[2]
         assert b"function preferredType" in get("/questions/questions.js")[2]

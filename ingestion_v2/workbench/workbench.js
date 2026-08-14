@@ -85,8 +85,8 @@
     return node.innerHTML;
   }
 
-  async function lookupRepairDesk(query) {
-    const result = document.getElementById("repair-desk-results");
+  async function lookupInternalRecord(query) {
+    const result = document.getElementById("record-locator-results");
     const normalized = query.trim();
     if (!normalized) {
       result.textContent = "Enter a full stable ID or numeric suffix.";
@@ -95,7 +95,7 @@
     try {
       const response = await fetch(`/api/repair-desk?q=${encodeURIComponent(normalized)}`);
       const lookup = await response.json();
-      if (!response.ok) throw new Error(lookup.error || "Repair Desk lookup failed.");
+      if (!response.ok) throw new Error(lookup.error || "Internal record lookup failed.");
       result.replaceChildren();
       if (!lookup.matches.length) {
         result.textContent = "No matching stable ID was found in the protected lookup locations.";
@@ -106,14 +106,6 @@
           const label = document.createElement("span");
           label.innerHTML = `<b>${escapeHtml(item.question_id)}</b> · ${escapeHtml(item.location)}${item.repair_id ? ` · ${escapeHtml(item.repair_id)}` : ""}${item.finding_id ? ` · ${escapeHtml(item.finding_id)}` : ""}`;
           row.append(label);
-          if (item.location === "canonical_pack") {
-            const repair = document.createElement("button");
-            repair.type = "button";
-            repair.className = "secondary";
-            repair.textContent = "Repair this question";
-            repair.addEventListener("click", () => openManualPackEditor(item.question_id));
-            row.append(repair);
-          }
           list.append(row);
         });
         result.append(list);
@@ -121,44 +113,6 @@
       const url = new URL(window.location.href);
       url.searchParams.set("question", normalized);
       window.history.replaceState({}, "", url);
-    } catch (error) {
-      result.textContent = error.message;
-    }
-  }
-
-  async function openManualPackEditor(questionId) {
-    const result = document.getElementById("repair-desk-results");
-    try {
-      const response = await fetch(`/api/repair-desk/question?question_id=${encodeURIComponent(questionId)}`);
-      const lookup = await response.json();
-      if (!response.ok) throw new Error(lookup.error || "Question could not be opened.");
-      const question = lookup.question;
-      const dialog = document.getElementById("proposal-dialog");
-      delete dialog.dataset.completeQuestionId;
-      delete dialog.dataset.identityRepair;
-      delete dialog.dataset.identityRecordId;
-      dialog.dataset.manualPackQuestionId = questionId;
-      dialog.dataset.manualPackSha256 = lookup.pack_sha256;
-      dialog.dataset.manualOriginalAnswers = JSON.stringify(question.correct_answers || []);
-      document.getElementById("edit-stem").value = question.stem || "";
-      document.getElementById("edit-rationale").value = question.rationale || "";
-      const chapterSelect = document.getElementById("edit-question-chapter");
-      chapterSelect.replaceChildren(new Option(
-        `Chapter ${question.chapter}: ${question.chapter_title}`,
-        `${question.chapter}|${question.chapter_title}`,
-        true,
-        true
-      ));
-      chapterSelect.disabled = true;
-      const editable = {
-        ...question,
-        choices: (question.choices || []).map((choice) => [choice.label, choice.text]),
-      };
-      renderChoiceEditor(editable, question.type);
-      document.getElementById("proposal-error").textContent =
-        `Installed ${lookup.pack_id.replaceAll("_", "-")} Pack · stable ID and position will be preserved.`;
-      dialog.querySelector('button[type="submit"]').textContent = "Replace in Pack";
-      dialog.showModal();
     } catch (error) {
       result.textContent = error.message;
     }
@@ -334,9 +288,6 @@
 
   function openCompleteQuestionEditor(item) {
     const dialog = document.getElementById("proposal-dialog");
-    delete dialog.dataset.manualPackQuestionId;
-    delete dialog.dataset.manualPackSha256;
-    delete dialog.dataset.manualOriginalAnswers;
     document.getElementById("edit-question-chapter").disabled = false;
     dialog.querySelector('button[type="submit"]').textContent = "Save fix";
     const question = item.effective_question || item.original_question;
@@ -421,9 +372,6 @@
     const dialog = document.getElementById("proposal-dialog");
     delete dialog.dataset.identityRepair;
     delete dialog.dataset.identityRecordId;
-    delete dialog.dataset.manualPackQuestionId;
-    delete dialog.dataset.manualPackSha256;
-    delete dialog.dataset.manualOriginalAnswers;
     document.getElementById("edit-question-chapter").disabled = false;
     dialog.querySelector('button[type="submit"]').textContent = "Save fix";
     document.getElementById("proposal-verification").disabled = false;
@@ -435,87 +383,6 @@
     const dialog = document.getElementById("proposal-dialog");
     const errorNode = document.getElementById("proposal-error");
     try {
-      if (dialog.dataset.manualPackQuestionId) {
-        const choices = [...document.querySelectorAll(".choice-editor-row")].map((row) => ({
-          label: row.querySelector(".edit-choice-label").value,
-          text: row.querySelector(".edit-choice-text").value,
-        }));
-        const selectedAnswers = [...document.querySelectorAll("#answer-choice-select input:checked")]
-          .map((node) => node.value);
-        const values = {
-          stem: document.getElementById("edit-stem").value,
-          choices,
-          correct_answers: selectedAnswers.length
-            ? selectedAnswers
-            : JSON.parse(dialog.dataset.manualOriginalAnswers || "[]"),
-          rationale: document.getElementById("edit-rationale").value,
-        };
-        if (!window.confirm(
-          `Replace ${dialog.dataset.manualPackQuestionId} in the installed Pack? The stable ID and position will remain unchanged.`
-        )) return;
-        const response = await fetch("/api/repair-desk/replace", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            question_id: dialog.dataset.manualPackQuestionId,
-            pack_sha256: dialog.dataset.manualPackSha256,
-            values,
-          }),
-        });
-        const replacement = await response.json();
-        if (!response.ok) throw new Error(replacement.error || "Pack question could not be replaced.");
-        dialog.close();
-        const repairedId = replacement.question_id;
-        delete dialog.dataset.manualPackQuestionId;
-        delete dialog.dataset.manualPackSha256;
-        delete dialog.dataset.manualOriginalAnswers;
-        document.getElementById("edit-question-chapter").disabled = false;
-        dialog.querySelector('button[type="submit"]').textContent = "Save fix";
-        const results = document.getElementById("repair-desk-results");
-        const publishStatus = document.createElement("span");
-        publishStatus.textContent =
-          `${repairedId} replaced in ${replacement.pack_id.replaceAll("_", "-")} · backup ${replacement.backup}`;
-        results.replaceChildren(publishStatus);
-        const preflight = document.createElement("button");
-        preflight.type = "button";
-        preflight.className = "secondary";
-        preflight.textContent = "Check publish readiness";
-        preflight.addEventListener("click", async () => {
-          try {
-            const check = await fetch(`/api/repair-publish/preflight?pack_id=${encodeURIComponent(replacement.pack_id)}`);
-            const report = await check.json();
-            if (!check.ok) throw new Error(report.error || "Publish readiness check failed.");
-            publishStatus.textContent = report.ready
-              ? "Publish readiness passed."
-              : `Publish dry-run blocked: ${report.reasons.join(" · ")}`;
-          } catch (error) {
-            publishStatus.textContent = error.message;
-          }
-        });
-        results.append(" ", preflight);
-        const live = await fetch("/api/repair-publish/status").then((response) => response.json());
-        if (live.live_publish_enabled) {
-          const publish = document.createElement("button");
-          publish.type = "button";
-          publish.textContent = "Publish repair everywhere";
-          publish.addEventListener("click", async () => {
-            if (!window.confirm("Publish this repaired Pack to private dev and the public app?")) return;
-            const response = await fetch("/api/repair-publish", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ pack_id: replacement.pack_id }),
-            });
-            const published = await response.json();
-            publishStatus.textContent = response.ok
-              ? `Published · private ${published.private_commit} · public ${published.public_commit}`
-              : published.error || "Publish failed.";
-            if (response.ok) {
-              preflight.disabled = true;
-              publish.disabled = true;
-            }
-          });
-          results.append(" ", publish);
-        }
-        return;
-      }
       if (dialog.dataset.completeQuestionId) {
         const choices = [...document.querySelectorAll(".choice-editor-row")].map((row) => ({
           label: row.querySelector(".edit-choice-label").value,
@@ -1583,14 +1450,15 @@
       });
   }
 
-  document.getElementById("repair-desk-form").addEventListener("submit", (event) => {
+  document.getElementById("record-locator-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    lookupRepairDesk(document.getElementById("repair-desk-query").value);
+    lookupInternalRecord(document.getElementById("record-locator-query").value);
   });
   const deepLinkQuestion = new URL(window.location.href).searchParams.get("question");
   if (deepLinkQuestion) {
-    document.getElementById("repair-desk-query").value = deepLinkQuestion;
-    lookupRepairDesk(deepLinkQuestion);
+    document.getElementById("record-locator-details").open = true;
+    document.getElementById("record-locator-query").value = deepLinkQuestion;
+    lookupInternalRecord(deepLinkQuestion);
   }
 
   fetch("/api/review", { headers: { "Accept": "application/json" } })

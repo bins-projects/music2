@@ -4,7 +4,9 @@ on:
   push:
     branches:
       - master
-      - feat/ingestion-workbench
+  pull_request:
+    branches:
+      - master
   workflow_dispatch:
 
 permissions:

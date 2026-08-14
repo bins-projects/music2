@@ -24,6 +24,7 @@ PROJECT_DIRECTORY = Path(__file__).resolve().parent.parent
 PACK_REGISTRY = {
     "fundamentals": PROJECT_DIRECTORY / "packs" / "fundamentals.prepflow.json",
     "medical_surgical": PROJECT_DIRECTORY / "packs" / "medical_surgical.prepflow.json",
+    "pediatrics": PROJECT_DIRECTORY / "packs" / "pediatrics.prepflow.json",
     "pharmacy": PROJECT_DIRECTORY / "packs" / "pharmacy.prepflow.json",
 }
 IDENTITY_PACKS = PACK_REGISTRY

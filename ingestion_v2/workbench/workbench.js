@@ -472,6 +472,42 @@
         dialog.querySelector('button[type="submit"]').textContent = "Save fix";
         document.getElementById("repair-desk-results").textContent =
           `${repairedId} replaced in ${replacement.pack_id.replaceAll("_", "-")} · backup ${replacement.backup}`;
+        const preflight = document.createElement("button");
+        preflight.type = "button";
+        preflight.className = "secondary";
+        preflight.textContent = "Check publish readiness";
+        preflight.addEventListener("click", async () => {
+          const status = document.getElementById("repair-desk-results");
+          try {
+            const check = await fetch("/api/repair-publish/preflight");
+            const report = await check.json();
+            if (!check.ok) throw new Error(report.error || "Publish readiness check failed.");
+            status.textContent = report.ready
+              ? "Publish dry-run passed. Live publishing remains disabled."
+              : `Publish dry-run blocked: ${report.reasons.join(" · ")}`;
+          } catch (error) {
+            status.textContent = error.message;
+          }
+        });
+        document.getElementById("repair-desk-results").append(" ", preflight);
+        const live = await fetch("/api/repair-publish/status").then((response) => response.json());
+        if (live.live_publish_enabled) {
+          const publish = document.createElement("button");
+          publish.type = "button";
+          publish.textContent = "Publish repair everywhere";
+          publish.addEventListener("click", async () => {
+            if (!window.confirm("Publish this repaired Pack to private dev and the public app?")) return;
+            const response = await fetch("/api/repair-publish", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pack_id: replacement.pack_id }),
+            });
+            const published = await response.json();
+            document.getElementById("repair-desk-results").textContent = response.ok
+              ? `Published · private ${published.private_commit} · public ${published.public_commit}`
+              : published.error || "Publish failed.";
+          });
+          document.getElementById("repair-desk-results").append(" ", publish);
+        }
         return;
       }
       if (dialog.dataset.completeQuestionId) {

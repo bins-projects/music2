@@ -17,17 +17,23 @@ from ingestion_v2.recovery import list_completed_runs, list_recoverable_runs
 from ingestion_v2.workbench_session import SyntheticWorkbenchSession
 from compiler.repair import RepairError, find_question, load_pack, validate_candidate_question
 from ingestion_v2.repair_desk import load_json, reconcile_repairs, repair_desk_lookup
+from ingestion_v2.repair_publish import append_repair_log, repair_log_entry
+from ingestion_v2.repair_publish import live_publish_enabled, publish_pack_repair, publish_preflight
+from tools.pack_catalog import installed_pack_registry
 
 
 WORKBENCH_DIRECTORY = Path(__file__).with_name("workbench")
 PROJECT_DIRECTORY = Path(__file__).resolve().parent.parent
-PACK_REGISTRY = {
-    "fundamentals": PROJECT_DIRECTORY / "packs" / "fundamentals.prepflow.json",
-    "medical_surgical": PROJECT_DIRECTORY / "packs" / "medical_surgical.prepflow.json",
-    "pediatrics": PROJECT_DIRECTORY / "packs" / "pediatrics.prepflow.json",
-    "pharmacy": PROJECT_DIRECTORY / "packs" / "pharmacy.prepflow.json",
-}
-IDENTITY_PACKS = PACK_REGISTRY
+PACK_DIRECTORY = PROJECT_DIRECTORY / "packs"
+REPAIR_LOG_PATH = PROJECT_DIRECTORY / "docs" / "REPAIR_LOG.md"
+
+
+def installed_identity_packs() -> dict[str, Path]:
+    """Discover the same validated installed Packs used by the study app."""
+    try:
+        return installed_pack_registry(PACK_DIRECTORY)
+    except ValueError as error:
+        raise DomainError(str(error)) from error
 SOURCE_ONLY_PRESETS = {
     "peds": {"display_name": "Pediatrics", "slug": "pediatrics", "prefix": "Peds"},
 }
@@ -135,7 +141,7 @@ REPAIR_WORKBENCH_DIRECTORY = PROJECT_DIRECTORY / "output" / "repair-workbench" /
 def canonical_pack_question(question_id: str) -> tuple[str, Path, dict, dict]:
     """Resolve one immutable ID to exactly one installed canonical Pack."""
     matches = []
-    for pack_id, path in PACK_REGISTRY.items():
+    for pack_id, path in installed_identity_packs().items():
         pack = load_pack(path)
         try:
             question = find_question(pack, question_id)
@@ -171,10 +177,12 @@ def replace_canonical_pack_question(
     values: dict,
     expected_pack_sha256: str,
     *,
-    registry: dict[str, Path] = PACK_REGISTRY,
+    registry: dict[str, Path] | None = None,
     backup_root: Path | None = None,
+    repair_log_path: Path | None = None,
 ) -> dict:
     """Atomically replace one canonical question while preserving ID and order."""
+    registry = installed_identity_packs() if registry is None else registry
     matches = []
     for pack_id, path in registry.items():
         pack = load_pack(path)
@@ -244,6 +252,15 @@ def replace_canonical_pack_question(
     backup_path = backup_directory / f"{pack_id}-{stamp}-{current_sha256[:12]}.prepflow.json"
     _atomic_write_bytes(backup_path, original_bytes)
     _atomic_write_bytes(path, encoded)
+    log_path = repair_log_path or REPAIR_LOG_PATH
+    append_repair_log(log_path, repair_log_entry(
+        pack_id=pack_id,
+        question_id=question_id,
+        previous_question=original,
+        replacement_question=replacement,
+        pack_sha256_before=current_sha256,
+        pack_sha256_after=hashlib.sha256(encoded).hexdigest(),
+    ))
     backup_label = (
         str(backup_path.relative_to(PROJECT_DIRECTORY))
         if backup_path.is_relative_to(PROJECT_DIRECTORY)
@@ -257,6 +274,7 @@ def replace_canonical_pack_question(
         "question_count": len(updated["questions"]),
         "pack_sha256": hashlib.sha256(encoded).hexdigest(),
         "backup": backup_label,
+        "repair_log": str(log_path.relative_to(PROJECT_DIRECTORY)) if log_path.is_relative_to(PROJECT_DIRECTORY) else str(log_path),
     }
 
 
@@ -273,7 +291,8 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/repair-desk":
             query = parse_qs(parsed.query).get("q", [""])[0]
-            canonical = [load_pack(path) for path in IDENTITY_PACKS.values()]
+            identity_packs = installed_identity_packs()
+            canonical = [load_pack(path) for path in identity_packs.values()]
             candidate_path = REPAIR_WORKBENCH_DIRECTORY / "candidate.prepflow.json"
             records_path = REPAIR_WORKBENCH_DIRECTORY / "repair-records.json"
             candidate = load_json(candidate_path) if candidate_path.is_file() else None
@@ -327,18 +346,25 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
             )
             return
         if parsed.path == "/api/pack-registry":
-            self._send_json({"packs": [{"id": key, "source_only": False} for key in PACK_REGISTRY] + [{"id": key, "source_only": True, "metadata": value} for key, value in SOURCE_ONLY_PRESETS.items()] + [{"id": "new_source", "source_only": True}]})
+            self._send_json({"packs": [{"id": key, "source_only": False} for key in installed_identity_packs()] + [{"id": key, "source_only": True, "metadata": value} for key, value in SOURCE_ONLY_PRESETS.items()] + [{"id": "new_source", "source_only": True}]})
+            return
+        if parsed.path == "/api/repair-publish/preflight":
+            configured = os.environ.get("PREPFLOW_PUBLIC_WORKTREE")
+            self._send_json(publish_preflight(PROJECT_DIRECTORY, Path(configured) if configured else None))
+            return
+        if parsed.path == "/api/repair-publish/status":
+            self._send_json({"live_publish_enabled": live_publish_enabled(dict(os.environ))})
             return
         if self.path == "/api/review":
             self._send_json(self.session.view())
             return
         if self.path == "/api/runs/resumable":
             self._send_json(
-                {"runs": list(list_recoverable_runs(RUNS_DIRECTORY, set(IDENTITY_PACKS)))}
+                {"runs": list(list_recoverable_runs(RUNS_DIRECTORY, set(installed_identity_packs())))}
             )
             return
         if self.path == "/api/runs":
-            protected = set(IDENTITY_PACKS)
+            protected = set(installed_identity_packs())
             self._send_json(
                 {
                     "resumable": list(list_recoverable_runs(RUNS_DIRECTORY, protected)),
@@ -397,6 +423,20 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 payload = replace_canonical_pack_question(
                     question_id, body.get("values"), pack_sha256
                 )
+            elif self.path == "/api/repair-publish":
+                pack_id = body.get("pack_id")
+                configured = os.environ.get("PREPFLOW_PUBLIC_WORKTREE")
+                packs = installed_identity_packs()
+                if not isinstance(pack_id, str) or pack_id not in packs:
+                    raise DomainError("Installed Pack selection is required")
+                if not configured:
+                    raise DomainError("Public release worktree is not configured")
+                try:
+                    payload = publish_pack_repair(
+                        PROJECT_DIRECTORY, Path(configured), packs[pack_id], environment=dict(os.environ)
+                    )
+                except RuntimeError as error:
+                    raise DomainError(str(error)) from error
             elif self.path == "/api/actions":
                 finding_id = body.get("finding_id")
                 if not isinstance(finding_id, str):
@@ -455,17 +495,19 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                 run_directory = RUNS_DIRECTORY / run_id
                 if run_directory.parent != RUNS_DIRECTORY or not run_id.startswith("v2-run-"):
                     raise DomainError("Private run ID is invalid")
+                identity_packs = installed_identity_packs()
                 resumed = (SyntheticWorkbenchSession.resume_source_only_run(run_directory)
-                    if pack_id == "source_only" else SyntheticWorkbenchSession.resume_run(run_directory, load_pack(IDENTITY_PACKS[pack_id])) if pack_id in IDENTITY_PACKS else None)
+                    if pack_id == "source_only" else SyntheticWorkbenchSession.resume_run(run_directory, load_pack(identity_packs[pack_id])) if pack_id in identity_packs else None)
                 if resumed is None:
                     raise DomainError("Unknown protected Pack selection")
                 type(self).session = resumed
                 payload = resumed.view()
             elif self.path == "/api/identity/existing-pack":
                 pack_id = body.get("pack_id")
-                if pack_id not in IDENTITY_PACKS:
+                identity_packs = installed_identity_packs()
+                if pack_id not in identity_packs:
                     raise DomainError("Unknown protected Pack selection")
-                payload = self.session.match_existing_pack(load_pack(IDENTITY_PACKS[pack_id]))
+                payload = self.session.match_existing_pack(load_pack(identity_packs[pack_id]))
             elif self.path == "/api/identity/source-only":
                 metadata = body.get("metadata")
                 if not isinstance(metadata, dict):

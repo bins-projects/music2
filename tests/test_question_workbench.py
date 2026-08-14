@@ -12,6 +12,7 @@ from ingestion_v2.question_publisher import prepare_public_worktree, publication
 from ingestion_v2.question_workbench import (
     QuestionWorkbenchError, apply_operation_to_pack, canonical_type_inventory, evaluate_answer,
     load_ledger, save_operation,
+    TYPE_DEFINITIONS,
 )
 from tools.pack_catalog import write_catalog
 
@@ -49,7 +50,7 @@ def test_inventory_reports_all_installed_stored_values():
 
 
 @pytest.mark.parametrize("kind,correct,wrong", [
-    ("multiple_choice", ["A"], ["B"]), ("multiple_response", ["B", "A"], ["A"]),
+    ("mc", ["A"], ["B"]), ("multiple_choice", ["A"], ["B"]), ("multiple_response", ["B", "A"], ["A"]),
     ("completion", " communication ", "communications"), ("ordered_response", ["B", "A"], ["A", "B"]),
 ])
 def test_authoring_and_runtime_grading_for_every_behavior(tmp_path, kind, correct, wrong):
@@ -57,6 +58,10 @@ def test_authoring_and_runtime_grading_for_every_behavior(tmp_path, kind, correc
                                pack=pack(question()), question=question(kind, ""))
     assert evaluate_answer(operation["question"], correct)["is_correct"] is True
     assert evaluate_answer(operation["question"], wrong)["is_correct"] is False
+
+
+def test_mc_aliases_share_the_same_single_choice_definition():
+    assert TYPE_DEFINITIONS["mc"] == TYPE_DEFINITIONS["multiple_choice"]
 
 
 def test_completion_accepts_alternate_case_and_whitespace_only(tmp_path):
@@ -95,12 +100,18 @@ def test_pending_addition_edit_and_chapter_reassignment_preserve_id(tmp_path):
     assert second["question"]["chapter"] == 2
 
 
-def test_repair_changes_only_approved_fields_and_preserves_id_metadata(tmp_path):
-    original = question(); installed = pack(original); replacement = copy.deepcopy(original); replacement["stem"] = "Repaired?"
+@pytest.mark.parametrize("stored_type", ["mc", "multiple_choice"])
+def test_repair_changes_only_approved_fields_and_preserves_id_metadata(tmp_path, stored_type):
+    original = question(stored_type); original["metadata"] = {"generation": "installed"}
+    installed = pack(original); replacement = copy.deepcopy(original); replacement["stem"] = "Repaired?"
     operation = save_operation(tmp_path / "ledger.json", operation_type="repair", pack_id="test", pack=installed,
                                question=replacement, original_question=original)
     updated = apply_operation_to_pack(operation, installed)["questions"][0]
     assert updated["id"] == original["id"] and updated["source_record_id"] == "SOURCE-1"
+    assert updated["type"] == stored_type
+    assert {key: value for key, value in updated.items() if key != "stem"} == {
+        key: value for key, value in original.items() if key != "stem"
+    }
     assert updated["stem"] == "Repaired?"
 
 
@@ -147,6 +158,24 @@ def test_fake_remote_addition_publication_preserves_id_bytes_and_metadata(tmp_pa
     assert (private / "docs" / "QUESTION_OPERATION_LOG.md").is_file()
 
 
+@pytest.mark.parametrize("stored_type", ["mc", "multiple_choice"])
+def test_both_mc_aliases_publish_without_rewriting(tmp_path, stored_type):
+    private_remote = tmp_path / "prepflow-dev.git"; public_remote = tmp_path / "PrepFlow.git"
+    for remote in (private_remote, public_remote):
+        subprocess.run(["git", "init", "--bare", remote], check=True, capture_output=True)
+    private = tmp_path / "private"; initialize_repository(private, private_remote, public_remote)
+    public = tmp_path / "public-release"; prepare_public_worktree(private, public)
+    ledger = private / "output" / "question-workbench" / "operations.json"
+    candidate = question(stored_type, "")
+    operation = save_operation(ledger, operation_type="addition", pack_id="test",
+                               pack=pack(question()), question=candidate)
+    publish_saved_operation(private, public, ledger, operation["operation_id"], readiness={"ready": True})
+    for root in (private, public):
+        published = json.loads((root / "packs" / "test.prepflow.json").read_text())
+        saved = next(item for item in published["questions"] if item["id"] == operation["question_id"])
+        assert saved["type"] == stored_type
+
+
 
 def test_public_push_interruption_resumes_without_duplicate_question(tmp_path, monkeypatch):
     private_remote = tmp_path / "prepflow-dev.git"; public_remote = tmp_path / "PrepFlow.git"
@@ -176,7 +205,45 @@ def test_public_push_interruption_resumes_without_duplicate_question(tmp_path, m
     assert result["public_commit"] == real_git(public_remote, "rev-parse", "master")
     published = json.loads((public / "packs" / "test.prepflow.json").read_text())
     assert [item["id"] for item in published["questions"]].count(operation["question_id"]) == 1
-    assert len(real_git(public, "rev-list", "--count", "HEAD")) > 0
+    assert int(real_git(public, "rev-list", "--count", "HEAD")) == 2
+    assert int(real_git(private, "rev-list", "--count", "HEAD")) == 2
+
+
+def test_private_push_interruption_resumes_without_duplicate_question_or_commit(tmp_path, monkeypatch):
+    private_remote = tmp_path / "prepflow-dev.git"; public_remote = tmp_path / "PrepFlow.git"
+    for remote in (private_remote, public_remote):
+        subprocess.run(["git", "init", "--bare", remote], check=True, capture_output=True)
+    private = tmp_path / "private"; initialize_repository(private, private_remote, public_remote)
+    public = tmp_path / "public-release"; prepare_public_worktree(private, public)
+    ledger = private / "output" / "question-workbench" / "operations.json"
+    operation = save_operation(ledger, operation_type="addition", pack_id="test", pack=pack(question()),
+                               question=question("mc", ""))
+    real_git = question_publisher.git
+    failed = False
+
+    def interrupt_once(root, *args):
+        nonlocal failed
+        if Path(root).resolve() == private.resolve() and args[:2] == ("push", "origin") and not failed:
+            failed = True
+            raise RuntimeError("synthetic private push interruption")
+        return real_git(root, *args)
+
+    monkeypatch.setattr(question_publisher, "git", interrupt_once)
+    with pytest.raises(RuntimeError, match="synthetic private push interruption"):
+        publish_saved_operation(private, public, ledger, operation["operation_id"], readiness={"ready": True})
+    interrupted = load_ledger(ledger)["operations"][0]
+    assert interrupted["state"] == "publishing"
+    assert interrupted["publication"]["stage"] == "private_committed"
+    private_commit = interrupted["publication"]["private_commit"]
+
+    monkeypatch.setattr(question_publisher, "git", real_git)
+    result = publish_saved_operation(private, public, ledger, operation["operation_id"], readiness={"ready": True})
+    assert result["private_commit"] == private_commit
+    assert int(real_git(private, "rev-list", "--count", "HEAD")) == 2
+    assert int(real_git(public, "rev-list", "--count", "HEAD")) == 2
+    for root in (private, public):
+        published = json.loads((root / "packs" / "test.prepflow.json").read_text())
+        assert [item["id"] for item in published["questions"]].count(operation["question_id"]) == 1
 
 
 def test_dirty_public_worktree_is_never_discarded(tmp_path):
@@ -200,4 +267,6 @@ def test_ui_contract_has_two_states_final_actions_preview_and_mobile_layout():
         assert text in script
     assert "Publishable" in publisher and "Publishing unavailable — will save" in publisher
     assert "window.confirm" not in script and "Check readiness" not in html
+    assert 'function preferredType(){ return "mc"; }' in script
+    assert 'option.hidden=option.value==="multiple_choice"' in script
     assert "@media(max-width:760px)" in css

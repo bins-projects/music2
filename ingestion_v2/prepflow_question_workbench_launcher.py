@@ -12,7 +12,7 @@ import sys
 from ingestion_v2.question_publisher import prepare_public_worktree
 
 
-DEFAULT_REPOSITORY = Path("/workspaces/prepflow") if Path("/workspaces/prepflow").is_dir() else Path("/home/charliekeila/projects/prepflow")
+DEFAULT_REPOSITORY = Path(__file__).resolve().parent.parent
 DEFAULT_PUBLIC_WORKTREE_NAME = "prepflow-public-release"
 
 

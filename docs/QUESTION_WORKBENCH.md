@@ -24,12 +24,12 @@ The original PFQ ID, record position, and every unsupported or unchanged field a
 
 ## Canonical types
 
-- `mc` and `multiple_choice`: Multiple choice; two or more choices and exactly one answer.
+- `mc` and `multiple_choice`: exact runtime aliases for single-answer Multiple Choice. `mc` is the canonical stored type for newly authored questions. Existing `multiple_choice` records keep that stored type during repair unless a separately approved migration intentionally changes it.
 - `multiple_response`: Select all that apply; complete-set grading with two or more correct choices.
 - `completion`: Fill in the blank; one or more accepted answers with case and surrounding-whitespace normalization only.
 - `ordered_response`: Put in order; every response item exactly once and exact-sequence grading.
 
-All five values occur in installed Packs and are supported. Existing legacy records remain loadable without forced cleanup. New or edited records use strict authoring validation. The current legacy inventory includes records with missing rationales and a small number of mislabeled or duplicated answer keys; those records require an intentional repair before they can satisfy the stricter authoring contract.
+All five values occur in installed Packs and are supported. Fundamentals uses `mc`; the medical-surgical, pediatrics, and pharmacy generations use `multiple_choice`. The Workbench exposes one operator-facing Multiple Choice choice while retaining the stored alias on repairs. Existing legacy records remain loadable without forced cleanup. New or edited records use strict authoring validation. The current legacy inventory includes records with missing rationales and a small number of mislabeled or duplicated answer keys; those records require an intentional repair before they can satisfy the stricter authoring contract.
 
 ## Persistence and recovery
 

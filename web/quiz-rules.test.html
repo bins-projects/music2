@@ -81,6 +81,16 @@
     );
 
     check(
+      "treats mc and multiple_choice as equivalent single-answer types",
+      ["mc", "multiple_choice"].every((type) => (
+        rules.questionKind({ type }) === "single"
+        && !rules.isMultipleResponseQuestion({ type, correct_answers: ["A"], stem: "Choose one." })
+        && rules.evaluateAnswer({ type, correct_answers: ["A"] }, ["a"]).isCorrect
+        && !rules.evaluateAnswer({ type, correct_answers: ["A"] }, ["B"]).isCorrect
+      ))
+    );
+
+    check(
       "grades a correct multiple-choice answer",
       rules.evaluateAnswer({ correct_answer: "B" }, ["b"]).isCorrect
     );

@@ -26,9 +26,14 @@ DECORATIONS = {
 }
 
 
-def pack_catalog(pack_directory: Path) -> dict:
-    """Return a deterministic catalog for every valid installed Pack."""
-    books = []
+def installed_pack_registry(pack_directory: Path) -> dict[str, Path]:
+    """Return every valid installed Pack keyed by its canonical Pack ID.
+
+    This is the shared discovery boundary for private tooling.  A Pack becomes
+    available to the workbench by being a valid installed Pack, not by being
+    named in a second per-book registry.
+    """
+    registry: dict[str, Path] = {}
     seen_ids: set[str] = set()
     for path in sorted(pack_directory.glob("*.prepflow.json"), key=lambda item: item.name.casefold()):
         try:
@@ -59,16 +64,30 @@ def pack_catalog(pack_directory: Path) -> dict:
                 raise ValueError(f"Installed Pack {path.name} has an invalid chapter title")
             chapters[(chapter, chapter_title)] = chapters.get((chapter, chapter_title), 0) + 1
 
+        registry[pack_id] = path
+        seen_ids.add(pack_id)
+    return registry
+
+
+def pack_catalog(pack_directory: Path) -> dict:
+    """Return a deterministic catalog for every valid installed Pack."""
+    books = []
+    for pack_id, path in installed_pack_registry(pack_directory).items():
+        pack = load_pack(path)
+        chapters: dict[tuple[int | None, str], int] = {}
+        for question in pack["questions"]:
+            chapter = question.get("chapter")
+            chapter_title = question.get("chapter_title") or "Untitled Chapter"
+            chapters[(chapter, chapter_title)] = chapters.get((chapter, chapter_title), 0) + 1
         book = {
             "id": pack_id,
-            "title": title.strip(),
+            "title": pack["title"].strip(),
             "path": f"../packs/{path.name}",
-            "question_count": len(questions),
+            "question_count": len(pack["questions"]),
             "chapter_count": len(chapters),
         }
         book.update(DECORATIONS.get(pack_id, {}))
         books.append(book)
-        seen_ids.add(pack_id)
     return {"format": CATALOG_FORMAT, "version": CATALOG_VERSION, "books": books}
 
 
@@ -77,10 +96,15 @@ def write_catalog(pack_directory: Path, destination: Path) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(catalog, indent=2, ensure_ascii=False) + "\n"
     destination.write_text(serialized, encoding="utf-8")
-    # Imported by the service worker. Updating this file is part of a service
-    # worker update check, so a catalog change creates a fresh Pack cache for
-    # offline use instead of depending on a student opening each new book once.
-    cache_version = hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
+    # Imported by the service worker.  Include the Pack bytes, not just
+    # catalog metadata: a one-question repair normally leaves counts and
+    # titles unchanged, but must still refresh every student's offline Pack.
+    cache_input = hashlib.sha256(serialized.encode("utf-8"))
+    for pack_id, path in installed_pack_registry(pack_directory).items():
+        cache_input.update(pack_id.encode("utf-8"))
+        cache_input.update(b"\0")
+        cache_input.update(path.read_bytes())
+    cache_version = cache_input.hexdigest()[:16]
     precache_path = destination.parent.parent / "pack-precache.js"
     precache_path.write_text(
         "self.PREPFLOW_PACK_PRECACHE = "

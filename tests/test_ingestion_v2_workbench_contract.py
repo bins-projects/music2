@@ -2,10 +2,30 @@ from pathlib import Path
 import hashlib
 import json
 
+import ingestion_v2.workbench_server as workbench_server
 from ingestion_v2.workbench_server import approved_pdf_sources, filename_metadata, validated_existing_extraction
 
 
 WORKBENCH = Path("ingestion_v2/workbench")
+
+
+def test_workbench_discovers_every_valid_installed_pack(tmp_path, monkeypatch) -> None:
+    packs = tmp_path / "packs"
+    packs.mkdir()
+    (packs / "adult-health.prepflow.json").write_text(json.dumps({
+        "format": "prepflow_pack", "version": "1.0", "pack_id": "adult_health",
+        "title": "Adult Health", "questions": [{
+            "id": "PFQ-adult_health-000000001", "chapter": 1,
+            "chapter_title": "One", "type": "multiple_choice", "stem": "Which?",
+            "choices": [{"label": "A", "text": "First"}],
+            "correct_answers": ["A"], "rationale": "Because.",
+        }],
+    }), encoding="utf-8")
+    monkeypatch.setattr(workbench_server, "PACK_DIRECTORY", packs)
+
+    assert workbench_server.installed_identity_packs() == {
+        "adult_health": packs / "adult-health.prepflow.json"
+    }
 
 
 def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> None:
@@ -36,8 +56,12 @@ def test_workbench_is_private_synthetic_preview_with_no_promotion_action() -> No
     assert '"Replace in Pack"' in script
     assert "/api/repair-desk/question?question_id=" in script
     assert 'fetch("/api/repair-desk/replace"' in script
+    assert "/api/repair-publish/preflight?pack_id=" in script
+    assert "publishStatus.textContent" in script
+    assert '"/api/repair-publish/status"' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
+    assert 'self.path == "/api/repair-publish"' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
     assert 'replace_canonical_pack_question' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
-    assert '"pediatrics": PROJECT_DIRECTORY / "packs" / "pediatrics.prepflow.json"' in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
+    assert "installed_pack_registry" in Path("ingestion_v2/workbench_server.py").read_text(encoding="utf-8")
     assert "question" in script
     assert "renderLocalStatus" in script
     assert 'id="candidate-inspection"' in html
@@ -117,7 +141,7 @@ def test_workbench_keeps_legacy_identity_routes_outside_normal_intake() -> None:
     assert '"/api/private-sources"' in script
     assert '"/api/run/start-approved-pdf"' in script
     assert "/api/identity/existing-pack" in script
-    assert "IDENTITY_PACKS" in server
+    assert "installed_identity_packs" in server
     assert "Unknown protected Pack selection" in server
     assert "/api/identity/actions" in script
     assert "Same question" in script
@@ -278,6 +302,7 @@ def test_manual_pack_replacement_preserves_id_position_and_writes_backup(tmp_pat
         digest,
         registry={"fundamentals": pack_path},
         backup_root=backup_root,
+        repair_log_path=tmp_path / "REPAIR_LOG.md",
     )
 
     updated = json.loads(pack_path.read_text(encoding="utf-8"))
@@ -290,3 +315,6 @@ def test_manual_pack_replacement_preserves_id_position_and_writes_backup(tmp_pat
     backups = list(backup_root.glob("*.prepflow.json"))
     assert len(backups) == 1
     assert json.loads(backups[0].read_text(encoding="utf-8")) == original
+    log = (tmp_path / "REPAIR_LOG.md").read_text(encoding="utf-8")
+    assert '"stem": "Before?"' in log
+    assert '"stem": "After?"' in log

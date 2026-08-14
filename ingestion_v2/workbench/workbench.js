@@ -470,8 +470,50 @@
         delete dialog.dataset.manualOriginalAnswers;
         document.getElementById("edit-question-chapter").disabled = false;
         dialog.querySelector('button[type="submit"]').textContent = "Save fix";
-        document.getElementById("repair-desk-results").textContent =
+        const results = document.getElementById("repair-desk-results");
+        const publishStatus = document.createElement("span");
+        publishStatus.textContent =
           `${repairedId} replaced in ${replacement.pack_id.replaceAll("_", "-")} · backup ${replacement.backup}`;
+        results.replaceChildren(publishStatus);
+        const preflight = document.createElement("button");
+        preflight.type = "button";
+        preflight.className = "secondary";
+        preflight.textContent = "Check publish readiness";
+        preflight.addEventListener("click", async () => {
+          try {
+            const check = await fetch(`/api/repair-publish/preflight?pack_id=${encodeURIComponent(replacement.pack_id)}`);
+            const report = await check.json();
+            if (!check.ok) throw new Error(report.error || "Publish readiness check failed.");
+            publishStatus.textContent = report.ready
+              ? "Publish readiness passed."
+              : `Publish dry-run blocked: ${report.reasons.join(" · ")}`;
+          } catch (error) {
+            publishStatus.textContent = error.message;
+          }
+        });
+        results.append(" ", preflight);
+        const live = await fetch("/api/repair-publish/status").then((response) => response.json());
+        if (live.live_publish_enabled) {
+          const publish = document.createElement("button");
+          publish.type = "button";
+          publish.textContent = "Publish repair everywhere";
+          publish.addEventListener("click", async () => {
+            if (!window.confirm("Publish this repaired Pack to private dev and the public app?")) return;
+            const response = await fetch("/api/repair-publish", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pack_id: replacement.pack_id }),
+            });
+            const published = await response.json();
+            publishStatus.textContent = response.ok
+              ? `Published · private ${published.private_commit} · public ${published.public_commit}`
+              : published.error || "Publish failed.";
+            if (response.ok) {
+              preflight.disabled = true;
+              publish.disabled = true;
+            }
+          });
+          results.append(" ", publish);
+        }
         return;
       }
       if (dialog.dataset.completeQuestionId) {

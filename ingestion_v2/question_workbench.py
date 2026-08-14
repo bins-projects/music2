@@ -259,6 +259,51 @@ def concise_question_reference(pack_title: str, question_id: str) -> str:
     return f"{pack_title} • Ref {int(match.group(2))}"
 
 
+def needs_review_inventory(
+    packs: dict[str, dict[str, Any]],
+    operations: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
+) -> list[dict[str, Any]]:
+    """Derive strict-authoring review rows without changing Packs or the ledger."""
+    active_repairs: dict[tuple[str, str], dict[str, Any]] = {}
+    for operation in operations:
+        if (
+            operation.get("operation_type") == "repair"
+            and operation.get("state") in {"pending", "publishing"}
+        ):
+            active_repairs[(
+                str(operation.get("pack_id") or ""),
+                str(operation.get("question_id") or ""),
+            )] = operation
+
+    findings = []
+    for pack_id, pack in packs.items():
+        pack_title = str(pack.get("title") or pack_id)
+        for question in pack.get("questions", []):
+            try:
+                validate_question(question)
+            except QuestionWorkbenchError as error:
+                question_id = str(question.get("id") or "")
+                operation = active_repairs.get((pack_id, question_id))
+                findings.append({
+                    "pack_id": pack_id,
+                    "pack_title": pack_title,
+                    "question_id": question_id,
+                    "reference": concise_question_reference(pack_title, question_id),
+                    "chapter": question.get("chapter"),
+                    "chapter_title": question.get("chapter_title"),
+                    "type": question.get("type") or question.get("question_type"),
+                    "stem": str(question.get("stem") or ""),
+                    "validation_issue": str(error),
+                    "operation_id": (
+                        operation.get("operation_id") if operation else None
+                    ),
+                    "operation_state": (
+                        operation.get("state") if operation else None
+                    ),
+                })
+    return findings
+
+
 def search_questions(
     pack_id: str,
     pack: dict[str, Any],

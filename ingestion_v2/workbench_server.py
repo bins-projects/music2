@@ -25,6 +25,7 @@ from ingestion_v2.question_workbench import (
     canonical_type_inventory,
     chapter_inventory,
     evaluate_answer,
+    needs_review_inventory,
     list_operations,
     operation_by_id,
     save_operation,
@@ -332,6 +333,7 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
     def _handle_question_get(self, parsed) -> bool:
         if parsed.path == "/api/question-workbench":
             _, packs = installed_question_packs()
+            operations = list_operations(QUESTION_LEDGER_PATH)
             self._send_json({
                 "packs": [
                     {
@@ -343,7 +345,8 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                     for pack_id, pack in packs.items()
                 ],
                 "types": canonical_type_inventory(packs),
-                "operations": list_operations(QUESTION_LEDGER_PATH),
+                "operations": operations,
+                "needs_review": needs_review_inventory(packs, operations),
                 "readiness": question_publication_readiness(),
             })
             return True

@@ -145,6 +145,49 @@
     const next=document.createElement("button");next.type="button";next.className="secondary";next.textContent="Next page";next.disabled=!response.has_next;next.onclick=()=>{browseState.scrollY=0;void browseQuestions(response.page+1,false);};
     pagination.append(previous,next);target.append(pagination);
   }
+  function reviewStatus(item){
+    if(item.operation_state==="publishing")return "Publication recovery pending";
+    if(item.operation_state==="pending")return "Saved — awaiting publication";
+    return "Needs repair";
+  }
+  function operationFor(item){return item.operation_id?data.operations.find((op)=>op.operation_id===item.operation_id):null;}
+  async function openNeedsReview(item){
+    const operation=operationFor(item);
+    if(operation?.state==="pending"){reopen(operation);return;}
+    if(operation?.state==="publishing"){
+      const reversed=data.operations.slice().reverse();
+      const index=reversed.findIndex((op)=>op.operation_id===operation.operation_id);
+      const card=$("pending").querySelectorAll(".pending-card")[index];
+      card?.scrollIntoView({behavior:"smooth",block:"center"});
+      card?.querySelector("button:not(:disabled)")?.focus();
+      return;
+    }
+    mode="repair";original=null;currentOperation=null;
+    document.querySelectorAll("[data-mode]").forEach((button)=>button.classList.toggle("active",button.dataset.mode===mode));
+    $("search-form").hidden=false;$("chapter-wrap").hidden=false;$("type-wrap").hidden=true;$("pack").value=item.pack_id;
+    browseState.packId=item.pack_id;browseState.chapter="";browseState.query=item.question_id;browseState.page=1;browseState.scrollY=window.scrollY;
+    updateChapters();$("chapter").value="";$("search").value=item.question_id;
+    await browseQuestions(1,false);
+    const index=browseState.response?.results.findIndex((candidate)=>candidate.question_id===item.question_id)??-1;
+    if(index>=0)await loadQuestion(browseState.response.results[index],true,index);
+  }
+  function renderNeedsReview(){
+    const target=$("needs-review"),findings=data.needs_review||[];
+    target.replaceChildren();$("needs-review-count").textContent=`(${findings.length.toLocaleString()})`;
+    data.packs.forEach((packItem)=>{
+      const items=findings.filter((item)=>item.pack_id===packItem.id);
+      const group=document.createElement("details");group.className="canonical-record";
+      const summary=document.createElement("summary");summary.textContent=`${packItem.title} — ${items.length.toLocaleString()}`;group.append(summary);
+      const results=document.createElement("div");results.className="results";
+      items.forEach((item)=>{const row=document.createElement("button");row.type="button";row.className="result";
+        row.innerHTML=`<span class="result-reference">${escapeHtml(item.reference)}<small>${escapeHtml(item.question_id)} · ${escapeHtml(reviewStatus(item))}</small></span><span class="result-facts">Chapter ${escapeHtml(item.chapter)}: ${escapeHtml(item.chapter_title)} · ${escapeHtml(typeLabel(item.type))}<small><strong>Current validation issue:</strong> ${escapeHtml(item.validation_issue)}</small></span><span class="result-stem">${escapeHtml(item.stem)}</span>`;
+        row.onclick=()=>void openNeedsReview(item);results.append(row);});
+      if(!items.length){const empty=document.createElement("p");empty.textContent="No current strict-authoring findings.";results.append(empty);}
+      group.append(results);target.append(group);
+    });
+    if(!findings.length)target.textContent="No installed questions currently need strict-authoring review.";
+  }
+
   async function loadQuestion(item,rememberScroll=true,index=null){
     try{
       if(rememberScroll){browseState.scrollY=window.scrollY;persistBrowseState();}
@@ -201,8 +244,8 @@
   function renderPending(){const target=$("pending");target.replaceChildren();if(!data.operations.length){target.textContent="No saved operations.";return;}data.operations.slice().reverse().forEach((op)=>{const card=document.createElement("article");card.className=`pending-card ${op.state==="published"?"published":""}`;card.innerHTML=`<div><strong>${op.operation_type==="repair"?"Repair":"Addition"} · ${escapeHtml(op.question_id)}</strong><p>${escapeHtml(op.question.stem.slice(0,120))}</p><small>${escapeHtml(op.pack_id)} · Chapter ${escapeHtml(op.question.chapter)} · ${escapeHtml(op.question.type)} · saved ${escapeHtml(op.updated_at)}${op.blocker?` · ${escapeHtml(op.blocker)}`:""}</small></div>`;const actions=document.createElement("div");actions.className="pending-actions";const edit=document.createElement("button");edit.className="secondary";edit.textContent=op.state==="published"?"Published":op.state==="publishing"?"Publication recovery pending":"Reopen and edit";edit.disabled=op.state!=="pending";edit.onclick=()=>reopen(op);actions.append(edit);if(op.state!=="published"&&(data.readiness.ready||op.state==="publishing")){const publish=document.createElement("button");publish.textContent=op.state==="publishing"?"Resume publication":op.operation_type==="repair"?"Replace question & publish":"Add question & publish";publish.onclick=()=>publishPending(op,publish);actions.append(publish);}card.append(actions);target.append(card);});}
   function reopen(op){mode=op.operation_type;document.querySelectorAll("[data-mode]").forEach((button)=>button.classList.toggle("active",button.dataset.mode===mode));$("pack").value=op.pack_id;updateChapters();$("chapter").value=JSON.stringify({chapter:op.question.chapter,chapter_title:op.question.chapter_title});$("type").value=op.question.type;$("search-form").hidden=mode!=="repair";$("chapter-wrap").hidden=false;$("type-wrap").hidden=mode!=="addition";openEditor(op.question,op.original_question,op);}
   async function publishPending(op,button){button.disabled=true;button.textContent="Publishing…";try{const response=await json("/api/question-workbench/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({operation_id:op.operation_id})});showReadiness(response.readiness);await reload();}catch(error){button.disabled=false;button.textContent="Try publication again";alert(error.message);}}
-  async function reload(){const response=await json("/api/question-workbench");data=response;showReadiness(data.readiness);renderPending();}
-  async function init(){restoreBrowseState();data=await json("/api/question-workbench");fillSelectors();showReadiness(data.readiness);renderPending();setMode("repair");}
+  async function reload(){const response=await json("/api/question-workbench");data=response;showReadiness(data.readiness);renderNeedsReview();renderPending();}
+  async function init(){restoreBrowseState();data=await json("/api/question-workbench");fillSelectors();showReadiness(data.readiness);renderNeedsReview();renderPending();setMode("repair");}
   document.querySelectorAll("[data-mode]").forEach((button)=>button.onclick=()=>setMode(button.dataset.mode));
   $("pack").onchange=()=>{browseState.packId=$("pack").value;browseState.chapter="";browseState.page=1;updateChapters();if(mode==="addition")openAddition();else void browseQuestions(1,false);refreshReadiness();};
   $("chapter").onchange=()=>{if(mode==="addition"&&!currentOperation){openAddition();renderMeta(collect());markChanges();}else if(mode==="repair"){browseState.chapter=$("chapter").value;browseState.page=1;void browseQuestions(1,false);}refreshReadiness();};

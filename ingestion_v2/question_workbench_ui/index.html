@@ -11,6 +11,11 @@
       <button class="active" data-mode="repair">Repair existing question</button>
       <button data-mode="addition">Add new question</button>
     </nav>
+    <section class="panel" aria-labelledby="needs-review-heading">
+      <div class="row"><div><p class="eyebrow">STRICT AUTHORING REVIEW</p><h2 id="needs-review-heading">Needs Review <span id="needs-review-count"></span></h2></div></div>
+      <p>Current installed questions that do not yet satisfy the authoring contract. This derived list never saves or changes a question.</p>
+      <div id="needs-review" aria-live="polite"></div>
+    </section>
     <section class="panel setup">
       <label>Pack<select id="pack"></select></label>
       <label id="chapter-wrap" hidden>Chapter<select id="chapter"></select></label>

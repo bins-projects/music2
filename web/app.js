@@ -510,6 +510,7 @@ function totalBlockCount() {
 
 function showQuestion() {
   const question = currentQuestion();
+  const questionKind = PrepFlowQuizRules.questionKind(question);
   const isMultipleResponse = PrepFlowQuizRules.isMultipleResponseQuestion(question);
   const blockLength = blockEnd - blockStart;
 
@@ -554,32 +555,62 @@ function showQuestion() {
   }
 
   questionStem.textContent = question.stem;
-  responsePageLabel.textContent = isMultipleResponse
-    ? "Select All That Apply"
-    : "Choose Your Answer";
+  responsePageLabel.textContent = questionKind === "text"
+    ? "Enter Your Answer"
+    : questionKind === "ordered"
+      ? "Put in Order"
+      : isMultipleResponse ? "Select All That Apply" : "Choose Your Answer";
   answerChoices.hidden = false;
   answerChoices.replaceChildren();
 
-  question.choices.forEach((choice) => {
-    const label = document.createElement("label");
-    label.className = "answer-choice";
-
+  if (questionKind === "text") {
     const input = document.createElement("input");
-    input.type = isMultipleResponse ? "checkbox" : "radio";
-    input.name = "answer";
-    input.value = choice.label;
-
-    input.addEventListener("change", () => {
-      submitAnswer.disabled =
-        answerChoices.querySelectorAll('input[name="answer"]:checked').length === 0;
+    input.type = "text";
+    input.name = "answer-text";
+    input.className = "completion-answer";
+    input.autocomplete = "off";
+    input.placeholder = "Type your answer";
+    input.addEventListener("input", () => { submitAnswer.disabled = !input.value.trim(); });
+    answerChoices.append(input);
+  } else if (questionKind === "ordered") {
+    const ordered = question.choices.map((choice) => ({ ...choice }));
+    const renderOrdered = () => {
+      answerChoices.replaceChildren();
+      ordered.forEach((choice, index) => {
+        const row = document.createElement("div");
+        row.className = "answer-choice ordered-answer";
+        row.dataset.label = choice.label;
+        const text = document.createElement("span");
+        text.textContent = `${choice.label}. ${choice.text}`;
+        const up = document.createElement("button");
+        const down = document.createElement("button");
+        up.type = down.type = "button";
+        up.className = down.className = "secondary-button ordered-move";
+        up.textContent = "Move up"; down.textContent = "Move down";
+        up.disabled = index === 0; down.disabled = index === ordered.length - 1;
+        up.addEventListener("click", () => { [ordered[index - 1], ordered[index]] = [ordered[index], ordered[index - 1]]; renderOrdered(); });
+        down.addEventListener("click", () => { [ordered[index + 1], ordered[index]] = [ordered[index], ordered[index + 1]]; renderOrdered(); });
+        row.append(text, up, down); answerChoices.append(row);
+      });
+      submitAnswer.disabled = ordered.length === 0;
+    };
+    renderOrdered();
+  } else {
+    question.choices.forEach((choice) => {
+      const label = document.createElement("label");
+      label.className = "answer-choice";
+      const input = document.createElement("input");
+      input.type = isMultipleResponse ? "checkbox" : "radio";
+      input.name = "answer";
+      input.value = choice.label;
+      input.addEventListener("change", () => {
+        submitAnswer.disabled = answerChoices.querySelectorAll('input[name="answer"]:checked').length === 0;
+      });
+      const text = document.createElement("span");
+      text.textContent = `${choice.label}. ${choice.text}`;
+      label.append(input, text); answerChoices.append(label);
     });
-
-    const text = document.createElement("span");
-    text.textContent = `${choice.label}. ${choice.text}`;
-
-    label.append(input, text);
-    answerChoices.append(label);
-  });
+  }
 
   feedback.hidden = true;
   submitAnswer.hidden = false;
@@ -866,6 +897,8 @@ async function startQuiz() {
             "mc",
             "multiple_choice",
             "multiple_response",
+            "completion",
+            "ordered_response",
           ].includes(question.type || question.question_type)
         ) {
           selectedQuestions.push({
@@ -890,7 +923,7 @@ async function startQuiz() {
   if (sessionQuestions.length === 0) {
     status.hidden = false;
     status.textContent =
-      "No Multiple Choice or Multiple Response questions were found in that selection.";
+      "No supported PrepFlow questions were found in that selection.";
     return;
   }
 
@@ -984,11 +1017,15 @@ submitAnswer.addEventListener("click", () => {
     return;
   }
 
-  const selected = answerChoices.querySelectorAll(
-    'input[name="answer"]:checked'
-  );
+  const question = currentQuestion();
+  const questionKind = PrepFlowQuizRules.questionKind(question);
+  const selectedAnswers = questionKind === "text"
+    ? [answerChoices.querySelector('input[name="answer-text"]')?.value || ""]
+    : questionKind === "ordered"
+      ? [...answerChoices.querySelectorAll(".ordered-answer")].map((row) => row.dataset.label)
+      : [...answerChoices.querySelectorAll('input[name="answer"]:checked')].map((input) => input.value);
 
-  if (selected.length === 0) {
+  if (selectedAnswers.length === 0 || selectedAnswers.every((answer) => !String(answer).trim())) {
     return;
   }
 
@@ -998,8 +1035,6 @@ submitAnswer.addEventListener("click", () => {
   let scoringStarted = false;
 
   try {
-    const question = currentQuestion();
-    const selectedAnswers = Array.from(selected, (input) => input.value);
     const { isCorrect, correctAnswers } =
       PrepFlowQuizRules.evaluateAnswer(question, selectedAnswers);
 
@@ -1046,8 +1081,8 @@ submitAnswer.addEventListener("click", () => {
     answerChoices.hidden = true;
     feedback.hidden = false;
 
-    answerChoices.querySelectorAll("input").forEach((input) => {
-      input.disabled = true;
+    answerChoices.querySelectorAll("input, button").forEach((control) => {
+      control.disabled = true;
     });
 
     quizScore.textContent = PrepFlowDisplayRules.runningScoreText(

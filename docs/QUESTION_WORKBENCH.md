@@ -1,0 +1,38 @@
+# Repair and Add Questions Workbench
+
+The private Workbench is the single-operator station for repairing existing Pack questions and adding new ones. Codespaces starts it through `.devcontainer/start-question-workbench.sh`. The launcher verifies private `master`, both expected remotes, clean tracked state, and synchronization before it creates or updates the separate `prepflow-public-release` worktree. If that path is unavailable, the Workbench still starts in save-only mode.
+
+The operator sees only `Publishable` or `Publishing unavailable — will save`. Readiness is recalculated on load, selection changes, and immediately before the final action. No environment opt-in, readiness button, or confirmation dialog is required.
+
+## Repair workflow
+
+1. Choose an installed Pack and search by question text, numeric suffix, or full PFQ ID.
+2. Open the complete record, edit supported fields, and review highlighted changes.
+3. Use the learner preview to test grading and rationale feedback.
+4. Select `Replace question & publish`. If publishing is unavailable, the same action saves the repair in the private operation ledger without changing the Pack.
+5. Reopen a pending repair from Saved Operations. Its one action publishes it when readiness returns.
+
+The original PFQ ID, record position, and every unsupported or unchanged field are preserved.
+
+## Addition workflow
+
+1. Choose any installed Pack, one of its actual chapters, and a supported canonical type.
+2. Author the stem, type-specific answers or response items, rationale, and optional notes.
+3. Test the exact interaction in learner preview.
+4. Select `Add question & publish`. In save-only mode, the Workbench atomically reserves the permanent Pack-specific PFQ ID and stores the complete addition.
+5. Pending additions can be edited or reassigned to another chapter without changing the reserved ID.
+
+## Canonical types
+
+- `mc` and `multiple_choice`: Multiple choice; two or more choices and exactly one answer.
+- `multiple_response`: Select all that apply; complete-set grading with two or more correct choices.
+- `completion`: Fill in the blank; one or more accepted answers with case and surrounding-whitespace normalization only.
+- `ordered_response`: Put in order; every response item exactly once and exact-sequence grading.
+
+All five values occur in installed Packs and are supported. Existing legacy records remain loadable without forced cleanup. New or edited records use strict authoring validation. The current legacy inventory includes records with missing rationales and a small number of mislabeled or duplicated answer keys; those records require an intentional repair before they can satisfy the stricter authoring contract.
+
+## Persistence and recovery
+
+The ignored private ledger at `output/question-workbench/operations.json` is atomically replaced under a file lock. It stores pending/published repairs and additions, reserved namespaces and IDs, blockers, publication stages, and commit SHAs. IDs are allocated against installed Packs and every saved operation, so abandoned or published reservations are never reused.
+
+Publishing creates private evidence in `docs/QUESTION_OPERATION_LOG.md`, validates the complete Pack, regenerates the catalog and Pack precache, verifies private/public Pack byte equality, and commits and pushes each repository. If interruption occurs after either local commit, Saved Operations exposes `Resume publication`; recovery pushes the recorded commit and never inserts the question twice. Unrelated tracked changes remain blocking and are never reset, stashed, cleaned, or overwritten.

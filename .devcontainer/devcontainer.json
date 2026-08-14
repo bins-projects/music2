@@ -2,7 +2,7 @@
   "name": "PrepFlow Workbench",
   "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
   "postCreateCommand": "python -m pip install -r requirements.txt",
-  "postStartCommand": "bash .devcontainer/start-workbench.sh",
+  "postStartCommand": "bash .devcontainer/start-question-workbench.sh",
   "forwardPorts": [
     8765
   ],

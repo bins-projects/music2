@@ -8,6 +8,7 @@ const APP_FILES = [
   "./styles.css",
   "./app.js",
   "./generic-pack-catalog.css",
+  "./canonical-question-types.css",
   "./data/pack-catalog.json",
   "./drug-reference.css",
   "./drug-reference.js",

@@ -12,6 +12,12 @@ from ingestion_v2.one_click_question_actions import (
     publish_applied_operation,
     reconcile_saved_operations,
 )
+from ingestion_v2.question_review_service import (
+    QuestionReviewServiceError,
+    clear_report,
+    configuration as review_service_configuration,
+    list_reports,
+)
 from ingestion_v2.question_workbench import (
     QuestionWorkbenchError,
     canonical_type_inventory,
@@ -45,10 +51,54 @@ def _workbench_readiness(operations: list[dict], packs: dict[str, dict]) -> dict
     )
 
 
+def _enrich_review_reports(reports: list[dict], packs: dict[str, dict]) -> list[dict]:
+    by_id = {}
+    for pack_id, pack in packs.items():
+        for question in pack.get("questions", []):
+            question_id = question.get("id")
+            if question_id:
+                by_id[question_id] = (pack_id, pack, question)
+
+    enriched = []
+    for report in reports:
+        item = dict(report)
+        match = by_id.get(item.get("question_id"))
+        if match is None:
+            item["available"] = False
+        else:
+            pack_id, pack, question = match
+            item.update({
+                "available": True,
+                "pack_id": pack_id,
+                "pack_title": pack.get("title", pack_id),
+                "chapter": question.get("chapter"),
+                "chapter_title": question.get("chapter_title", ""),
+                "stem": question.get("stem", ""),
+                "type": question.get("type", question.get("question_type", "")),
+            })
+        enriched.append(item)
+    return enriched
+
+
 class OneClickWorkbenchHandler(base.WorkbenchHandler):
     """Keep the existing Workbench while replacing only question-action lifecycle."""
 
     def _handle_question_get(self, parsed) -> bool:
+        if parsed.path == "/api/question-review-reports":
+            config = review_service_configuration()
+            if not config["configured"]:
+                self._send_json({"configured": False, "reports": []})
+                return True
+            try:
+                _, packs = base.installed_question_packs()
+                self._send_json({
+                    "configured": True,
+                    "reports": _enrich_review_reports(list_reports(), packs),
+                })
+            except QuestionReviewServiceError as error:
+                self._send_json({"configured": True, "reports": [], "error": str(error)}, status=503)
+            return True
+
         if parsed.path in {"/api/question-workbench", "/api/question-workbench/readiness"}:
             _, packs = base.installed_question_packs()
             reconcile_saved_operations(base.QUESTION_LEDGER_PATH, packs)
@@ -71,11 +121,23 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
                 "operations": operations,
                 "needs_review": needs_review_inventory(packs, operations),
                 "readiness": readiness,
+                "review_service_configured": review_service_configuration()["configured"],
             })
             return True
         return super()._handle_question_get(parsed)
 
     def _handle_question_post(self) -> bool:
+        if self.path == "/api/question-review-reports/resolve":
+            try:
+                body = self._read_json()
+                question_id = str(body.get("question_id") or "")
+                if not question_id:
+                    raise QuestionWorkbenchError("question_id is required")
+                self._send_json({"question_id": question_id, "cleared": clear_report(question_id)})
+            except (QuestionWorkbenchError, QuestionReviewServiceError, ValueError, RuntimeError) as error:
+                self._send_json({"error": str(error)}, status=400)
+            return True
+
         if self.path == "/api/question-workbench/discard":
             try:
                 body = self._read_json()
@@ -93,6 +155,7 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
 
         try:
             body = self._read_json()
+            resolving_report_id = ""
             if self.path.endswith("/publish"):
                 operation_id = str(body.get("operation_id") or "")
                 if not operation_id:
@@ -112,6 +175,7 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
                 existing_id = body.get("operation_id")
                 if operation_type == "repair":
                     question_id = str(submitted.get("id") or "")
+                    resolving_report_id = question_id
                     original = next((
                         copy.deepcopy(item) for item in packs[pack_id]["questions"]
                         if item.get("id") == question_id
@@ -120,8 +184,6 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
                         original = operation_by_id(base.QUESTION_LEDGER_PATH, str(existing_id)).get("original_question")
                     if original is None:
                         raise QuestionWorkbenchError("Repair target was not found")
-                    # The editor exposes authoring fields only. Merge them over
-                    # canonical truth so supported provenance fields survive.
                     question = copy.deepcopy(original)
                     question.update(submitted)
                 else:
@@ -142,6 +204,13 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
                     base.QUESTION_LEDGER_PATH,
                     operation["operation_id"],
                 )
+
+            report_resolution_error = None
+            if resolving_report_id and review_service_configuration()["configured"]:
+                try:
+                    clear_report(resolving_report_id)
+                except QuestionReviewServiceError as error:
+                    report_resolution_error = str(error)
 
             publication = None
             publication_error = None
@@ -176,6 +245,7 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
                 "operation": operation,
                 "publication": publication,
                 "publication_error": publication_error,
+                "report_resolution_error": report_resolution_error,
                 "readiness": readiness,
                 "canonical_saved": operation.get("state") in {"applied", "publishing", "published"},
             }, status=201 if self.path.endswith("/action") else 200)

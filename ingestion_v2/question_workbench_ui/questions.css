@@ -10,3 +10,26 @@
 .canonical-record{margin:12px 0 18px;border:1px solid var(--line);border-radius:10px;background:#0e141b}.canonical-record summary{cursor:pointer;padding:12px 14px;font-weight:800}.canonical-record pre{max-height:420px;margin:0;padding:0 14px 14px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:#c9d4df}
 .embedded-question-workbench main{width:100%;margin:0;padding:16px}.embedded-question-workbench .operations{position:sticky;top:0;z-index:5;padding:2px 0 12px;background:#10151c}.question-finder{margin-bottom:16px;border:1px solid var(--line);border-radius:14px;background:#151d26;overflow:hidden}.question-finder>summary{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:14px 18px;cursor:pointer;list-style:none}.question-finder>summary::-webkit-details-marker{display:none}.question-finder>summary strong{color:#e8edf3}.question-finder>summary span{color:#9aabc0;font-size:.82rem}.question-finder[open]>summary{border-bottom:1px solid var(--line)}.question-finder-body{margin:0;padding:16px;background:#19212b}.question-finder-body .results{border:1px solid var(--line);border-radius:10px}.embedded-question-workbench .panel:first-of-type{margin-top:0}
 @media(max-width:760px){.result{grid-template-columns:1fr;gap:4px}.result-stem{white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}.results-heading{align-items:flex-start}.record-navigation{grid-template-columns:1fr}.record-navigation>strong{text-align:left;order:-1}.record-step-actions{display:grid;grid-template-columns:1fr 1fr}.record-navigation>button{width:100%}.browse-record-body{grid-template-columns:1fr}.pagination button,.record-step-actions button{min-height:44px}.question-finder>summary{align-items:flex-start;flex-direction:column;gap:4px}}
+
+/* Make the Find / Browse drawer read as a primary action */
+.question-finder > summary {
+  background: var(--blue);
+  color: #07121d;
+  border: 1px solid #9fd0ff;
+}
+
+.question-finder > summary strong {
+  color: #07121d;
+}
+
+.question-finder > summary span {
+  color: #18324a;
+}
+
+.question-finder > summary:hover {
+  background: #8ac6ff;
+}
+
+.question-finder[open] > summary {
+  border-bottom: 1px solid #9fd0ff;
+}

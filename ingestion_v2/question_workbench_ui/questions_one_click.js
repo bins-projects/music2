@@ -11,6 +11,100 @@
 
   function isEmbedded() { return window.self !== window.top; }
 
+  let embeddedMode = "repair";
+  let parentShellInstalled = false;
+  let embeddedModeApplied = false;
+  let heightTimer = null;
+
+  function reportEmbeddedHeight() {
+    if (!isEmbedded()) return;
+    clearTimeout(heightTimer);
+    heightTimer = setTimeout(() => {
+      try {
+        const frame = window.frameElement;
+        if (!frame) return;
+        const height = Math.ceil(Math.max(
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight
+        ));
+        frame.style.height = `${Math.max(320, height)}px`;
+      } catch (_) {}
+    }, 20);
+  }
+
+  function setEmbeddedWorkspaceMode(mode) {
+    embeddedMode = mode === "addition" ? "addition" : "repair";
+    const button = document.querySelector(`[data-mode="${embeddedMode}"]`);
+    if (button && $("pack")?.options.length) {
+      button.click();
+      embeddedModeApplied = true;
+    }
+
+    const needsReviewPanel = $("needs-review")?.closest("section.panel");
+    const finder = document.querySelector("details.question-finder");
+    if (needsReviewPanel) needsReviewPanel.hidden = embeddedMode === "addition";
+    if (finder) finder.hidden = embeddedMode === "addition";
+    reportEmbeddedHeight();
+  }
+
+  function installParentShell() {
+    if (!isEmbedded() || parentShellInstalled) return;
+    let parentDocument;
+    try { parentDocument = window.parent.document; } catch (_) { return; }
+
+    const nav = parentDocument.querySelector(".workbench-modes");
+    const factoryButton = parentDocument.getElementById("factory-mode-button");
+    const oldQuestionButton = parentDocument.getElementById("question-mode-button");
+    const factory = parentDocument.getElementById("factory-workspace");
+    const workspace = parentDocument.getElementById("question-workspace");
+    const frame = parentDocument.getElementById("question-workbench-frame");
+    if (!nav || !factoryButton || !oldQuestionButton || !factory || !workspace || !frame) return;
+
+    parentShellInstalled = true;
+    factoryButton.textContent = "Build / review a Pack";
+    oldQuestionButton.textContent = "Repair existing question";
+    oldQuestionButton.id = "repair-mode-button";
+
+    const addButton = parentDocument.createElement("button");
+    addButton.id = "add-mode-button";
+    addButton.type = "button";
+    addButton.textContent = "Add new question";
+    nav.append(addButton);
+
+    const style = parentDocument.createElement("style");
+    style.textContent = `
+      .workbench-modes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .workbench-modes button { border-width: 2px !important; border-color: #60757a !important; }
+      .workbench-modes button:hover { border-color: var(--cyan) !important; }
+      .workbench-modes button.active { border-color: #9ff5e8 !important; }
+      .question-workspace { overflow: visible !important; }
+      .question-workspace iframe { height: 700px; min-height: 0 !important; overflow: hidden; }
+      @media (max-width: 760px) { .workbench-modes { grid-template-columns: 1fr; } }
+    `;
+    parentDocument.head.append(style);
+
+    function activate(mode) {
+      const questionMode = mode !== "factory";
+      factory.hidden = questionMode;
+      workspace.hidden = !questionMode;
+      factoryButton.classList.toggle("active", mode === "factory");
+      oldQuestionButton.classList.toggle("active", mode === "repair");
+      addButton.classList.toggle("active", mode === "addition");
+      parentDocument.defaultView.sessionStorage.setItem("prepflow.workbench.mode", mode);
+      if (questionMode) setEmbeddedWorkspaceMode(mode);
+      reportEmbeddedHeight();
+    }
+
+    // Existing listeners still make the old two-button shell work. These run
+    // after them and establish the three-mode state as the final UI truth.
+    factoryButton.addEventListener("click", () => activate("factory"));
+    oldQuestionButton.addEventListener("click", () => activate("repair"));
+    addButton.addEventListener("click", () => activate("addition"));
+
+    const saved = parentDocument.defaultView.sessionStorage.getItem("prepflow.workbench.mode");
+    activate(saved === "addition" ? "addition" : saved === "repair" || saved === "questions" ? "repair" : "factory");
+  }
+
   function compactShell() {
     if (document.body.dataset.compactQuestionShell === "1") return;
     document.body.dataset.compactQuestionShell = "1";
@@ -19,6 +113,10 @@
       const header = document.querySelector("body > header");
       if (header) header.hidden = true;
       document.body.classList.add("embedded-question-workbench");
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overflow = "hidden";
+      const operations = document.querySelector(".operations");
+      if (operations) operations.hidden = true;
     }
 
     const setup = document.querySelector("section.panel.setup");
@@ -34,11 +132,15 @@
 
       const closeWhenFocused = () => {
         if (!$("record-view")?.hidden || !$("editor")?.hidden) drawer.open = false;
+        reportEmbeddedHeight();
       };
       const focusObserver = new MutationObserver(closeWhenFocused);
       if ($("record-view")) focusObserver.observe($("record-view"), {attributes: true, attributeFilter: ["hidden"]});
       if ($("editor")) focusObserver.observe($("editor"), {attributes: true, attributeFilter: ["hidden"]});
+      drawer.addEventListener("toggle", reportEmbeddedHeight);
     }
+
+    installParentShell();
   }
 
   function finalLabel() {
@@ -147,6 +249,21 @@
     normalizeMessages(state);
     updatePendingVisibility(state);
     await enhancePending(state);
+
+    if (isEmbedded() && !embeddedModeApplied) {
+      let parentMode = "repair";
+      try {
+        const saved = window.parent.sessionStorage.getItem("prepflow.workbench.mode");
+        parentMode = saved === "addition" ? "addition" : "repair";
+      } catch (_) {}
+      setEmbeddedWorkspaceMode(parentMode);
+    } else if (isEmbedded()) {
+      const needsReviewPanel = $("needs-review")?.closest("section.panel");
+      const finder = document.querySelector("details.question-finder");
+      if (needsReviewPanel) needsReviewPanel.hidden = embeddedMode === "addition";
+      if (finder) finder.hidden = embeddedMode === "addition";
+    }
+    reportEmbeddedHeight();
   }
 
   let timer = null;
@@ -164,5 +281,6 @@
     attributeFilter: ["hidden", "disabled"],
   });
   document.addEventListener("click", () => setTimeout(schedule, 0));
+  window.addEventListener("resize", reportEmbeddedHeight);
   schedule();
 })();

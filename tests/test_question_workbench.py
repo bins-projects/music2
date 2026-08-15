@@ -328,8 +328,10 @@ def test_unified_server_serves_both_stations_health_and_shared_pack_discovery():
             "repair_add_questions": {"available": True, "path": "/questions/"},
         }
         landing = get("/")[2]
-        assert b"Build a new Pack" in landing
-        assert landing.count(b"Repair &amp; Add Questions") == 1
+        assert b"Process a book" in landing
+        assert b"Build / review a Pack" in landing
+        assert b"Repair / add questions" in landing
+        assert b'src="/questions/"' in landing
         assert b"REPAIR DESK" not in landing
         assert b"Locate a stable question ID" not in landing
         assert b"<details id=\"record-locator-details\"" in landing
@@ -385,5 +387,7 @@ def test_ui_contract_has_two_states_final_actions_preview_and_mobile_layout():
     assert ".result{" in css and ".record-navigation" in css and ".canonical-record" in css
     ingestion_html = Path("ingestion_v2/workbench/index.html").read_text()
     ingestion_css = Path("ingestion_v2/workbench/workbench.css").read_text()
-    assert 'href="/questions/"' in ingestion_html and "Repair &amp; Add Questions" in ingestion_html
+    assert 'src="/questions/"' in ingestion_html
+    assert "Repair / add questions" in ingestion_html
+    assert "Build / review a Pack" in ingestion_html
     assert ".topbar-actions" in ingestion_css and "@media (max-width: 520px)" in ingestion_css

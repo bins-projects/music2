@@ -214,16 +214,41 @@
     if (!saveState || saveState.dataset.directSuccessInstalled === "1") return;
     saveState.dataset.directSuccessInstalled = "1";
     let reloading = false;
-    const observer = new MutationObserver(() => {
-      if (reloading || !saveState.textContent.startsWith("Published")) return;
-      reloading = true;
+    let lastPendingSignature = "";
+    const observer = new MutationObserver(async () => {
+      const text = saveState.textContent || "";
       const addition = $("editor-mode")?.textContent.includes("ADD NEW");
       const id = $("question-id")?.textContent || "question";
-      sessionStorage.setItem(
-        FLASH_KEY,
-        addition ? `Question added successfully — ${id}` : `Question replaced successfully — ${id}`,
-      );
-      setTimeout(() => window.location.reload(), 150);
+
+      if (!reloading && text.startsWith("Published")) {
+        reloading = true;
+        sessionStorage.setItem(
+          FLASH_KEY,
+          addition ? `Question added successfully — ${id}` : `Question replaced successfully — ${id}`,
+        );
+        setTimeout(() => window.location.reload(), 150);
+        return;
+      }
+
+      if (!text.includes("Saved for publication") || !String(id).startsWith("PFQ-")) return;
+      const signature = `${text}|${id}`;
+      if (signature === lastPendingSignature) return;
+      lastPendingSignature = signature;
+      try {
+        const state = await json("/api/question-workbench");
+        const operation = [...(state.operations || [])].reverse().find((op) => op.question_id === id);
+        const reason = operation?.blocker || state.readiness?.reason || "publication is incomplete";
+        const verb = addition ? "Question added" : "Question replaced";
+        const message = `${verb} to the canonical Pack — ${id}. Publication pending: ${reason}`;
+        setFeedback(message, false);
+        const validation = $("validation");
+        if (validation) {
+          validation.textContent = message;
+          validation.className = "message";
+        }
+      } catch {
+        // The base editor message remains visible if status lookup itself fails.
+      }
     });
     observer.observe(saveState, {childList: true, subtree: true, characterData: true});
   }

@@ -34,6 +34,7 @@ def _request(method: str, path: str, *, environment: dict[str, str] | None = Non
         headers={
             "Accept": "application/json",
             "Authorization": f'Bearer {config["token"]}',
+            "User-Agent": "PrepFlow-Workbench/1.0",
         },
     )
     try:

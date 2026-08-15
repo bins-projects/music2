@@ -13,18 +13,22 @@
     const button = $("final-action");
     if (!button || $("editor")?.hidden) return;
     const addition = $("editor-mode")?.textContent.includes("ADD NEW");
-    if (!button.disabled || /Save|Publishing|Replace|Add/.test(button.textContent)) {
-      button.textContent = addition ? "Add & publish" : "Replace & publish";
-    }
+    const desired = addition ? "Add & publish" : "Replace & publish";
+    if (button.textContent !== desired) button.textContent = desired;
   }
 
   function normalizeMessages() {
-    if ($("save-state")?.textContent === "Saved for publication") {
-      $("save-state").textContent = "Saved to canonical Pack — publication pending";
+    const saveState = $("save-state");
+    if (saveState?.textContent === "Saved for publication") {
+      saveState.textContent = "Saved to canonical Pack — publication pending";
     }
     const validation = $("validation");
     if (validation?.textContent.includes("Saved durably")) {
       validation.textContent = "Saved to the canonical Pack. Publication can be retried without reapplying the question.";
+    }
+    const final = $("final-action");
+    if (saveState?.textContent.includes("Saved to canonical Pack") && final && !final.disabled) {
+      final.disabled = true;
     }
     finalLabel();
   }
@@ -79,7 +83,9 @@
               headers: {"Content-Type": "application/json"},
               body: JSON.stringify({operation_id: operation.operation_id}),
             });
-            if (response.publication_error) alert(`Canonical Pack is safe. Publication still needs attention: ${response.publication_error}`);
+            if (response.publication_error) {
+              alert(`Canonical Pack is safe. Publication still needs attention: ${response.publication_error}`);
+            }
             $("refresh")?.click();
           } catch (error) {
             retry.disabled = false;
@@ -102,7 +108,13 @@
   };
 
   const observer = new MutationObserver(schedule);
-  observer.observe(document.body, {subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["hidden", "disabled"]});
+  observer.observe(document.body, {
+    subtree: true,
+    childList: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ["hidden", "disabled"],
+  });
   document.addEventListener("click", () => setTimeout(schedule, 0));
   schedule();
 })();

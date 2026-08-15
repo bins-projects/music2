@@ -26,15 +26,20 @@
     setFeedback(message, true);
   }
 
-  function primePresentation() {
+  function installStableRecoveryVisibility() {
     const pending = $("pending");
     const panel = pending?.closest("section.panel");
     if (!panel) return;
-    panel.hidden = true;
-    const heading = panel.querySelector("h2");
-    if (heading) heading.textContent = "Recovery needed";
-    const eyebrow = panel.querySelector(".eyebrow");
-    if (eyebrow) eyebrow.textContent = "UNFINISHED PUBLICATION";
+    panel.classList.add("direct-recovery-panel");
+    if (!document.getElementById("direct-recovery-visibility-style")) {
+      const style = document.createElement("style");
+      style.id = "direct-recovery-visibility-style";
+      style.textContent = `
+        .direct-recovery-panel { display: none !important; }
+        body.direct-has-recovery .direct-recovery-panel { display: block !important; }
+      `;
+      document.head.append(style);
+    }
   }
 
   function installHistory(state) {
@@ -92,7 +97,12 @@
       }
     });
 
+    document.body.classList.toggle("direct-has-recovery", actionableCount > 0);
     panel.hidden = actionableCount === 0;
+    const heading = panel.querySelector("h2");
+    if (heading) heading.textContent = "Recovery needed";
+    const eyebrow = panel.querySelector(".eyebrow");
+    if (eyebrow) eyebrow.textContent = "UNFINISHED PUBLICATION";
   }
 
   async function refreshDirectPresentation() {
@@ -190,7 +200,7 @@
   }
 
   function install() {
-    primePresentation();
+    installStableRecoveryVisibility();
     showFlash();
     installDeleteFlow();
     installPublishedSuccessReset();
@@ -198,6 +208,7 @@
   }
 
   const observer = new MutationObserver(() => {
+    installStableRecoveryVisibility();
     installDeleteFlow();
     installPublishedSuccessReset();
     setTimeout(() => { void refreshDirectPresentation(); }, 30);

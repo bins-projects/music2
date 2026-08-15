@@ -82,19 +82,27 @@ def _desired_matches_current(operation: dict[str, Any], current: dict[str, Any] 
 
 
 def reconcile_saved_operations(ledger_path: Path, packs: dict[str, dict[str, Any]]) -> int:
-    """Remove stale pending rows whose intended result is already Pack truth."""
+    """Reconcile queued state against canonical Pack truth.
+
+    Pending rows disappear when their intended result is already canonical.
+    Applied rows disappear when canonical truth has moved on, because a newer
+    trusted-operator action has superseded them. Publishing rows are never
+    inferred away.
+    """
     if not ledger_path.is_file():
         return 0
     removed = 0
     with locked_ledger(ledger_path) as ledger:
         kept = []
         for operation in ledger["operations"]:
-            if operation.get("state") != "pending":
+            state = operation.get("state")
+            if state not in {"pending", "applied"}:
                 kept.append(operation)
                 continue
             pack = packs.get(str(operation.get("pack_id") or ""))
             current = _question_by_id(pack or {}, str(operation.get("question_id") or ""))
-            if _desired_matches_current(operation, current):
+            matches = _desired_matches_current(operation, current)
+            if (state == "pending" and matches) or (state == "applied" and not matches):
                 removed += 1
             else:
                 kept.append(operation)

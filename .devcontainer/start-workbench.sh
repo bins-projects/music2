@@ -7,17 +7,27 @@ cd "$repository"
 workbench_log="/tmp/prepflow-workbench.log"
 workbench_pid="/tmp/prepflow-workbench.pid"
 health_url="http://127.0.0.1:8765/api/health"
+readiness_url="http://127.0.0.1:8765/api/question-workbench/readiness"
 
-unified_ready() {
-  curl --fail --silent --show-error "$health_url" 2>/dev/null | grep -q '"workbench": "unified"'
+one_click_ready() {
+  curl --fail --silent --show-error "$health_url" 2>/dev/null | grep -q '"workbench": "unified"' \
+    && curl --fail --silent --show-error "$readiness_url" >/dev/null 2>&1
 }
 
-if unified_ready; then
+if one_click_ready; then
   exit 0
 fi
 
-if curl --fail --silent --show-error "$health_url" >/dev/null 2>&1; then
-  echo "Port 8765 is occupied by a different PrepFlow service." >&2
+# Older PrepFlow Workbench servers also reported `workbench: unified` but do not
+# expose the one-click question readiness route.  Never accept one of those as
+# the Codespaces service: replace only the process occupying PrepFlow's known
+# private Workbench port, then launch the publication-aware server below.
+if curl --fail --silent --show-error "$health_url" 2>/dev/null | grep -q '"workbench": "unified"'; then
+  fuser -k 8765/tcp >/dev/null 2>&1 || true
+  rm -f "$workbench_pid"
+  sleep 1
+elif curl --fail --silent --show-error "$health_url" >/dev/null 2>&1; then
+  echo "Port 8765 is occupied by a different service." >&2
   exit 1
 fi
 
@@ -31,13 +41,13 @@ nohup "$python_bin" -m ingestion_v2.prepflow_question_workbench_launcher \
 echo "$!" >"$workbench_pid"
 
 for attempt in {1..30}; do
-  if unified_ready; then
-    echo "Unified PrepFlow Workbench is ready on forwarded port 8765."
+  if one_click_ready; then
+    echo "One-click PrepFlow Workbench is ready on forwarded port 8765."
     exit 0
   fi
   sleep 1
 done
 
-echo "Unified PrepFlow Workbench did not become ready. Startup log:"
+echo "One-click PrepFlow Workbench did not become ready. Startup log:"
 sed -n "1,160p" "$workbench_log"
 exit 1

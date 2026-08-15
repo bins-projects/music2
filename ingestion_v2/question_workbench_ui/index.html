@@ -21,6 +21,7 @@
       <label id="chapter-wrap" hidden>Chapter<select id="chapter"></select></label>
       <label id="type-wrap" hidden>Question type<select id="type"></select></label>
       <form id="search-form"><label>Search or browse questions<input id="search" type="search" placeholder="Stem text, Ref number, or full PFQ ID"></label><button>Search / Browse</button></form>
+      <p id="operation-feedback" class="message" aria-live="polite"></p>
       <div id="search-results" class="results" aria-live="polite"></div>
     </section>
     <section id="record-view" class="panel record-view" hidden aria-label="Complete installed question record">
@@ -36,7 +37,7 @@
       <h2 id="browse-record-stem"></h2>
       <div id="browse-record-body" class="browse-record-body"></div>
       <details class="canonical-record"><summary>Complete canonical record</summary><pre id="browse-record-json"></pre></details>
-      <div class="editor-actions"><button id="open-for-repair" type="button">Open this question for repair</button></div>
+      <div class="editor-actions"><button id="open-for-repair" type="button">Open this question for repair</button><button id="delete-question" type="button" class="secondary">Delete question</button></div>
     </section>
     <section id="editor" class="panel" hidden>
       <div class="editor-heading"><div><p class="eyebrow" id="editor-mode"></p><h2 id="question-id">Permanent ID assigned when saved</h2></div><span id="save-state"></span></div>
@@ -54,6 +55,6 @@
       <p id="preview-stem" class="preview-stem"></p><div id="preview-answers"></div>
       <button id="preview-submit" type="button">Submit answer</button><div id="preview-feedback" class="feedback" hidden></div>
     </section>
-    <section class="panel"><div class="row"><div><p class="eyebrow">SAVED OPERATIONS</p><h2>Pending repairs and additions</h2></div><button id="refresh" type="button" class="secondary">Refresh</button></div><div id="pending" class="pending"></div></section>
+    <section class="panel"><div class="row"><div><p class="eyebrow">SAVED OPERATIONS</p><h2>Pending question changes</h2></div><button id="refresh" type="button" class="secondary">Refresh</button></div><div id="pending" class="pending"></div></section>
   </main><script src="questions.js"></script>
 </body></html>

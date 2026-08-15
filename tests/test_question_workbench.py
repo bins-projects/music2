@@ -354,7 +354,7 @@ def test_unified_server_serves_both_stations_health_and_shared_pack_discovery():
 
 def test_codespaces_starts_one_unified_server_on_one_forwarded_port():
     launch = command(Path.cwd(), "0.0.0.0", 8765)
-    assert launch[-5:] == ["ingestion_v2.workbench_server", "--host", "0.0.0.0", "--port", "8765"]
+    assert launch[-5:] == ["ingestion_v2.one_click_workbench_server", "--host", "0.0.0.0", "--port", "8765"]
     devcontainer = json.loads(Path(".devcontainer/devcontainer.json").read_text())
     assert devcontainer["postStartCommand"] == "bash .devcontainer/start-workbench.sh"
     assert devcontainer["forwardPorts"] == [8765]

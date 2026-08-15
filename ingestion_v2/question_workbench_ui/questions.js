@@ -3,7 +3,7 @@
   const BROWSE_STATE_KEY = "prepflow.questionWorkbench.browse.v1";
   let data = null, mode = "repair", original = null, currentOperation = null, order = [], browseRequest = 0;
   let browseState = {
-    packId: "", chapter: "", query: "", page: 1, pageSize: 40,
+    packId: "", chapter: "", query: "", page: 1, pageSize: 10,
     scrollY: 0, response: null, currentIndex: -1, currentQuestion: null,
   };
   const $ = (id) => document.getElementById(id);
@@ -15,7 +15,7 @@
   function restoreBrowseState(){
     try {
       const saved=JSON.parse(sessionStorage.getItem(BROWSE_STATE_KEY)||"null");
-      if(saved&&typeof saved==="object") browseState={...browseState,...saved,response:null,currentIndex:-1,currentQuestion:null};
+      if(saved&&typeof saved==="object") browseState={...browseState,...saved,pageSize:10,response:null,currentIndex:-1,currentQuestion:null};
     } catch { sessionStorage.removeItem(BROWSE_STATE_KEY); }
   }
   function persistBrowseState(){

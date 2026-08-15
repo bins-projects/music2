@@ -10,10 +10,9 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">PREPFLOW FACTORY / INGESTION V2</p>
-        <h1>Build a new Pack</h1>
+        <h1>PrepFlow Workbench</h1>
       </div>
       <div class="topbar-actions">
-        <a class="station-link" href="/questions/">Repair &amp; Add Questions</a>
         <div id="connection-badge" class="safety-badge"><span></span> Synthetic preview · no writes</div>
       </div>
     </header>
@@ -28,6 +27,16 @@
     </section>
 
     <main>
+      <nav class="workbench-modes" aria-label="Workbench mode">
+        <button id="factory-mode-button" type="button" class="active">Build / review a Pack</button>
+        <button id="question-mode-button" type="button">Repair / add questions</button>
+      </nav>
+
+      <section id="question-workspace" class="question-workspace" hidden aria-label="Repair and add questions">
+        <iframe id="question-workbench-frame" title="Repair and add questions" src="/questions/"></iframe>
+      </section>
+
+      <div id="factory-workspace">
       <section id="factory-home" class="factory-home" aria-label="Private factory start">
         <div class="home-heading">
           <div><p class="eyebrow">PRIVATE FACTORY</p><h2>What would you like to do?</h2></div>
@@ -195,6 +204,7 @@
           </footer>
         </article>
       </section>
+      </div>
     </main>
 
     <dialog id="proposal-dialog">
@@ -242,5 +252,24 @@
 
     <script src="demo-data.js"></script>
     <script src="workbench.js"></script>
+    <script>
+      (() => {
+        const factoryButton = document.getElementById('factory-mode-button');
+        const questionButton = document.getElementById('question-mode-button');
+        const factory = document.getElementById('factory-workspace');
+        const questions = document.getElementById('question-workspace');
+        function select(mode) {
+          const questionMode = mode === 'questions';
+          factory.hidden = questionMode;
+          questions.hidden = !questionMode;
+          factoryButton.classList.toggle('active', !questionMode);
+          questionButton.classList.toggle('active', questionMode);
+          sessionStorage.setItem('prepflow.workbench.mode', mode);
+        }
+        factoryButton.addEventListener('click', () => select('factory'));
+        questionButton.addEventListener('click', () => select('questions'));
+        select(sessionStorage.getItem('prepflow.workbench.mode') === 'questions' ? 'questions' : 'factory');
+      })();
+    </script>
   </body>
 </html>

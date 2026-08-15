@@ -216,3 +216,59 @@
 }
 ```
 
+## 2026-08-15T23:04:15.336613Z — `PFQ-pharmacy-000001300`
+
+```json
+{
+  "operation_id": "PFOP-713eafb25c7644ddb0735048667e4d18",
+  "operation_type": "deletion",
+  "original_question": {
+    "chapter": 1,
+    "chapter_title": "Drug Therapy: Roles, Regulations, Actions, and Responses",
+    "choices": [
+      {
+        "label": "A",
+        "text": "zdfbef"
+      },
+      {
+        "label": "B",
+        "text": "rthynmhnf"
+      }
+    ],
+    "correct_answers": [
+      "B"
+    ],
+    "id": "PFQ-pharmacy-000001300",
+    "rationale": "sdojvnsdovjndwov",
+    "stem": "adsfqef",
+    "type": "mc"
+  },
+  "pack_id": "pharmacy",
+  "pack_sha256_after": "0942f572da3f0010bb8e1a67a40c6db688c9722dd09b0997a1c597213404583c",
+  "pack_sha256_before": "0960249af05b6c544e4426e20466a697f9e79add0bad812f8adcb8ee076edc37",
+  "question": {
+    "chapter": 1,
+    "chapter_title": "Drug Therapy: Roles, Regulations, Actions, and Responses",
+    "choices": [
+      {
+        "label": "A",
+        "text": "zdfbef"
+      },
+      {
+        "label": "B",
+        "text": "rthynmhnf"
+      }
+    ],
+    "correct_answers": [
+      "B"
+    ],
+    "id": "PFQ-pharmacy-000001300",
+    "rationale": "sdojvnsdovjndwov",
+    "stem": "adsfqef",
+    "type": "mc"
+  },
+  "question_id": "PFQ-pharmacy-000001300",
+  "recorded_at": "2026-08-15T23:04:15.336613Z"
+}
+```
+

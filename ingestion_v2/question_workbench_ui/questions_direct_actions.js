@@ -2,7 +2,7 @@
   "use strict";
 
   const FLASH_KEY = "prepflow.questionWorkbench.flash.v1";
-  const ACTIONABLE_STATES = new Set(["pending", "publishing"]);
+  const ACTIONABLE_STATES = new Set(["pending", "applied", "publishing"]);
   const $ = (id) => document.getElementById(id);
 
   async function json(url, options) {
@@ -17,6 +17,28 @@
     if (!node) return;
     node.textContent = message;
     node.className = ok ? "message ok" : "message";
+  }
+
+  function deleteStatusNode() {
+    const button = $("delete-question");
+    if (!button) return null;
+    let node = $("delete-action-status");
+    if (node) return node;
+    node = document.createElement("p");
+    node.id = "delete-action-status";
+    node.className = "message";
+    node.setAttribute("aria-live", "polite");
+    button.closest(".editor-actions")?.insertAdjacentElement("beforebegin", node);
+    return node;
+  }
+
+  function setDeleteFeedback(message, ok = false) {
+    const node = deleteStatusNode();
+    if (node) {
+      node.textContent = message;
+      node.className = ok ? "message ok" : "message";
+    }
+    setFeedback(message, ok);
   }
 
   function showFlash() {
@@ -120,6 +142,7 @@
     const button = $("delete-question");
     if (!button || button.dataset.directDeleteInstalled === "1") return;
     button.dataset.directDeleteInstalled = "1";
+    deleteStatusNode();
     let resetTimer = null;
 
     function resetConfirmation() {
@@ -137,14 +160,14 @@
         question = null;
       }
       if (!question?.id) {
-        setFeedback("Delete failed — the current question record could not be read.", false);
+        setDeleteFeedback("Delete failed — the current question record could not be read.");
         return;
       }
 
       if (button.dataset.confirmDelete !== "1") {
         button.dataset.confirmDelete = "1";
         button.textContent = "Confirm delete";
-        setFeedback(`Delete ${question.id}? Click Confirm delete once more to remove it from the canonical Pack and publish the change.`, false);
+        setDeleteFeedback(`Delete ${question.id}? Click Confirm delete once more to remove it from the canonical Pack and publish the change.`);
         resetTimer = setTimeout(resetConfirmation, 10000);
         return;
       }
@@ -152,7 +175,7 @@
       clearTimeout(resetTimer);
       button.disabled = true;
       button.textContent = "Deleting…";
-      setFeedback(`Deleting ${question.id}…`, false);
+      setDeleteFeedback(`Deleting ${question.id}…`);
 
       try {
         const response = await json("/api/question-workbench/action", {
@@ -169,12 +192,18 @@
           window.location.reload();
           return;
         }
-        setFeedback(`Deletion saved for ${question.id}. Publication is incomplete, so it remains under Recovery needed.`, false);
+        if (response.canonical_saved || ["applied", "publishing"].includes(response.operation?.state)) {
+          const reason = response.publication_error || response.readiness?.reason || "publication is incomplete";
+          sessionStorage.setItem(FLASH_KEY, `Question deleted from the canonical Pack — publication pending: ${reason}`);
+          window.location.reload();
+          return;
+        }
+        setDeleteFeedback(`Deletion saved for ${question.id}. Publication is incomplete, so it remains under Recovery needed.`);
         resetConfirmation();
         $("refresh")?.click();
         setTimeout(() => { void refreshDirectPresentation(); }, 100);
       } catch (error) {
-        setFeedback(`Delete failed — ${error.message}`, false);
+        setDeleteFeedback(`Delete failed — ${error.message}`);
         resetConfirmation();
       }
     };

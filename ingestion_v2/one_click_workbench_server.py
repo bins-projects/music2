@@ -39,6 +39,38 @@ def _remove_completed_operation(operation_id: str) -> None:
         ]
 
 
+def _assert_no_publishing_conflict(question_id: str, operation_id: str | None = None) -> None:
+    """Never stack a new canonical decision on top of an in-flight publication."""
+    if not question_id:
+        return
+    conflicts = [
+        item for item in list_operations(base.QUESTION_LEDGER_PATH)
+        if item.get("question_id") == question_id
+        and item.get("operation_id") != operation_id
+        and item.get("state") == "publishing"
+    ]
+    if conflicts:
+        raise QuestionWorkbenchError(
+            "This question already has publication in progress. Finish recovery before changing it again."
+        )
+
+
+def _supersede_older_operations(operation_id: str, question_id: str) -> None:
+    """Canonical truth wins; obsolete drafts/applied rows must not remain replayable."""
+    if not question_id:
+        return
+    with locked_ledger(base.QUESTION_LEDGER_PATH) as ledger:
+        kept = []
+        for item in ledger["operations"]:
+            same_question = item.get("question_id") == question_id
+            different_operation = item.get("operation_id") != operation_id
+            superseded_state = item.get("state") in {"pending", "applied"}
+            if same_question and different_operation and superseded_state:
+                continue
+            kept.append(item)
+        ledger["operations"] = kept
+
+
 def _workbench_readiness(operations: list[dict], packs: dict[str, dict]) -> dict:
     active = next((item for item in operations if item.get("state") in {"applied", "publishing"}), None)
     if active is None:
@@ -173,8 +205,10 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
 
                 original = None
                 existing_id = body.get("operation_id")
+                submitted_question_id = str(submitted.get("id") or "")
+                _assert_no_publishing_conflict(submitted_question_id, str(existing_id) if existing_id else None)
                 if operation_type == "repair":
-                    question_id = str(submitted.get("id") or "")
+                    question_id = submitted_question_id
                     resolving_report_id = question_id
                     original = next((
                         copy.deepcopy(item) for item in packs[pack_id]["questions"]
@@ -204,6 +238,7 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
                     base.QUESTION_LEDGER_PATH,
                     operation["operation_id"],
                 )
+                _supersede_older_operations(operation["operation_id"], operation["question_id"])
 
             report_resolution_error = None
             if resolving_report_id and review_service_configuration()["configured"]:

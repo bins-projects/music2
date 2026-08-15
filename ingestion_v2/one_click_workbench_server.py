@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import copy
-import hashlib
 from http.server import ThreadingHTTPServer
-from pathlib import Path
 
 from ingestion_v2 import workbench_server as base
 from ingestion_v2.one_click_question_actions import (
@@ -16,18 +14,65 @@ from ingestion_v2.one_click_question_actions import (
 )
 from ingestion_v2.question_workbench import (
     QuestionWorkbenchError,
+    canonical_type_inventory,
+    chapter_inventory,
+    list_operations,
+    locked_ledger,
+    needs_review_inventory,
     operation_by_id,
     save_operation,
 )
+
+
+def _remove_completed_operation(operation_id: str) -> None:
+    """Successful operations live in the audit log/Git history, not the action queue."""
+    with locked_ledger(base.QUESTION_LEDGER_PATH) as ledger:
+        ledger["operations"] = [
+            item for item in ledger["operations"]
+            if item.get("operation_id") != operation_id
+        ]
+
+
+def _workbench_readiness(operations: list[dict], packs: dict[str, dict]) -> dict:
+    active = next((item for item in operations if item.get("state") in {"applied", "publishing"}), None)
+    if active is None:
+        first_pack_id = next(iter(packs), "")
+        active = {"pack_id": first_pack_id, "question_id": "", "operation_type": "repair"}
+    return publication_status(
+        base.PROJECT_DIRECTORY,
+        base.configured_public_worktree(),
+        active,
+    )
 
 
 class OneClickWorkbenchHandler(base.WorkbenchHandler):
     """Keep the existing Workbench while replacing only question-action lifecycle."""
 
     def _handle_question_get(self, parsed) -> bool:
-        if parsed.path == "/api/question-workbench":
+        if parsed.path in {"/api/question-workbench", "/api/question-workbench/readiness"}:
             _, packs = base.installed_question_packs()
             reconcile_saved_operations(base.QUESTION_LEDGER_PATH, packs)
+            operations = list_operations(base.QUESTION_LEDGER_PATH)
+            readiness = _workbench_readiness(operations, packs)
+            if parsed.path.endswith("/readiness"):
+                self._send_json(readiness)
+                return True
+            self._send_json({
+                "packs": [
+                    {
+                        "id": pack_id,
+                        "title": pack.get("title", pack_id),
+                        "chapters": chapter_inventory(pack),
+                        "question_count": len(pack["questions"]),
+                    }
+                    for pack_id, pack in packs.items()
+                ],
+                "types": canonical_type_inventory(packs),
+                "operations": operations,
+                "needs_review": needs_review_inventory(packs, operations),
+                "readiness": readiness,
+            })
+            return True
         return super()._handle_question_get(parsed)
 
     def _handle_question_post(self) -> bool:
@@ -75,9 +120,8 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
                         original = operation_by_id(base.QUESTION_LEDGER_PATH, str(existing_id)).get("original_question")
                     if original is None:
                         raise QuestionWorkbenchError("Repair target was not found")
-                    # The editor intentionally exposes only authoring fields. Merge
-                    # them over the canonical record so provenance such as
-                    # rationale_source_status is never silently discarded.
+                    # The editor exposes authoring fields only. Merge them over
+                    # canonical truth so supported provenance fields survive.
                     question = copy.deepcopy(original)
                     question.update(submitted)
                 else:
@@ -94,7 +138,9 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
                     blocker=None,
                 )
                 operation = apply_canonical_operation(
-                    base.PROJECT_DIRECTORY, base.QUESTION_LEDGER_PATH, operation["operation_id"]
+                    base.PROJECT_DIRECTORY,
+                    base.QUESTION_LEDGER_PATH,
+                    operation["operation_id"],
                 )
 
             publication = None
@@ -123,6 +169,9 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
                     "reasons": [],
                     "details": readiness.get("details", {}),
                 }
+                completed_id = operation["operation_id"]
+                _remove_completed_operation(completed_id)
+
             self._send_json({
                 "operation": operation,
                 "publication": publication,

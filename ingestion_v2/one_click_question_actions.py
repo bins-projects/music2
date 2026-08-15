@@ -66,12 +66,15 @@ def _question_by_id(pack: dict[str, Any], question_id: str) -> dict[str, Any] | 
 
 
 def _desired_matches_current(operation: dict[str, Any], current: dict[str, Any] | None) -> bool:
+    operation_type = operation.get("operation_type")
+    if operation_type == "deletion":
+        return current is None
     if current is None:
         return False
     desired = operation.get("question")
     if not isinstance(desired, dict):
         return False
-    if operation.get("operation_type") == "addition":
+    if operation_type == "addition":
         return current == desired
     # Repairs may have been applied by a bulk/manual route that retained extra
     # source/provenance fields. Compare every field the saved repair intended.

@@ -15,7 +15,6 @@
   let parentShellInstalled = false;
   let embeddedModeApplied = false;
   let heightTimer = null;
-  let resizeObserver = null;
 
   function reportEmbeddedHeight() {
     if (!isEmbedded()) return;
@@ -23,17 +22,20 @@
     heightTimer = setTimeout(() => {
       try {
         const frame = window.frameElement;
-        if (!frame) return;
+        const main = document.querySelector("main");
+        if (!frame || !main) return;
         frame.setAttribute("scrolling", "no");
-        const height = Math.ceil(Math.max(
-          document.body.scrollHeight,
-          document.body.offsetHeight,
-          document.documentElement.scrollHeight,
-          document.documentElement.offsetHeight
-        ));
-        frame.style.height = `${Math.max(320, height + 4)}px`;
+
+        const styles = getComputedStyle(main);
+        const marginBottom = parseFloat(styles.marginBottom) || 0;
+        const target = Math.max(
+          320,
+          Math.ceil(main.offsetTop + main.scrollHeight + marginBottom + 24)
+        );
+        const current = parseFloat(frame.style.height) || 0;
+        if (Math.abs(current - target) > 2) frame.style.height = `${target}px`;
       } catch (_) {}
-    }, 20);
+    }, 30);
   }
 
   function updateModePresentation() {
@@ -160,9 +162,6 @@
       document.body.classList.add("embedded-question-workbench");
       const operations = document.querySelector(".operations");
       if (operations) operations.hidden = true;
-      resizeObserver = new ResizeObserver(reportEmbeddedHeight);
-      resizeObserver.observe(document.body);
-      resizeObserver.observe(document.documentElement);
     }
 
     const setup = document.querySelector("section.panel.setup");

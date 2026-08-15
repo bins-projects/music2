@@ -15,5 +15,16 @@
   },
   "remoteEnv": {
     "PYTHONUNBUFFERED": "1"
+  },
+  "customizations": {
+    "codespaces": {
+      "repositories": {
+        "bins-projects/PrepFlow": {
+          "permissions": {
+            "contents": "write"
+          }
+        }
+      }
+    }
   }
 }

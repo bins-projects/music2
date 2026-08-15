@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 
 from ingestion_v2 import workbench_server as base
 from ingestion_v2.one_click_question_actions import (
@@ -11,6 +12,11 @@ from ingestion_v2.one_click_question_actions import (
     publication_status,
     publish_applied_operation,
     reconcile_saved_operations,
+)
+from ingestion_v2.prepflow_question_workbench_launcher import (
+    _prepare_public_with_recovery,
+    ensure_public_remote,
+    public_worktree_destination,
 )
 from ingestion_v2.question_review_service import (
     QuestionReviewServiceError,
@@ -28,6 +34,9 @@ from ingestion_v2.question_workbench import (
     operation_by_id,
     save_operation,
 )
+
+
+_RUNTIME_PUBLIC_WORKTREE: Path | None = None
 
 
 def _remove_completed_operation(operation_id: str) -> None:
@@ -71,6 +80,35 @@ def _supersede_older_operations(operation_id: str, question_id: str) -> None:
         ledger["operations"] = kept
 
 
+def _known_public_worktree() -> Path | None:
+    configured = base.configured_public_worktree()
+    if configured is not None and configured.is_dir():
+        return configured
+    if _RUNTIME_PUBLIC_WORKTREE is not None and _RUNTIME_PUBLIC_WORKTREE.is_dir():
+        return _RUNTIME_PUBLIC_WORKTREE
+    destination = public_worktree_destination(base.PROJECT_DIRECTORY)
+    if destination.is_dir():
+        return destination
+    return None
+
+
+def _prepare_public_for_action(operation: dict) -> Path | None:
+    """Recover publication delivery at click time instead of depending on startup timing."""
+    global _RUNTIME_PUBLIC_WORKTREE
+    known = _known_public_worktree()
+    if known is not None:
+        _RUNTIME_PUBLIC_WORKTREE = known
+        return known
+    # Never recreate an unknown worktree while an operation is already mid-publish.
+    if operation.get("state") == "publishing":
+        return None
+    ensure_public_remote(base.PROJECT_DIRECTORY)
+    prepared = _prepare_public_with_recovery(base.PROJECT_DIRECTORY)
+    path = Path(str(prepared["path"]))
+    _RUNTIME_PUBLIC_WORKTREE = path
+    return path
+
+
 def _workbench_readiness(operations: list[dict], packs: dict[str, dict]) -> dict:
     active = next((item for item in operations if item.get("state") in {"applied", "publishing"}), None)
     if active is None:
@@ -78,7 +116,7 @@ def _workbench_readiness(operations: list[dict], packs: dict[str, dict]) -> dict
         active = {"pack_id": first_pack_id, "question_id": "", "operation_type": "repair"}
     return publication_status(
         base.PROJECT_DIRECTORY,
-        base.configured_public_worktree(),
+        _known_public_worktree(),
         active,
     )
 
@@ -254,10 +292,12 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
 
             publication = None
             publication_error = None
+            public_worktree = None
             try:
+                public_worktree = _prepare_public_for_action(operation)
                 publication = publish_applied_operation(
                     base.PROJECT_DIRECTORY,
-                    base.configured_public_worktree(),
+                    public_worktree,
                     base.QUESTION_LEDGER_PATH,
                     operation["operation_id"],
                 )
@@ -267,7 +307,7 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
             operation = operation_by_id(base.QUESTION_LEDGER_PATH, operation["operation_id"])
             readiness = publication_status(
                 base.PROJECT_DIRECTORY,
-                base.configured_public_worktree(),
+                public_worktree or _known_public_worktree(),
                 operation,
             )
             if operation.get("state") == "published":

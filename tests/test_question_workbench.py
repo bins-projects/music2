@@ -298,6 +298,98 @@ def test_private_push_interruption_resumes_without_duplicate_question_or_commit(
         assert [item["id"] for item in published["questions"]].count(operation["question_id"]) == 1
 
 
+
+def test_deletion_operation_removes_exact_question_and_retry_cannot_touch_neighbor(tmp_path):
+    target = question("mc", "PFQ-test-000000001")
+    neighbor = question("mc", "PFQ-test-000000002")
+    neighbor["stem"] = "Neighbor question?"
+    installed = pack(target, neighbor)
+    operation = save_operation(
+        tmp_path / "ledger.json", operation_type="deletion", pack_id="test",
+        pack=installed, question=target,
+    )
+    assert operation["original_question"] == target
+    assert operation["question_id"] == target["id"]
+
+    deleted = apply_operation_to_pack(operation, installed)
+    assert [item["id"] for item in deleted["questions"]] == [neighbor["id"]]
+
+    recovering = copy.deepcopy(operation)
+    recovering["publication"] = {"stage": "applying_private"}
+    retried = apply_operation_to_pack(recovering, deleted)
+    assert retried == deleted
+    assert retried["questions"][0] == neighbor
+
+    with pytest.raises(QuestionWorkbenchError, match="Deletion target is missing"):
+        apply_operation_to_pack(operation, deleted)
+
+
+def test_deletion_publication_removes_exact_question_from_private_and_public(tmp_path):
+    private_remote = tmp_path / "prepflow-dev.git"; public_remote = tmp_path / "PrepFlow.git"
+    for remote in (private_remote, public_remote):
+        subprocess.run(["git", "init", "--bare", remote], check=True, capture_output=True)
+    private = tmp_path / "private"; initialize_repository(private, private_remote, public_remote)
+    target = question("mc", "PFQ-test-000000001")
+    neighbor = question("mc", "PFQ-test-000000002")
+    neighbor["stem"] = "Neighbor question?"
+    installed = pack(target, neighbor)
+    (private / "packs" / "test.prepflow.json").write_text(json.dumps(installed, indent=2) + "\n")
+    write_catalog(private / "packs", private / "web" / "data" / "pack-catalog.json")
+    commit(private, "Add neighbor")
+    run(private, "push", "origin", "master")
+    run(private, "push", "public", "master")
+
+    public = tmp_path / "public-release"; prepare_public_worktree(private, public)
+    ledger = private / "output" / "question-workbench" / "operations.json"
+    operation = save_operation(
+        ledger, operation_type="deletion", pack_id="test", pack=installed, question=target,
+    )
+    result = publish_saved_operation(private, public, ledger, operation["operation_id"], readiness={"ready": True})
+    assert result["stage"] == "published"
+    for root in (private, public):
+        published = json.loads((root / "packs" / "test.prepflow.json").read_text())
+        assert [item["id"] for item in published["questions"]] == [neighbor["id"]]
+        assert published["questions"][0]["stem"] == "Neighbor question?"
+
+
+def test_deletion_private_push_retry_does_not_delete_neighbor(tmp_path, monkeypatch):
+    private_remote = tmp_path / "prepflow-dev.git"; public_remote = tmp_path / "PrepFlow.git"
+    for remote in (private_remote, public_remote):
+        subprocess.run(["git", "init", "--bare", remote], check=True, capture_output=True)
+    private = tmp_path / "private"; initialize_repository(private, private_remote, public_remote)
+    target = question("mc", "PFQ-test-000000001")
+    neighbor = question("mc", "PFQ-test-000000002"); neighbor["stem"] = "Neighbor question?"
+    installed = pack(target, neighbor)
+    (private / "packs" / "test.prepflow.json").write_text(json.dumps(installed, indent=2) + "\n")
+    write_catalog(private / "packs", private / "web" / "data" / "pack-catalog.json")
+    commit(private, "Add neighbor")
+    run(private, "push", "origin", "master"); run(private, "push", "public", "master")
+    public = tmp_path / "public-release"; prepare_public_worktree(private, public)
+    ledger = private / "output" / "question-workbench" / "operations.json"
+    operation = save_operation(ledger, operation_type="deletion", pack_id="test", pack=installed, question=target)
+    real_git = question_publisher.git; failed = False
+
+    def interrupt_once(root, *args):
+        nonlocal failed
+        if Path(root).resolve() == private.resolve() and args[:2] == ("push", "origin") and not failed:
+            failed = True
+            raise RuntimeError("synthetic private deletion push interruption")
+        return real_git(root, *args)
+
+    monkeypatch.setattr(question_publisher, "git", interrupt_once)
+    with pytest.raises(RuntimeError, match="synthetic private deletion push interruption"):
+        publish_saved_operation(private, public, ledger, operation["operation_id"], readiness={"ready": True})
+    interrupted = load_ledger(ledger)["operations"][0]
+    assert interrupted["publication"]["stage"] == "private_committed"
+    private_after_first = json.loads((private / "packs" / "test.prepflow.json").read_text())
+    assert [item["id"] for item in private_after_first["questions"]] == [neighbor["id"]]
+
+    monkeypatch.setattr(question_publisher, "git", real_git)
+    publish_saved_operation(private, public, ledger, operation["operation_id"], readiness={"ready": True})
+    for root in (private, public):
+        published = json.loads((root / "packs" / "test.prepflow.json").read_text())
+        assert [item["id"] for item in published["questions"]] == [neighbor["id"]]
+
 def test_dirty_public_worktree_is_never_discarded(tmp_path):
     remote = tmp_path / "PrepFlow.git"; private_remote = tmp_path / "prepflow-dev.git"
     for item in (remote, private_remote): subprocess.run(["git", "init", "--bare", item], check=True, capture_output=True)
@@ -375,14 +467,14 @@ def test_ui_contract_has_two_states_final_actions_preview_and_mobile_layout():
     for text in ("Replace question & publish", "Add question & publish"):
         assert text in script
     assert "Publishable" in publisher and "Publishing unavailable — will save" in publisher
-    assert "window.confirm" not in script and "Check readiness" not in html
+    assert "window.confirm" in script and "Delete question" in html and "Check readiness" not in html
     assert 'function preferredType(){ return "mc"; }' in script
     assert 'option.hidden=option.value==="multiple_choice"' in script
     assert "@media(max-width:760px)" in css
     assert ".header-actions" in css and ".station-nav" in css
     for text in ("All chapters", "renderBrowseResults", "stepQuestion", "backToResults", "openCurrentForRepair", "browseRequest"):
         assert text in script
-    for text in ("Back to results", "Previous question", "Next question", "Open this question for repair"):
+    for text in ("Back to results", "Previous question", "Next question", "Open this question for repair", "Delete question"):
         assert text in html
     assert ".result{" in css and ".record-navigation" in css and ".canonical-record" in css
     ingestion_html = Path("ingestion_v2/workbench/index.html").read_text()

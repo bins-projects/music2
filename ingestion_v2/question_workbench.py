@@ -381,8 +381,8 @@ def save_operation(
     question: dict[str, Any], original_question: dict[str, Any] | None = None,
     operation_id: str | None = None, blocker: str | None = None,
 ) -> dict[str, Any]:
-    if operation_type not in {"repair", "addition"}:
-        raise QuestionWorkbenchError("Operation must be a repair or addition")
+    if operation_type not in {"repair", "addition", "deletion"}:
+        raise QuestionWorkbenchError("Operation must be a repair, addition, or deletion")
     with locked_ledger(ledger_path) as ledger:
         existing = next((item for item in ledger["operations"] if item.get("operation_id") == operation_id), None)
         if existing and existing.get("state") != "pending":
@@ -390,6 +390,22 @@ def save_operation(
         if operation_type == "addition":
             stable_id = existing["question_id"] if existing else reserve_question_id(pack_id, pack, ledger)
             question = {**question, "id": stable_id}
+        elif operation_type == "deletion":
+            if existing:
+                stable_id = str(existing.get("question_id") or "")
+                original_question = copy.deepcopy(existing.get("original_question"))
+            else:
+                stable_id = str(question.get("id") or "")
+                matches = [
+                    copy.deepcopy(item) for item in pack.get("questions", [])
+                    if item.get("id") == stable_id
+                ]
+                if len(matches) != 1:
+                    raise QuestionWorkbenchError("Deletion target is missing or duplicated")
+                original_question = matches[0]
+            if not isinstance(original_question, dict):
+                raise QuestionWorkbenchError("Deletion requires the complete original question")
+            question = copy.deepcopy(original_question)
         elif original_question is None:
             raise QuestionWorkbenchError("A repair requires the complete original question")
         else:
@@ -451,6 +467,20 @@ def apply_operation_to_pack(operation: dict[str, Any], pack: dict[str, Any]) -> 
                 replacement[field] = copy.deepcopy(question[field])
         replacement["id"] = operation["question_id"]
         updated["questions"][matches[0]] = validate_question(replacement)
+    elif operation["operation_type"] == "deletion":
+        original = operation.get("original_question")
+        if not isinstance(original, dict):
+            raise QuestionWorkbenchError("Deletion requires the complete original question")
+        if len(matches) == 1:
+            if updated["questions"][matches[0]] != original:
+                raise QuestionWorkbenchError("Deletion target changed after it was saved")
+            del updated["questions"][matches[0]]
+        elif len(matches) == 0 and (operation.get("publication") or {}).get("stage") == "applying_private":
+            # A process may die after the atomic Pack write but before the private commit.
+            # In that recovery state the deletion is already applied, so retry is a no-op.
+            pass
+        else:
+            raise QuestionWorkbenchError("Deletion target is missing or duplicated")
     else:
         if matches:
             raise QuestionWorkbenchError("Reserved question ID already exists in the Pack")

@@ -164,7 +164,7 @@ def publish_saved_operation(
             _append_evidence(evidence, operation, before_hash, hashlib.sha256(encoded).hexdigest())
             write_catalog(project_root / "packs", catalog)
             git(project_root, "add", "--", *(str(path.relative_to(project_root)) for path in changed_paths))
-            verb = "Repair" if operation["operation_type"] == "repair" else "Add"
+            verb = {"repair": "Repair", "addition": "Add", "deletion": "Delete"}[operation["operation_type"]]
             git(project_root, "commit", "-m", f"{verb} question {operation['question_id']}")
             private_commit = git(project_root, "rev-parse", "HEAD")
             git(project_root, "push", private_remote, f"HEAD:{private_branch}")
@@ -215,7 +215,7 @@ def publish_saved_operation(
             if public_pack.read_bytes() != pack_path.read_bytes():
                 raise RuntimeError("Private/public Pack byte equality failed")
             git(public_worktree, "add", "--", str(relative_pack), "web/data/pack-catalog.json", "web/pack-precache.js")
-            verb = "Repaired" if operation["operation_type"] == "repair" else "Added"
+            verb = {"repair": "Repaired", "addition": "Added", "deletion": "Deleted"}[operation["operation_type"]]
             git(public_worktree, "commit", "-m", f"{verb} {operation['question_id']}")
             public_commit = git(public_worktree, "rev-parse", "HEAD")
             git(public_worktree, "push", public_remote, f"HEAD:{public_branch}")

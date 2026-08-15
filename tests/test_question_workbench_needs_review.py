@@ -100,30 +100,56 @@ def test_review_states_are_derived_from_pack_and_existing_operations():
 
 def test_clicks_reuse_exact_browse_and_saved_repair_paths(tmp_path, monkeypatch):
     sync_playwright = pytest.importorskip(
-        "playwright.sync_api", reason="focused browser dependency is unavailable").sync_playwright
+        "playwright.sync_api", reason="focused browser dependency is unavailable"
+    ).sync_playwright
+
     ledger = tmp_path / "operations.json"
     monkeypatch.setattr(workbench_server, "QUESTION_LEDGER_PATH", ledger)
-    _, packs = workbench_server.installed_question_packs()
-    installed = packs["fundamentals"]
-    original = next(
-        item for item in installed["questions"]
+
+    registry, packs = workbench_server.installed_question_packs()
+    packs = copy.deepcopy(packs)
+
+    fundamentals = packs["fundamentals"]
+    fundamentals_target = next(
+        item for item in fundamentals["questions"]
         if item["id"] == "PFQ-fundamentals-000000230"
     )
+    fundamentals_target["correct_answers"] = ["A", "C"]
+
+    pediatrics = packs["pediatrics"]
+    pediatrics_target = next(
+        item for item in pediatrics["questions"]
+        if item["id"] == "PFQ-pediatrics-000000335"
+    )
+    pediatrics_target["correct_answers"] = ["A"]
+
+    monkeypatch.setattr(
+        workbench_server,
+        "installed_question_packs",
+        lambda: (registry, packs),
+    )
+
+    original = copy.deepcopy(fundamentals_target)
     draft = copy.deepcopy(original)
-    draft["correct_answers"] = [draft["correct_answers"][0]]
+    draft["correct_answers"] = ["A"]
     draft["stem"] = "Saved repair draft?"
+
     operation = save_operation(
         ledger,
         operation_type="repair",
         pack_id="fundamentals",
-        pack=installed,
+        pack=fundamentals,
         question=draft,
         original_question=original,
     )
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), workbench_server.WorkbenchHandler)
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        workbench_server.WorkbenchHandler,
+    )
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
+
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(
@@ -135,42 +161,53 @@ def test_clicks_reuse_exact_browse_and_saved_repair_paths(tmp_path, monkeypatch)
                 f"http://127.0.0.1:{server.server_port}/questions/",
                 wait_until="networkidle",
             )
+
             page.locator("#needs-review-count").wait_for()
-            assert page.locator("#needs-review-count").inner_text() == "(95)"
-            summaries = page.locator("#needs-review details summary").all_inner_texts()
+            assert page.locator("#needs-review-count").inner_text() == "(2)"
+
+            summaries = page.locator(
+                "#needs-review details summary"
+            ).all_inner_texts()
+
             assert summaries == [
-                "Fundamentals of Nursing — 5",
+                "Fundamentals of Nursing — 1",
                 "Medical-Surgical — 0",
                 "Pediatrics — 1",
-                "Pharm — 89",
+                "Pharm — 0",
             ]
-            page.screenshot(path="/tmp/prepflow-needs-review-panel.png", full_page=True)
 
-            pediatrics = page.locator("#needs-review details").filter(
-                has_text="Pediatrics — 1"
-            )
-            pediatrics.locator("summary").click()
-            pediatrics.locator(".result").click()
+            pediatrics_group = page.locator(
+                "#needs-review details"
+            ).filter(has_text="Pediatrics — 1")
+
+            pediatrics_group.locator("summary").click()
+            pediatrics_group.locator(".result").click()
+
             page.locator("#record-view:not([hidden])").wait_for()
             assert "PFQ-pediatrics-000000335" in page.locator(
                 "#browse-record-meta"
             ).inner_text()
+
             page.locator("#open-for-repair").click()
             assert page.locator("#question-id").inner_text() == (
                 "PFQ-pediatrics-000000335"
             )
 
-            fundamentals = page.locator("#needs-review details").filter(
-                has_text="Fundamentals of Nursing — 5"
-            )
-            fundamentals.locator("summary").click()
-            pending_row = fundamentals.locator(".result").filter(
+            fundamentals_group = page.locator(
+                "#needs-review details"
+            ).filter(has_text="Fundamentals of Nursing — 1")
+
+            fundamentals_group.locator("summary").click()
+
+            pending_row = fundamentals_group.locator(".result").filter(
                 has_text=operation["question_id"]
             )
             assert "Saved — awaiting publication" in pending_row.inner_text()
+
             pending_row.click()
             page.locator("#stem").wait_for(state="visible")
             assert page.locator("#stem").input_value() == "Saved repair draft?"
+
             browser.close()
     finally:
         server.shutdown()

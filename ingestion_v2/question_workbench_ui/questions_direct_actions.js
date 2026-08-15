@@ -26,6 +26,17 @@
     setFeedback(message, true);
   }
 
+  function primePresentation() {
+    const pending = $("pending");
+    const panel = pending?.closest("section.panel");
+    if (!panel) return;
+    panel.hidden = true;
+    const heading = panel.querySelector("h2");
+    if (heading) heading.textContent = "Recovery needed";
+    const eyebrow = panel.querySelector(".eyebrow");
+    if (eyebrow) eyebrow.textContent = "UNFINISHED PUBLICATION";
+  }
+
   function installHistory(state) {
     const pending = $("pending");
     const panel = pending?.closest("section.panel");
@@ -82,10 +93,6 @@
     });
 
     panel.hidden = actionableCount === 0;
-    const heading = panel.querySelector("h2");
-    if (heading) heading.textContent = "Recovery needed";
-    const eyebrow = panel.querySelector(".eyebrow");
-    if (eyebrow) eyebrow.textContent = "UNFINISHED PUBLICATION";
   }
 
   async function refreshDirectPresentation() {
@@ -183,6 +190,7 @@
   }
 
   function install() {
+    primePresentation();
     showFlash();
     installDeleteFlow();
     installPublishedSuccessReset();

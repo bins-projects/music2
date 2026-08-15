@@ -35,7 +35,8 @@ def _git(root: Path, *args: str) -> str:
     result = subprocess.run(["git", *args], cwd=root, text=True, capture_output=True, check=False)
     if result.returncode:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Git command failed")
-    return result.stdout.strip()
+    # Preserve leading porcelain-status spaces; only remove trailing newlines.
+    return result.stdout.rstrip()
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
@@ -318,7 +319,7 @@ def publish_applied_operation(
         ]
         try:
             _git(project_root, "add", "--", *private_paths)
-            verb = "Repair" if operation["operation_type"] == "repair" else "Add"
+            verb = {"repair": "Repair", "addition": "Add", "deletion": "Delete"}[operation["operation_type"]]
             _git(project_root, "commit", "-m", f"{verb} question {operation['question_id']}")
             private_commit = _git(project_root, "rev-parse", "HEAD")
             update_operation(ledger_path, operation_id, state="publishing", blocker=None,
@@ -356,7 +357,7 @@ def publish_applied_operation(
             if public_pack.read_bytes() != pack_path.read_bytes():
                 raise RuntimeError("Private/public Pack byte equality failed")
             _git(public_worktree, "add", "--", str(relative_pack), "web/data/pack-catalog.json", "web/pack-precache.js")
-            verb = "Repair" if operation["operation_type"] == "repair" else "Add"
+            verb = {"repair": "Repair", "addition": "Add", "deletion": "Delete"}[operation["operation_type"]]
             _git(public_worktree, "commit", "-m", f"{verb} question {operation['question_id']}")
             public_commit = _git(public_worktree, "rev-parse", "HEAD")
             update_operation(ledger_path, operation_id, state="publishing", blocker=None,

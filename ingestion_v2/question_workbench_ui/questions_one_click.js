@@ -9,6 +9,38 @@
     return payload;
   };
 
+  function isEmbedded() { return window.self !== window.top; }
+
+  function compactShell() {
+    if (document.body.dataset.compactQuestionShell === "1") return;
+    document.body.dataset.compactQuestionShell = "1";
+
+    if (isEmbedded()) {
+      const header = document.querySelector("body > header");
+      if (header) header.hidden = true;
+      document.body.classList.add("embedded-question-workbench");
+    }
+
+    const setup = document.querySelector("section.panel.setup");
+    if (setup && !setup.closest("details.question-finder")) {
+      const drawer = document.createElement("details");
+      drawer.className = "question-finder";
+      const summary = document.createElement("summary");
+      summary.innerHTML = "<strong>Find / browse a question</strong><span>Book · chapter · stem · Ref · PFQ ID</span>";
+      setup.parentNode.insertBefore(drawer, setup);
+      drawer.append(summary, setup);
+      setup.classList.remove("panel");
+      setup.classList.add("question-finder-body");
+
+      const closeWhenFocused = () => {
+        if (!$("record-view")?.hidden || !$("editor")?.hidden) drawer.open = false;
+      };
+      const focusObserver = new MutationObserver(closeWhenFocused);
+      if ($("record-view")) focusObserver.observe($("record-view"), {attributes: true, attributeFilter: ["hidden"]});
+      if ($("editor")) focusObserver.observe($("editor"), {attributes: true, attributeFilter: ["hidden"]});
+    }
+  }
+
   function finalLabel() {
     const button = $("final-action");
     if (!button || $("editor")?.hidden) return;
@@ -17,7 +49,11 @@
     if (button.textContent !== desired) button.textContent = desired;
   }
 
-  function normalizeMessages() {
+  function normalizeMessages(state) {
+    const actionable = (state?.operations || []).filter((op) => op.state !== "published");
+    const readiness = $("readiness");
+    if (readiness) readiness.hidden = actionable.length === 0;
+
     const saveState = $("save-state");
     if (saveState?.textContent === "Saved for publication") {
       saveState.textContent = "Saved to canonical Pack — publication pending";
@@ -33,12 +69,18 @@
     finalLabel();
   }
 
-  async function enhancePending() {
+  function updatePendingVisibility(state) {
+    const target = $("pending");
+    const panel = target?.closest("section.panel");
+    if (!panel) return;
+    const actionable = (state.operations || []).filter((op) => op.state !== "published");
+    panel.hidden = actionable.length === 0;
+  }
+
+  async function enhancePending(state) {
     const target = $("pending");
     if (!target) return;
-    let state;
-    try { state = await json("/api/question-workbench"); } catch { return; }
-    const operations = [...(state.operations || [])].reverse();
+    const operations = [...(state.operations || [])].filter((op) => op.state !== "published").reverse();
     const cards = [...target.querySelectorAll(".pending-card")];
     cards.forEach((card, index) => {
       const operation = operations[index];
@@ -98,13 +140,19 @@
     });
   }
 
+  async function refreshEnhancements() {
+    compactShell();
+    let state;
+    try { state = await json("/api/question-workbench"); } catch { finalLabel(); return; }
+    normalizeMessages(state);
+    updatePendingVisibility(state);
+    await enhancePending(state);
+  }
+
   let timer = null;
   const schedule = () => {
     clearTimeout(timer);
-    timer = setTimeout(() => {
-      normalizeMessages();
-      void enhancePending();
-    }, 40);
+    timer = setTimeout(() => { void refreshEnhancements(); }, 60);
   };
 
   const observer = new MutationObserver(schedule);

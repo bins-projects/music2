@@ -63,7 +63,6 @@
     parentShellInstalled = true;
     factoryButton.textContent = "Build / review a Pack";
     oldQuestionButton.textContent = "Repair existing question";
-    oldQuestionButton.id = "repair-mode-button";
 
     const addButton = parentDocument.createElement("button");
     addButton.id = "add-mode-button";
@@ -95,14 +94,16 @@
       reportEmbeddedHeight();
     }
 
-    // Existing listeners still make the old two-button shell work. These run
-    // after them and establish the three-mode state as the final UI truth.
     factoryButton.addEventListener("click", () => activate("factory"));
     oldQuestionButton.addEventListener("click", () => activate("repair"));
     addButton.addEventListener("click", () => activate("addition"));
 
     const saved = parentDocument.defaultView.sessionStorage.getItem("prepflow.workbench.mode");
-    activate(saved === "addition" ? "addition" : saved === "repair" || saved === "questions" ? "repair" : "factory");
+    const initial = saved === "addition" ? "addition" : saved === "repair" || saved === "questions" ? "repair" : "factory";
+    activate(initial);
+    // The legacy two-mode initializer is at the end of the parent document.
+    // Reassert our final three-mode state after it has had a chance to run.
+    setTimeout(() => activate(initial), 150);
   }
 
   function compactShell() {

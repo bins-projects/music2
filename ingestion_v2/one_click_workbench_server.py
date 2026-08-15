@@ -133,8 +133,13 @@ class OneClickWorkbenchHandler(base.WorkbenchHandler):
 
         if parsed.path in {"/api/question-workbench", "/api/question-workbench/readiness"}:
             _, packs = base.installed_question_packs()
-            reconcile_saved_operations(base.QUESTION_LEDGER_PATH, packs)
             operations = list_operations(base.QUESTION_LEDGER_PATH)
+            # A threaded GET may arrive while an action is between saving its
+            # pending ledger row and advancing that row to applied. Never let
+            # reconciliation infer away an operation that is actively pending.
+            if not any(item.get("state") == "pending" for item in operations):
+                reconcile_saved_operations(base.QUESTION_LEDGER_PATH, packs)
+                operations = list_operations(base.QUESTION_LEDGER_PATH)
             readiness = _workbench_readiness(operations, packs)
             if parsed.path.endswith("/readiness"):
                 self._send_json(readiness)

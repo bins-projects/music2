@@ -272,3 +272,75 @@
 }
 ```
 
+## 2026-08-15T23:08:19.284535Z — `PFQ-pediatrics-000001027`
+
+```json
+{
+  "operation_id": "PFOP-b5556f7da9a8478ab32efa2d6e850264",
+  "operation_type": "deletion",
+  "original_question": {
+    "chapter": 1,
+    "chapter_title": "The Past, Present, and Future",
+    "choices": [
+      {
+        "label": "A",
+        "text": "Bitch"
+      },
+      {
+        "label": "B",
+        "text": "Big bitch"
+      },
+      {
+        "label": "C",
+        "text": "Big fat bitch"
+      },
+      {
+        "label": "D",
+        "text": "Big fat fucking bitch"
+      }
+    ],
+    "correct_answers": [
+      "D"
+    ],
+    "id": "PFQ-pediatrics-000001027",
+    "rationale": "Obviously, if you know her, the answer is big fat, fucking bitch duh",
+    "stem": "A nurse just completed an assessment on her patient, Kaiya. Knowing what you do about her, what do you think the nurses assessment revealed? That she is a____?",
+    "type": "mc"
+  },
+  "pack_id": "pediatrics",
+  "pack_sha256_after": "51918353704359ac1470464d59bf4015b390f861541fc4a8a0c4620d6f0fa8dc",
+  "pack_sha256_before": "1ba063fca6530471d6e3a1ac2c41a98a5e89347d2acd89a530213c0108442296",
+  "question": {
+    "chapter": 1,
+    "chapter_title": "The Past, Present, and Future",
+    "choices": [
+      {
+        "label": "A",
+        "text": "Bitch"
+      },
+      {
+        "label": "B",
+        "text": "Big bitch"
+      },
+      {
+        "label": "C",
+        "text": "Big fat bitch"
+      },
+      {
+        "label": "D",
+        "text": "Big fat fucking bitch"
+      }
+    ],
+    "correct_answers": [
+      "D"
+    ],
+    "id": "PFQ-pediatrics-000001027",
+    "rationale": "Obviously, if you know her, the answer is big fat, fucking bitch duh",
+    "stem": "A nurse just completed an assessment on her patient, Kaiya. Knowing what you do about her, what do you think the nurses assessment revealed? That she is a____?",
+    "type": "mc"
+  },
+  "question_id": "PFQ-pediatrics-000001027",
+  "recorded_at": "2026-08-15T23:08:19.284535Z"
+}
+```
+

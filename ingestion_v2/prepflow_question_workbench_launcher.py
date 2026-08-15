@@ -80,7 +80,7 @@ def _prepare_public_with_recovery(repository: Path) -> dict:
 
 
 def prepare(repository: Path) -> dict:
-    """Prepare automated publication without making boot-time races permanent."""
+    """Prepare the public release worktree; action-time checks decide publishability."""
     try:
         if Path(_git(repository, "rev-parse", "--show-toplevel")).resolve() != repository.resolve():
             raise RuntimeError("Unexpected private repository")
@@ -90,15 +90,11 @@ def prepare(repository: Path) -> dict:
         if not _remote_matches(origin, "prepflow-dev"):
             raise RuntimeError("Unexpected private remote")
         ensure_public_remote(repository)
-        if _git(repository, "status", "--porcelain", "--untracked-files=no"):
-            raise RuntimeError("Repository contains unrelated tracked changes")
-        if _git(repository, "rev-parse", "HEAD") != _git(repository, "rev-parse", "origin/master"):
-            raise RuntimeError("Private branch is out of date")
         result = _prepare_public_with_recovery(repository)
         return {"available": True, **result}
     except Exception as error:
-        # Publication setup is optional. The Workbench still starts and canonical
-        # Pack edits remain available; failed delivery can be retried later.
+        # The Workbench still starts and canonical Pack edits remain available;
+        # the action-time publisher will surface any remaining delivery blocker.
         return {"available": False, "reason": str(error)}
 
 

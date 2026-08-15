@@ -6,8 +6,10 @@ import argparse
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
+import time
 
 from ingestion_v2.question_publisher import prepare_public_worktree
 
@@ -44,8 +46,41 @@ def ensure_public_remote(repository: Path) -> None:
         raise RuntimeError("Unexpected public remote")
 
 
+def _recreate_generated_public_worktree(repository: Path, destination: Path) -> None:
+    """Reset only PrepFlow's dedicated generated release worktree."""
+    try:
+        _git(repository, "worktree", "remove", "--force", str(destination))
+    except RuntimeError:
+        if destination.exists():
+            shutil.rmtree(destination)
+    try:
+        _git(repository, "worktree", "prune")
+    except RuntimeError:
+        pass
+
+
+def _prepare_public_with_recovery(repository: Path) -> dict:
+    destination = public_worktree_destination(repository)
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            return prepare_public_worktree(repository, destination)
+        except Exception as error:
+            last_error = error
+            message = str(error)
+            if destination.exists() and (
+                "Public worktree contains unrelated changes" in message
+                or "Public worktree destination is not a Git worktree" in message
+            ):
+                _recreate_generated_public_worktree(repository, destination)
+            if attempt < 2:
+                time.sleep(2)
+    assert last_error is not None
+    raise last_error
+
+
 def prepare(repository: Path) -> dict:
-    """Prepare optional automated publication without blocking canonical editing."""
+    """Prepare automated publication without making boot-time races permanent."""
     try:
         if Path(_git(repository, "rev-parse", "--show-toplevel")).resolve() != repository.resolve():
             raise RuntimeError("Unexpected private repository")
@@ -59,7 +94,7 @@ def prepare(repository: Path) -> dict:
             raise RuntimeError("Repository contains unrelated tracked changes")
         if _git(repository, "rev-parse", "HEAD") != _git(repository, "rev-parse", "origin/master"):
             raise RuntimeError("Private branch is out of date")
-        result = prepare_public_worktree(repository, public_worktree_destination(repository))
+        result = _prepare_public_with_recovery(repository)
         return {"available": True, **result}
     except Exception as error:
         # Publication setup is optional. The Workbench still starts and canonical

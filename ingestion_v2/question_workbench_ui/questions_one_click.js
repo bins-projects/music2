@@ -15,6 +15,7 @@
   let parentShellInstalled = false;
   let embeddedModeApplied = false;
   let heightTimer = null;
+  let resizeObserver = null;
 
   function reportEmbeddedHeight() {
     if (!isEmbedded()) return;
@@ -23,13 +24,36 @@
       try {
         const frame = window.frameElement;
         if (!frame) return;
+        frame.setAttribute("scrolling", "no");
         const height = Math.ceil(Math.max(
+          document.body.scrollHeight,
+          document.body.offsetHeight,
           document.documentElement.scrollHeight,
-          document.body.scrollHeight
+          document.documentElement.offsetHeight
         ));
-        frame.style.height = `${Math.max(320, height)}px`;
+        frame.style.height = `${Math.max(320, height + 4)}px`;
       } catch (_) {}
     }, 20);
+  }
+
+  function updateModePresentation() {
+    const addition = embeddedMode === "addition";
+    const needsReviewPanel = $("needs-review")?.closest("section.panel");
+    const finder = document.querySelector("details.question-finder");
+    const results = $("search-results");
+    if (needsReviewPanel) needsReviewPanel.hidden = addition;
+    if (finder) {
+      finder.hidden = false;
+      const summary = finder.querySelector("summary");
+      if (summary) {
+        summary.innerHTML = addition
+          ? "<strong>Choose where this question goes</strong><span>Pack · chapter · question type</span>"
+          : "<strong>Find / browse a question</strong><span>Book · chapter · stem · Ref · PFQ ID</span>";
+      }
+      if (addition) finder.open = true;
+    }
+    if (results) results.hidden = addition;
+    reportEmbeddedHeight();
   }
 
   function setEmbeddedWorkspaceMode(mode) {
@@ -39,12 +63,7 @@
       button.click();
       embeddedModeApplied = true;
     }
-
-    const needsReviewPanel = $("needs-review")?.closest("section.panel");
-    const finder = document.querySelector("details.question-finder");
-    if (needsReviewPanel) needsReviewPanel.hidden = embeddedMode === "addition";
-    if (finder) finder.hidden = embeddedMode === "addition";
-    reportEmbeddedHeight();
+    updateModePresentation();
   }
 
   function installParentShell() {
@@ -63,24 +82,51 @@
     parentShellInstalled = true;
     factoryButton.textContent = "Build / review a Pack";
     oldQuestionButton.textContent = "Repair existing question";
+    frame.setAttribute("scrolling", "no");
 
-    const addButton = parentDocument.createElement("button");
-    addButton.id = "add-mode-button";
-    addButton.type = "button";
-    addButton.textContent = "Add new question";
-    nav.append(addButton);
+    let addButton = parentDocument.getElementById("add-mode-button");
+    if (!addButton) {
+      addButton = parentDocument.createElement("button");
+      addButton.id = "add-mode-button";
+      addButton.type = "button";
+      addButton.textContent = "Add new question";
+      nav.append(addButton);
+    }
 
     const style = parentDocument.createElement("style");
+    style.id = "prepflow-unified-shell-style";
     style.textContent = `
       .workbench-modes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .workbench-modes button { border-width: 2px !important; border-color: #60757a !important; }
       .workbench-modes button:hover { border-color: var(--cyan) !important; }
       .workbench-modes button.active { border-color: #9ff5e8 !important; }
       .question-workspace { overflow: visible !important; }
-      .question-workspace iframe { height: 700px; min-height: 0 !important; overflow: hidden; }
+      .question-workspace iframe { min-height: 0 !important; overflow: hidden !important; }
+      body.prepflow-factory-idle #factory-workspace > .summary,
+      body.prepflow-factory-idle #factory-workspace > .runbar,
+      body.prepflow-factory-idle #factory-workspace > .workspace { display: none !important; }
+      body.prepflow-factory-idle #factory-home { margin-bottom: 0; }
       @media (max-width: 760px) { .workbench-modes { grid-template-columns: 1fr; } }
     `;
+    parentDocument.getElementById(style.id)?.remove();
     parentDocument.head.append(style);
+
+    const runState = parentDocument.getElementById("run-state");
+    const updateFactoryIdle = () => {
+      const state = (runState?.textContent || "").trim().toLowerCase();
+      parentDocument.body.classList.toggle(
+        "prepflow-factory-idle",
+        state === "not started" || state === "completed" || state === "not_started" || !state
+      );
+    };
+    updateFactoryIdle();
+    if (runState) {
+      new MutationObserver(updateFactoryIdle).observe(runState, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      });
+    }
 
     function activate(mode) {
       const questionMode = mode !== "factory";
@@ -101,8 +147,6 @@
     const saved = parentDocument.defaultView.sessionStorage.getItem("prepflow.workbench.mode");
     const initial = saved === "addition" ? "addition" : saved === "repair" || saved === "questions" ? "repair" : "factory";
     activate(initial);
-    // The legacy two-mode initializer is at the end of the parent document.
-    // Reassert our final three-mode state after it has had a chance to run.
     setTimeout(() => activate(initial), 150);
   }
 
@@ -114,10 +158,11 @@
       const header = document.querySelector("body > header");
       if (header) header.hidden = true;
       document.body.classList.add("embedded-question-workbench");
-      document.documentElement.style.overflow = "hidden";
-      document.body.style.overflow = "hidden";
       const operations = document.querySelector(".operations");
       if (operations) operations.hidden = true;
+      resizeObserver = new ResizeObserver(reportEmbeddedHeight);
+      resizeObserver.observe(document.body);
+      resizeObserver.observe(document.documentElement);
     }
 
     const setup = document.querySelector("section.panel.setup");
@@ -132,7 +177,7 @@
       setup.classList.add("question-finder-body");
 
       const closeWhenFocused = () => {
-        if (!$("record-view")?.hidden || !$("editor")?.hidden) drawer.open = false;
+        if (embeddedMode === "repair" && (!$("record-view")?.hidden || !$("editor")?.hidden)) drawer.open = false;
         reportEmbeddedHeight();
       };
       const focusObserver = new MutationObserver(closeWhenFocused);
@@ -259,10 +304,7 @@
       } catch (_) {}
       setEmbeddedWorkspaceMode(parentMode);
     } else if (isEmbedded()) {
-      const needsReviewPanel = $("needs-review")?.closest("section.panel");
-      const finder = document.querySelector("details.question-finder");
-      if (needsReviewPanel) needsReviewPanel.hidden = embeddedMode === "addition";
-      if (finder) finder.hidden = embeddedMode === "addition";
+      updateModePresentation();
     }
     reportEmbeddedHeight();
   }

@@ -13,14 +13,6 @@
   transform: none !important;
 }
 
-.builder-controls {
-  margin-top: 24px;
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto auto;
-  gap: 16px;
-  align-items: center;
-}
-
 .builder-actions {
   display: flex;
   gap: 10px;

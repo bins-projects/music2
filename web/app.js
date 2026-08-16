@@ -595,7 +595,7 @@ function showQuestion() {
   hideAllScreens();
   quizScreen.hidden = false;
 
-  quizSubject.textContent = currentSubject;
+  quizSubject.textContent = questionPack?.title || "";
   quizQuestionId.textContent = displayQuestionReference(questionPack?.title, question.id);
   quizQuestionId.title = stableReference.available ? stableReference.fullId : "";
   if (copyQuestionIdButton) {

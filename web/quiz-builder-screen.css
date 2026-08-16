@@ -13,13 +13,6 @@
   transform: none !important;
 }
 
-.quiz-builder-screen .subject-card {
-  position: relative !important;
-  inset: auto !important;
-  margin: 0 auto !important;
-  transform: none;
-}
-
 .builder-controls {
   margin-top: 24px;
   display: grid;

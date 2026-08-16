@@ -379,29 +379,8 @@
 
 .quiz-builder-screen .subject-card {
   position: absolute !important;
-  width: 16.5% !important;
   margin: 0 !important;
   pointer-events: auto;
-}
-
-.quiz-builder-screen .subject-card.fundamentals {
-  left: 12.5% !important;
-  top: 43.5% !important;
-}
-
-.quiz-builder-screen .subject-card.pharm {
-  left: 41.8% !important;
-  top: 44.2% !important;
-}
-
-.quiz-builder-screen .subject-card.med-surg {
-  left: 71.8% !important;
-  top: 43.8% !important;
-}
-
-.quiz-builder-screen .approved-book-art {
-  width: 100% !important;
-  height: auto !important;
 }
 
 /* Quiz Builder true-screen ownership — 2026-07-27 */

@@ -6,13 +6,6 @@
 }
 
 .quiz-builder-window {
-  width: min(1050px, 96vw);
-  max-height: 92vh;
-  overflow: auto;
-  padding: clamp(18px, 2.5vw, 32px);
-
-  border: 2px solid rgba(238, 193, 104, .7);
-  background: rgba(9, 13, 31, .97);
   color: #f2dfb6;
 }
 

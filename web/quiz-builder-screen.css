@@ -321,7 +321,7 @@ body.builder-open .app-shell {
 
 /* Quiz Builder books — authoritative resting coordinates */
 .quiz-builder-screen .subject-card {
-  width: 9.6% !important;
+  width: 12.5% !important;
 
   top: auto !important;
   bottom: 47.2% !important;
@@ -342,19 +342,19 @@ body.builder-open .app-shell {
 }
 
 .quiz-builder-screen .subject-card.fundamentals {
-  left: calc(var(--fundamentals-station-x) - 4.8%) !important;
+  left: calc(var(--fundamentals-station-x) - 6.25%) !important;
 }
 
 .quiz-builder-screen .subject-card.pharm {
-  left: calc(var(--pharm-station-x) - 4.8%) !important;
+  left: calc(var(--pharm-station-x) - 6.25%) !important;
 }
 
 .quiz-builder-screen .subject-card.med-surg {
-  left: calc(var(--medsurg-station-x) - 4.8%) !important;
+  left: calc(var(--medsurg-station-x) - 6.25%) !important;
 }
 
 .quiz-builder-screen .subject-card.pediatrics {
-  left: calc(var(--pediatrics-station-x) - 4.8%) !important;
+  left: calc(var(--pediatrics-station-x) - 6.25%) !important;
 }
 
 .quiz-builder-screen .approved-book-art {
@@ -384,26 +384,26 @@ body.builder-open .app-shell {
    to the shared 50% horizontal preview coordinate. */
 .quiz-builder-screen .subject-card.fundamentals {
   --book-launch-x: 34.5cqw;
-  --book-center-scale: 2.11;
-  --book-center-pulse-scale: 2.23;
+  --book-center-scale: 1.62;
+  --book-center-pulse-scale: 1.72;
 }
 
 .quiz-builder-screen .subject-card.pharm {
   --book-launch-x: 11.5cqw;
-  --book-center-scale: 2.11;
-  --book-center-pulse-scale: 2.23;
+  --book-center-scale: 1.62;
+  --book-center-pulse-scale: 1.72;
 }
 
 .quiz-builder-screen .subject-card.med-surg {
   --book-launch-x: -11.5cqw;
-  --book-center-scale: 2.11;
-  --book-center-pulse-scale: 2.23;
+  --book-center-scale: 1.62;
+  --book-center-pulse-scale: 1.72;
 }
 
 .quiz-builder-screen .subject-card.pediatrics {
   --book-launch-x: -34.5cqw;
-  --book-center-scale: 2.11;
-  --book-center-pulse-scale: 2.23;
+  --book-center-scale: 1.62;
+  --book-center-pulse-scale: 1.72;
 }
 
 .quiz-builder-screen .approved-book-art {
@@ -683,7 +683,7 @@ body.book-launching .quiz-builder-screen .subject-card:not(.is-launching) {
   left: var(--pharm-station-x);
 }
 
-.quiz-builder-shelf-plaque.med-surg-plaque {
+.quiz-builder-shelf-plaque.medsurg-plaque {
   left: var(--medsurg-station-x);
 }
 

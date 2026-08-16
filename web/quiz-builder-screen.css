@@ -16,23 +16,6 @@
   color: #f2dfb6;
 }
 
-.quiz-builder-header {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 20px;
-  align-items: start;
-  margin-bottom: 22px;
-}
-
-.quiz-builder-header h2,
-.quiz-builder-header p {
-  margin: 0;
-}
-
-.quiz-builder-header p {
-  margin-top: 6px;
-}
-
 .quiz-builder-screen .subjects {
   position: static !important;
   width: 100% !important;

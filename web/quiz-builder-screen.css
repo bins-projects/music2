@@ -496,13 +496,13 @@ body.builder-open .app-shell {
 /* Distances are calculated from each resting book center
    to the shared 50% horizontal preview coordinate. */
 .quiz-builder-screen .subject-card.fundamentals {
-  --book-launch-x: 24.1cqw;
+  --book-launch-x: 34.5cqw;
   --book-center-scale: 2.11;
   --book-center-pulse-scale: 2.23;
 }
 
 .quiz-builder-screen .subject-card.pharm {
-  --book-launch-x: 0.4cqw;
+  --book-launch-x: 11.5cqw;
   --book-center-scale: 2.11;
   --book-center-pulse-scale: 2.23;
 }
@@ -511,14 +511,6 @@ body.builder-open .app-shell {
   --book-launch-x: -11.5cqw;
   --book-center-scale: 2.11;
   --book-center-pulse-scale: 2.23;
-}
-
-.quiz-builder-screen .subject-card.fundamentals {
-  --book-launch-x: 34.5cqw;
-}
-
-.quiz-builder-screen .subject-card.pharm {
-  --book-launch-x: 11.5cqw;
 }
 
 .quiz-builder-screen .subject-card.pediatrics {

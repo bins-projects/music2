@@ -404,41 +404,6 @@
   height: auto !important;
 }
 
-/* Fundamentals seating pass 1 */
-.quiz-builder-screen .subject-card.fundamentals {
-  left: 12.8% !important;
-  top: 43.1% !important;
-  transform-origin: bottom center !important;
-  transform:
-    perspective(900px)
-    rotateZ(2.2deg)
-    rotateX(7deg)
-    skewX(-1.5deg) !important;
-}
-
-/* Fundamentals seating pass 2 */
-.quiz-builder-screen .subject-card.fundamentals {
-  left: 14.1% !important;
-  top: 42.7% !important;
-  transform:
-    perspective(900px)
-    rotateZ(.6deg)
-    rotateX(5deg)
-    skewX(-.5deg) !important;
-}
-
-/* Fundamentals seating pass 3 — measured horizontal correction */
-.quiz-builder-screen .subject-card.fundamentals {
-  left: 20.4% !important;
-  top: 42.7% !important;
-  transform:
-    perspective(900px)
-    rotateZ(.6deg)
-    rotateX(5deg)
-    skewX(-.5deg) !important;
-}
-
-
 /* Quiz Builder true-screen ownership — 2026-07-27 */
 
 body.builder-open {

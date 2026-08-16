@@ -473,8 +473,8 @@ html.mobile-portrait #quiz-screen:not([hidden]) #exit-quiz {
 }
 
 html.mobile-portrait #quiz-screen:not([hidden]) .quiz-book {
-  --mobile-paper-header-height: 4.25rem;
-  --mobile-paper-footer-height: 3.25rem;
+  --mobile-paper-header-height: 3.35rem;
+  --mobile-paper-footer-height: 3.4rem;
   position: absolute !important;
   z-index: 3 !important;
   top: calc(
@@ -484,7 +484,7 @@ html.mobile-portrait #quiz-screen:not([hidden]) .quiz-book {
   ) !important;
   left: var(--mobile-clipboard-center-x) !important;
   display: block !important;
-  width: calc(var(--mobile-clipboard-width) * .72) !important;
+  width: calc(var(--mobile-clipboard-width) * .78) !important;
   height: calc(var(--mobile-clipboard-height) * .65) !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -557,9 +557,9 @@ html.mobile-portrait #quiz-screen:not([hidden]) .question-page .quiz-page-meta {
 
 html.mobile-portrait #quiz-screen:not([hidden]) .question-page .quiz-reference-bar {
   grid-row: 2 !important;
-  grid-template-columns: 1fr !important;
-  gap: .2rem !important;
-  margin: .25rem 0 .35rem !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: .3rem !important;
+  margin: .2rem 0 .35rem !important;
 }
 
 html.mobile-portrait #quiz-screen:not([hidden]) .quiz-question-id {
@@ -568,13 +568,20 @@ html.mobile-portrait #quiz-screen:not([hidden]) .quiz-question-id {
 }
 
 html.mobile-portrait #quiz-screen:not([hidden]) .quiz-reference-actions {
-  justify-content: flex-start !important;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: .35rem !important;
+  justify-content: stretch !important;
+  width: 100% !important;
 }
 
 html.mobile-portrait #quiz-screen:not([hidden]) .quiz-reference-action {
-  min-height: 32px !important;
-  padding: .35rem .5rem !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 38px !important;
+  padding: .4rem .35rem !important;
   font-size: clamp(.58rem, 2.45vw, .68rem) !important;
+  white-space: normal !important;
 }
 
 html.mobile-portrait #quiz-screen:not([hidden]) .question-copy-status {
@@ -641,9 +648,10 @@ html.mobile-portrait #quiz-screen:not([hidden]) .quiz-page-meta {
   position: relative !important;
   z-index: 5 !important;
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) 5rem !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
   align-content: center !important;
-  gap: .2rem !important;
+  gap: .45rem !important;
   min-width: 0 !important;
   min-height: var(--mobile-paper-header-height) !important;
   padding: .15rem 0 .35rem !important;
@@ -662,17 +670,17 @@ html.mobile-portrait #quiz-screen:not([hidden]) #quiz-subject {
 }
 
 html.mobile-portrait #quiz-screen:not([hidden]) #quiz-position {
-  grid-column: 1 !important;
-  display: -webkit-box !important;
-  max-width: 100% !important;
-  color: #43516a !important;
-  font: 800 clamp(.58rem, 2.35vw, .68rem)/1.3 Arial, sans-serif !important;
-  letter-spacing: 0 !important;
-  text-transform: none !important;
-  white-space: normal !important;
+  grid-column: 2 !important;
+  display: block !important;
+  max-width: 9.5rem !important;
   overflow: hidden !important;
-  -webkit-box-orient: vertical !important;
-  -webkit-line-clamp: 2 !important;
+  color: #43516a !important;
+  font: 800 clamp(.58rem, 2.35vw, .68rem)/1.2 Arial, sans-serif !important;
+  letter-spacing: 0 !important;
+  text-align: right !important;
+  text-overflow: ellipsis !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
 }
 
 html.mobile-portrait #quiz-screen:not([hidden]) .quiz-page-label,
@@ -699,7 +707,7 @@ html.mobile-portrait #quiz-screen:not([hidden]) .quiz-page-scroll,
 html.mobile-portrait #quiz-screen:not([hidden]) .quiz-response-scroll {
   min-height: 0 !important;
   margin: 0 !important;
-  padding: .4rem .18rem .55rem !important;
+  padding: .4rem .5rem .55rem !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
   overscroll-behavior: contain !important;
@@ -734,12 +742,12 @@ html.mobile-portrait #quiz-screen:not([hidden]) .mobile-question-actions {
 
 html.mobile-portrait #quiz-screen:not([hidden]) .mobile-question-actions button,
 html.mobile-portrait #quiz-screen:not([hidden]) .quiz-footer button {
-  flex: 0 0 calc(var(--mobile-clipboard-width) * .3) !important;
+  flex: 1 1 0 !important;
   align-self: flex-end !important;
   height: 44px !important;
   max-height: 44px !important;
   min-width: 0 !important;
-  width: calc(var(--mobile-clipboard-width) * .3) !important;
+  width: auto !important;
   min-height: 44px !important;
   margin: 0 !important;
   padding: .45rem .35rem !important;

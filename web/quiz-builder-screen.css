@@ -26,16 +26,6 @@
   gap: 10px;
 }
 
-@media (max-width: 850px) {
-  .quiz-builder-screen .subjects {
-    grid-template-columns: 1fr !important;
-  }
-
-  .builder-controls {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* Nursing-station Quiz Builder background — placement pass 1 */
 .quiz-builder-window {
   width: min(1120px, 96vw);

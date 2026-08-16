@@ -334,7 +334,6 @@
   text-transform: uppercase;
   white-space: nowrap;
 
-  cursor: pointer;
   transition:
     transform 140ms ease,
     box-shadow 140ms ease,
@@ -365,17 +364,8 @@
   transform: translateY(-2px);
 }
 
-.quiz-builder-screen #build-quiz:focus-visible,
-.quiz-builder-screen #clear-selections:focus-visible,
-.quiz-builder-screen #close-quiz-builder:focus-visible {
-  outline: 3px solid #fff2bd;
-  outline-offset: 3px;
-}
-
 .quiz-builder-screen #build-quiz:disabled,
 .quiz-builder-screen #clear-selections:disabled {
-  opacity: .42;
-  cursor: not-allowed;
   box-shadow: none;
 }
 

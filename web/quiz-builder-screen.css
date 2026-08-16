@@ -241,60 +241,6 @@
   border: 0;
 }
 
-/* Nursing-station Quiz Builder — unified lower interface */
-.quiz-builder-screen .quiz-builder-header {
-  position: absolute;
-  z-index: 7;
-  left: 4%;
-  right: 4%;
-  bottom: 13.5%;
-  margin: 0;
-
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 18px;
-  align-items: center;
-}
-
-.quiz-builder-screen .quiz-builder-header > div {
-  display: contents;
-}
-
-.quiz-builder-screen .quiz-builder-header h2 {
-  margin: 0;
-  white-space: nowrap;
-  font-size: clamp(20px, 2vw, 28px);
-}
-
-.quiz-builder-screen .quiz-builder-header p {
-  margin: 0;
-  min-width: 0;
-  font-size: clamp(13px, 1.15vw, 16px);
-}
-
-.quiz-builder-screen .builder-controls {
-  left: 3%;
-  right: 3%;
-  bottom: 2.5%;
-  height: 10%;
-  min-height: 74px;
-  padding: 10px 18px;
-
-  grid-template-columns:
-    minmax(190px, 1fr)
-    auto
-    auto
-    auto;
-  gap: 16px;
-}
-
-/* Let the artwork remain completely unobstructed above the lower band. */
-.quiz-builder-screen .quiz-builder-header,
-.quiz-builder-screen .builder-controls {
-  background: transparent;
-  border: 0;
-}
-
 /* Quiz Builder — force both live rows into the painted lower console */
 .quiz-builder-screen .quiz-builder-header {
   top: auto !important;

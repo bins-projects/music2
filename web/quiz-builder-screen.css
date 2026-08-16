@@ -1464,3 +1464,473 @@ body.real-book-chapters #back-button:focus-visible {
     animation: none;
   }
 }
+
+/* ============================================================
+   PrepFlow Quiz Builder — authoritative finished console
+   ============================================================ */
+
+/*
+  Painted console safe area in the responsive 16:9 artwork:
+  approximately y = 82.5% through 97%.
+  Every Builder control below is positioned from that same plane.
+*/
+
+.quiz-builder-screen {
+  --pf-console-navy-top: #1c3156;
+  --pf-console-navy-bottom: #0b1831;
+  --pf-console-brass: #a97c38;
+  --pf-console-brass-bright: #e8c873;
+  --pf-console-cream: #f5dda1;
+}
+
+
+/* ------------------------------------------------------------
+   Console heading
+   ------------------------------------------------------------ */
+
+.quiz-builder-screen .quiz-builder-header {
+  position: absolute !important;
+  z-index: 7 !important;
+
+  left: 5.2% !important;
+  top: 84.25% !important;
+  right: auto !important;
+  bottom: auto !important;
+
+  width: 61% !important;
+  height: 4.2% !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  display: flex !important;
+  align-items: center !important;
+  gap: 1.35cqw !important;
+
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.quiz-builder-screen .quiz-builder-header > div {
+  display: contents !important;
+}
+
+.quiz-builder-screen .quiz-builder-header h2 {
+  margin: 0 !important;
+
+  color: #f6dfa2 !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-size: 2.05cqw !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+
+  white-space: nowrap !important;
+
+  text-shadow:
+    0 .08cqw .12cqw rgba(0, 0, 0, .9) !important;
+}
+
+.quiz-builder-screen .quiz-builder-header p {
+  margin: 0 !important;
+
+  color: #f3e1b3 !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 1.46cqw !important;
+  font-weight: 750 !important;
+  line-height: 1 !important;
+
+  white-space: nowrap !important;
+
+  text-shadow:
+    0 .06cqw .1cqw rgba(0, 0, 0, .85) !important;
+}
+
+
+/* ------------------------------------------------------------
+   Remove wrapper geometry. Children use scene coordinates.
+   ------------------------------------------------------------ */
+
+.quiz-builder-screen .builder-controls {
+  display: contents !important;
+}
+
+.quiz-builder-screen .builder-summary,
+.quiz-builder-screen .builder-block-size,
+.quiz-builder-screen .order-mode-toggle,
+.quiz-builder-screen .builder-actions {
+  position: absolute !important;
+  z-index: 8 !important;
+}
+
+
+/* ------------------------------------------------------------
+   Lower information/settings line
+   ------------------------------------------------------------ */
+
+.quiz-builder-screen .builder-summary {
+  left: 5.8% !important;
+  top: 90.15% !important;
+  right: auto !important;
+  bottom: auto !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.quiz-builder-screen .builder-summary strong {
+  display: block !important;
+  margin: 0 !important;
+
+  color: #f7e1a6 !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 1.2cqw !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+
+  white-space: nowrap !important;
+}
+
+.quiz-builder-screen .builder-summary span,
+.quiz-builder-screen #builder-book-count {
+  display: none !important;
+}
+
+
+/* Questions per block */
+.quiz-builder-screen .builder-block-size {
+  left: 25.7% !important;
+  top: 89.45% !important;
+  right: auto !important;
+  bottom: auto !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  display: flex !important;
+  align-items: center !important;
+  gap: .5cqw !important;
+
+  color: #f4dda3 !important;
+
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 1.03cqw !important;
+  font-weight: 900 !important;
+
+  white-space: nowrap !important;
+}
+
+.quiz-builder-screen #global-block-size {
+  width: 3.45cqw !important;
+  min-width: 0 !important;
+  max-width: none !important;
+
+  height: 2.35cqw !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  margin: 0 !important;
+  padding: 0 .95cqw 0 .45cqw !important;
+
+  border: .08cqw solid var(--pf-console-brass) !important;
+  border-radius: .2cqw !important;
+
+  background: #10203d !important;
+  color: #fff0bf !important;
+
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 1.02cqw !important;
+  font-weight: 900 !important;
+
+  box-shadow:
+    inset 0 .08cqw .16cqw rgba(0, 0, 0, .48) !important;
+}
+
+
+/* Source order / Shuffle */
+.quiz-builder-screen .order-mode-toggle {
+  left: 45.2% !important;
+  top: 89.75% !important;
+  right: auto !important;
+  bottom: auto !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  display: flex !important;
+  align-items: center !important;
+  gap: .42cqw !important;
+
+  color: #f4dda3 !important;
+
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 1.03cqw !important;
+  font-weight: 900 !important;
+
+  white-space: nowrap !important;
+}
+
+.quiz-builder-screen .order-mode-track {
+  position: relative !important;
+
+  width: 3.35cqw !important;
+  height: 1.6cqw !important;
+
+  border: .08cqw solid var(--pf-console-brass) !important;
+  border-radius: 1cqw !important;
+
+  background: #0d1930 !important;
+
+  box-shadow:
+    inset 0 .12cqw .25cqw rgba(0, 0, 0, .58) !important;
+}
+
+.quiz-builder-screen .order-mode-track > span {
+  position: absolute !important;
+  top: .17cqw !important;
+  left: .17cqw !important;
+
+  width: 1.1cqw !important;
+  height: 1.1cqw !important;
+
+  border: .07cqw solid #7e5a29 !important;
+  border-radius: 50% !important;
+
+  background:
+    linear-gradient(to bottom, #e6c975, #a67731) !important;
+
+  transition: transform 140ms ease !important;
+}
+
+.quiz-builder-screen #shuffle-questions:checked + .order-mode-track > span {
+  transform: translateX(1.64cqw) !important;
+}
+
+
+/* ------------------------------------------------------------
+   Three-command bank
+   Explicitly centered inside the painted console safe area.
+   ------------------------------------------------------------ */
+
+.quiz-builder-screen .builder-actions {
+  top: 83.8% !important;
+  right: 4.8% !important;
+  bottom: auto !important;
+  left: auto !important;
+
+  width: 27% !important;
+  height: 11.6% !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  grid-template-rows: 1fr !important;
+  gap: .58cqw !important;
+
+  transform: none !important;
+}
+
+.quiz-builder-screen #clear-selections,
+.quiz-builder-screen #close-quiz-builder,
+.quiz-builder-screen #build-quiz {
+  position: relative !important;
+  inset: auto !important;
+
+  width: 100% !important;
+  height: 100% !important;
+
+  min-width: 0 !important;
+  min-height: 0 !important;
+
+  margin: 0 !important;
+  padding: .5cqw !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  border: .09cqw solid var(--pf-console-brass) !important;
+  border-radius: .24cqw !important;
+
+  background:
+    linear-gradient(
+      to bottom,
+      var(--pf-console-navy-top),
+      var(--pf-console-navy-bottom)
+    ) !important;
+
+  color: #f3dda2 !important;
+
+  box-shadow:
+    inset 0 .08cqw 0 rgba(255, 246, 211, .13),
+    inset 0 -.12cqw 0 rgba(0, 0, 0, .26),
+    0 .12cqw .22cqw rgba(0, 0, 0, .38) !important;
+
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 1.12cqw !important;
+  font-weight: 900 !important;
+  line-height: 1.05 !important;
+  letter-spacing: .025em !important;
+  text-align: center !important;
+  text-transform: uppercase !important;
+
+  transform: none !important;
+}
+
+.quiz-builder-screen #build-quiz {
+  font-size: 1.5cqw !important;
+}
+
+.quiz-builder-screen #clear-selections .command-label,
+.quiz-builder-screen #close-quiz-builder .command-label,
+.quiz-builder-screen #build-quiz .command-label {
+  width: 100% !important;
+  margin: 0 !important;
+
+  color: inherit !important;
+  font: inherit !important;
+  line-height: inherit !important;
+  text-align: center !important;
+
+  animation: none !important;
+}
+
+
+/* Secondary controls never animate. */
+.quiz-builder-screen #clear-selections,
+.quiz-builder-screen #close-quiz-builder {
+  animation: none !important;
+}
+
+
+/* Disabled states stay quiet. */
+.quiz-builder-screen #clear-selections:disabled,
+.quiz-builder-screen #build-quiz:disabled {
+  opacity: .52 !important;
+
+  color: #a79d82 !important;
+  border-color: #685b45 !important;
+
+  background:
+    linear-gradient(to bottom, #202735, #151b25) !important;
+
+  box-shadow:
+    inset 0 .06cqw 0 rgba(255, 255, 255, .05) !important;
+
+  animation: none !important;
+  transform: none !important;
+}
+
+
+/* Enabled Start Quiz = obvious "ready" cue. */
+.quiz-builder-screen #build-quiz:not(:disabled) {
+  opacity: 1 !important;
+  transform-origin: center !important;
+
+  animation:
+    prepflow-builder-start-ready
+    .78s
+    ease-in-out
+    infinite !important;
+}
+
+@keyframes prepflow-builder-start-ready {
+  0%, 100% {
+    transform: scale(1) !important;
+
+    color: #fff0b8 !important;
+    border-color: #c99843 !important;
+
+    background:
+      linear-gradient(to bottom, #294977, #132a4d) !important;
+
+    box-shadow:
+      inset 0 .08cqw 0 rgba(255, 247, 210, .2),
+      0 .12cqw .24cqw rgba(0, 0, 0, .42) !important;
+  }
+
+  50% {
+    transform: scale(1.085) !important;
+
+    color: #fffbe4 !important;
+    border-color: #ffe49a !important;
+
+    background:
+      linear-gradient(to bottom, #628fc0, #315c8b) !important;
+
+    box-shadow:
+      inset 0 .08cqw 0 rgba(255, 255, 235, .5),
+      0 0 .5cqw rgba(255, 229, 148, 1),
+      0 0 1.25cqw rgba(231, 190, 91, .9),
+      0 .18cqw .35cqw rgba(0, 0, 0, .48) !important;
+  }
+}
+
+
+/* Focus / secondary interaction */
+.quiz-builder-screen #clear-selections:not(:disabled):hover,
+.quiz-builder-screen #close-quiz-builder:hover {
+  border-color: var(--pf-console-brass-bright) !important;
+  color: #fff1bf !important;
+}
+
+.quiz-builder-screen #clear-selections:focus-visible,
+.quiz-builder-screen #close-quiz-builder:focus-visible,
+.quiz-builder-screen #build-quiz:focus-visible,
+.quiz-builder-screen #global-block-size:focus-visible {
+  outline: .16cqw solid #fff0b8 !important;
+  outline-offset: .18cqw !important;
+}
+
+/* Builder settings typography parity. */
+.quiz-builder-screen .order-mode-toggle {
+  font-size: 1.03cqw !important;
+}
+
+/* Start Quiz ready cue.
+   Use filter so existing !important layout/paint rules cannot suppress it. */
+.quiz-builder-screen #build-quiz:not(:disabled) {
+  animation: prepflow-start-attention .72s ease-in-out infinite !important;
+  transform: none !important;
+}
+
+@keyframes prepflow-start-attention {
+  0%, 100% {
+    filter:
+      brightness(1)
+      drop-shadow(0 0 0 rgba(255, 223, 133, 0));
+  }
+
+  50% {
+    filter:
+      brightness(1.65)
+      drop-shadow(0 0 .55cqw rgba(255, 225, 137, .95))
+      drop-shadow(0 0 1.15cqw rgba(218, 169, 61, .8));
+  }
+}
+
+.quiz-builder-screen #build-quiz:disabled {
+  animation: none !important;
+  filter: none !important;
+}
+
+/* Match both settings groups exactly. */
+.quiz-builder-screen .builder-block-size,
+.quiz-builder-screen .order-mode-toggle,
+.quiz-builder-screen .order-mode-toggle > span:not(.order-mode-track) {
+  color: #f4dda3 !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 1.03cqw !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+
+
+/* Optical typography balance:
+   title-case toggle labels need slightly more size than uppercase setting labels. */
+.quiz-builder-screen .order-mode-toggle,
+.quiz-builder-screen .order-mode-toggle > span:not(.order-mode-track) {
+  font-size: 1.18cqw !important;
+}

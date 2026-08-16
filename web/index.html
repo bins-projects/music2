@@ -95,11 +95,8 @@
         <header class="quiz-builder-header">
           <div>
             <h2>Build Your Quiz</h2>
-            <p>Choose one or more books, select chapters, then customize your quiz.</p>
+            <p>Select the chapters you need from the books above.</p>
           </div>
-          <button id="close-quiz-builder" class="secondary-button">
-              <span class="command-label">Close</span>
-            </button>
         </header>
 
         <section class="subjects" aria-label="Quiz library" aria-live="polite"></section>
@@ -167,11 +164,13 @@
 
           <div class="builder-actions">
             <button id="clear-selections" class="secondary-button" disabled>
-              <span class="command-label">Clear Selection</span>
+              <span class="command-label">Clear<br>Selection</span>
+            </button>
+            <button id="close-quiz-builder" class="secondary-button">
+              <span class="command-label">Back<br>to Home</span>
             </button>
             <button id="build-quiz" class="start-button" disabled>
-              <span class="command-label">Start Quiz</span>
-              <span class="command-arrow" aria-hidden="true">▶</span>
+              <span class="command-label">Start<br>Quiz</span>
             </button>
           </div>
         </section>

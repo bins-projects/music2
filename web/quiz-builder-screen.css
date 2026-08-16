@@ -67,35 +67,6 @@
   border: 2px solid rgba(238, 193, 104, 0.8);
 }
 
-/* Nursing-station Quiz Builder — book placement pass 1 */
-.quiz-builder-screen .subjects {
-  position: absolute !important;
-  z-index: 3;
-  left: 8% !important;
-  right: 8% !important;
-  top: 35% !important;
-  width: auto !important;
-  height: 42%;
-
-  display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 7% !important;
-  align-items: end;
-  padding: 0 !important;
-}
-
-.quiz-builder-screen .subject-card {
-  width: min(215px, 20vw) !important;
-  height: auto !important;
-  align-self: end;
-}
-
-.quiz-builder-screen .approved-book-art {
-  display: block;
-  width: 100% !important;
-  height: auto !important;
-}
-
 /* Nursing-station Quiz Builder — control-band placement pass 1 */
 .quiz-builder-screen .builder-controls {
   position: absolute;

@@ -62,21 +62,7 @@
   position: static;
 }
 
-/* Nursing-station Quiz Builder — header placement pass 1 */
-.quiz-builder-screen .quiz-builder-header {
-  position: absolute;
-  z-index: 6;
-  top: 3.5%;
-  left: 32%;
-  right: 3%;
-  margin: 0;
-
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 18px;
-  align-items: start;
-}
-
+/* Nursing-station Quiz Builder — header text treatment */
 .quiz-builder-screen .quiz-builder-header h2,
 .quiz-builder-screen .quiz-builder-header p {
   text-shadow:

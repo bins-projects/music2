@@ -10,14 +10,6 @@
 }
 
 .quiz-builder-screen .subjects {
-  position: static !important;
-  width: 100% !important;
-  margin: 0 !important;
-
-  display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: clamp(18px, 4vw, 52px) !important;
-
   transform: none !important;
 }
 

@@ -432,34 +432,6 @@ body.builder-open .app-shell {
   border: 0;
 }
 
-/* Quiz Builder 16:9 book seating — first measured pass */
-.quiz-builder-screen .subject-card {
-  width: 12.2% !important;
-  height: auto !important;
-  top: 51.5% !important;
-  margin: 0 !important;
-  transform: none !important;
-  transform-origin: bottom center !important;
-}
-
-.quiz-builder-screen .subject-card.fundamentals {
-  left: 22.4% !important;
-}
-
-.quiz-builder-screen .subject-card.pharm {
-  left: 43.9% !important;
-}
-
-.quiz-builder-screen .subject-card.med-surg {
-  left: 69.3% !important;
-}
-
-.quiz-builder-screen .approved-book-art {
-  display: block !important;
-  width: 100% !important;
-  height: auto !important;
-}
-
 /* Quiz Builder books — authoritative resting coordinates */
 .quiz-builder-screen .subject-card {
   width: 9.6% !important;

@@ -32,6 +32,7 @@
   <link rel="stylesheet" href="mobile-portrait.css?v=20260731-drug-reference-1">
   <link rel="stylesheet" href="generic-pack-catalog.css">
   <link rel="stylesheet" href="canonical-question-types.css">
+  <link rel="stylesheet" href="quiz-reading-screen.css?v=20260816-reading-book-1">
 </head>
 <body>
   <main class="app-shell">
@@ -184,6 +185,8 @@
       aria-labelledby="chapter-title"
       hidden
     >
+      <div class="chapter-book-hit-area" aria-hidden="true"></div>
+
       <div class="chapter-header">
         <button id="back-button" class="secondary-button">← Back to Quiz Builder</button>
 
@@ -217,6 +220,27 @@
         role="group"
         aria-labelledby="chapter-title"
       ></div>
+
+      <nav class="chapter-pagination" aria-label="Chapter spreads">
+        <button
+          id="chapter-previous"
+          class="chapter-page-arrow"
+          type="button"
+          hidden
+        >←</button>
+
+        <div
+          id="chapter-page-numbers"
+          class="chapter-page-numbers"
+        ></div>
+
+        <button
+          id="chapter-next"
+          class="chapter-page-arrow"
+          type="button"
+        >→</button>
+      </nav>
+
       <button id="done-chapters" class="start-button">Done — Return to Builder</button>
       <button id="start-button" class="start-button" disabled hidden>Start Studying</button>
     </section>

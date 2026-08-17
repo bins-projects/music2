@@ -19,6 +19,9 @@ const discardSessionButton = document.querySelector("#discard-session");
 const chapterScreen = document.querySelector("#chapter-screen");
 const chapterTitle = document.querySelector("#chapter-title");
 const chapterList = document.querySelector("#chapter-list");
+const chapterPreviousButton = document.querySelector("#chapter-previous");
+const chapterNextButton = document.querySelector("#chapter-next");
+const chapterPageNumbers = document.querySelector("#chapter-page-numbers");
 const selectionCount = document.querySelector("#selection-count");
 const selectedChapterSummary = document.querySelector("#selected-chapter-summary");
 const selectedQuestionSummary = document.querySelector("#selected-question-summary");
@@ -72,6 +75,25 @@ let packCatalogPromise = null;
 let sessionQuestions = [];
 let sessionBlockSize = 15;
 let sessionShuffleQuestions = true;
+
+let currentChapterEntries = [];
+let currentChapterSpread = 0;
+let chaptersPerSpread = 10;
+let chapterRowsPerPage = 5;
+
+function chapterSpreadLayout(theme) {
+  const layouts = {
+    "med-surg": { chaptersPerSpread: 12, rowsPerPage: 6 },
+    fundamentals: { chaptersPerSpread: 12, rowsPerPage: 6 },
+    pediatrics: { chaptersPerSpread: 10, rowsPerPage: 5 },
+    pharm: { chaptersPerSpread: 8, rowsPerPage: 4 },
+  };
+
+  return layouts[theme] || {
+    chaptersPerSpread: 10,
+    rowsPerPage: 5,
+  };
+}
 
 let blockStart = 0;
 let blockEnd = 0;
@@ -182,10 +204,10 @@ function updateSelectionStatus() {
 
   const currentBookSelected = currentBookSelections.length;
 
-  const selectedPackPaths = new Set(
-    allSelections.map((selection) => selection.packPath)
+  const totalSelectedQuestions = allSelections.reduce(
+    (total, selection) => total + (selection.questionCount || 0),
+    0
   );
-  const selectedBooks = selectedPackPaths.size;
 
   const totalChapterSelectionText =
     PrepFlowSelectionRules.chapterSelectionText(totalSelected);
@@ -226,10 +248,11 @@ function updateSelectionStatus() {
   builderSelectionCount.textContent =
     totalChapterSelectionText;
   builderBookCount.textContent =
-    PrepFlowSelectionRules.bookSelectionText(
-      totalSelected,
-      selectedBooks
-    );
+    totalSelected === 0
+      ? "Open a book to choose chapters"
+      : `${totalSelectedQuestions.toLocaleString()} ${
+          totalSelectedQuestions === 1 ? "question" : "questions"
+        } total`;
 
   startButton.disabled = totalSelected === 0;
   buildQuizButton.disabled = totalSelected === 0;
@@ -370,6 +393,130 @@ async function loadPack(packPath) {
   return pack;
 }
 
+function renderChapterSpread() {
+  const totalSpreads = Math.max(
+    1,
+    Math.ceil(currentChapterEntries.length / chaptersPerSpread)
+  );
+
+  currentChapterSpread = Math.min(
+    Math.max(currentChapterSpread, 0),
+    totalSpreads - 1
+  );
+
+  const startIndex = currentChapterSpread * chaptersPerSpread;
+  const visibleChapters = currentChapterEntries.slice(
+    startIndex,
+    startIndex + chaptersPerSpread
+  );
+
+  chapterList.replaceChildren();
+
+  visibleChapters.forEach(({ key, chapter }) => {
+    const label = document.createElement("label");
+    label.className = "chapter-option";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = key;
+    checkbox.dataset.questionCount = chapter.count;
+
+    const selectionKey = `${currentPackPath}|${key}`;
+    checkbox.checked = selectedChapters.has(selectionKey);
+
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        selectedChapters.set(selectionKey, {
+          packPath: currentPackPath,
+          subject: currentSubject,
+          chapterKey: key,
+          questionCount: chapter.count,
+        });
+      } else {
+        selectedChapters.delete(selectionKey);
+      }
+
+      updateSelectionStatus();
+    });
+
+    const text = document.createElement("span");
+    text.className = "chapter-option-text";
+
+    const name = document.createElement("span");
+    name.className = "chapter-name";
+    name.textContent = `Chapter ${chapter.number}: ${chapter.title}`;
+
+    const count = document.createElement("span");
+    count.className = "chapter-count";
+    count.textContent = `${chapter.count.toLocaleString()} questions`;
+
+    text.append(name, count);
+    label.append(checkbox, text);
+    chapterList.append(label);
+  });
+
+  const leftPageNumbers = document.createElement("div");
+  leftPageNumbers.className =
+    "chapter-page-number-group chapter-page-number-group-left";
+
+  const rightPageNumbers = document.createElement("div");
+  rightPageNumbers.className =
+    "chapter-page-number-group chapter-page-number-group-right";
+
+  const splitIndex = Math.ceil(totalSpreads / 2);
+
+  for (let index = 0; index < totalSpreads; index += 1) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "chapter-page-number";
+    button.textContent = String(index + 1);
+    button.dataset.chapterSpread = String(index);
+    button.setAttribute(
+      "aria-label",
+      `Show chapter spread ${index + 1} of ${totalSpreads}`
+    );
+
+    if (index === currentChapterSpread) {
+      button.classList.add("active");
+      button.setAttribute("aria-current", "page");
+    }
+
+    if (index < splitIndex) {
+      leftPageNumbers.append(button);
+    } else {
+      rightPageNumbers.append(button);
+    }
+  }
+
+  chapterPageNumbers.replaceChildren(
+    leftPageNumbers,
+    rightPageNumbers
+  );
+
+  chapterPreviousButton.hidden = currentChapterSpread === 0;
+  chapterNextButton.hidden = currentChapterSpread >= totalSpreads - 1;
+
+  chapterPreviousButton.setAttribute(
+    "aria-label",
+    `Previous chapter spread`
+  );
+  chapterNextButton.setAttribute(
+    "aria-label",
+    `Next chapter spread`
+  );
+
+  chapterList.scrollTop = 0;
+}
+
+function showChapterSpread(index) {
+  if (!Number.isInteger(index)) {
+    return;
+  }
+
+  currentChapterSpread = index;
+  renderChapterSpread();
+}
+
 async function showChapters(button) {
   status.textContent = "Loading chapters…";
 
@@ -395,52 +542,26 @@ async function showChapters(button) {
       }
     });
 
-    chapterList.replaceChildren();
+    currentChapterEntries = [...chapters.entries()].map(
+      ([key, chapter]) => ({ key, chapter })
+    );
 
-    chapters.forEach((chapter, key) => {
-      const label = document.createElement("label");
-      label.className = "chapter-option";
+    const spreadLayout = chapterSpreadLayout(
+      button.dataset.theme || "generic"
+    );
+    chaptersPerSpread = spreadLayout.chaptersPerSpread;
+    chapterRowsPerPage = spreadLayout.rowsPerPage;
+    currentChapterSpread = 0;
 
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.value = key;
-      checkbox.dataset.questionCount = chapter.count;
+    chapterScreen.style.setProperty(
+      "--chapter-rows-per-page",
+      String(chapterRowsPerPage)
+    );
 
-      const selectionKey = `${currentPackPath}|${key}`;
-      checkbox.checked = selectedChapters.has(selectionKey);
-
-      checkbox.addEventListener("change", () => {
-        if (checkbox.checked) {
-          selectedChapters.set(selectionKey, {
-            packPath: currentPackPath,
-            subject: currentSubject,
-            chapterKey: key,
-            questionCount: chapter.count,
-          });
-        } else {
-          selectedChapters.delete(selectionKey);
-        }
-
-        updateSelectionStatus();
-      });
-
-      const text = document.createElement("span");
-      text.className = "chapter-option-text";
-
-      const name = document.createElement("span");
-      name.className = "chapter-name";
-      name.textContent = `Chapter ${chapter.number}: ${chapter.title}`;
-
-      const count = document.createElement("span");
-      count.className = "chapter-count";
-      count.textContent = `${chapter.count.toLocaleString()} questions`;
-
-      text.append(name, count);
-      label.append(checkbox, text);
-      chapterList.append(label);
-    });
-
-    chapterTitle.textContent = currentSubject;
+    chapterTitle.textContent =
+      button.dataset.theme === "med-surg"
+        ? "Med-Surg"
+        : currentSubject;
     chapterScreen.dataset.theme = button.dataset.theme || "generic";
 
     const usesRealOpenBook = true;
@@ -468,8 +589,8 @@ async function showChapters(button) {
     }
 
     status.hidden = true;
-    chapterList.scrollTop = 0;
 
+    renderChapterSpread();
     updateSelectionStatus();
   } catch (error) {
     status.hidden = false;
@@ -740,10 +861,7 @@ function showFinalSummary() {
   blockSummary.hidden = false;
   blockSummary.dataset.summaryState = "final";
 
-  const totalQuestions = Math.max(
-    0,
-    sessionQuestions.length - firstPassSkipped
-  );
+  const totalQuestions = sessionQuestions.length;
   const percentage = PrepFlowSessionRules.firstPassPercentage(
     firstPassCorrect,
     totalQuestions
@@ -1304,6 +1422,24 @@ closeQuizBuilderButton.addEventListener("click", () => {
 });
 doneChaptersButton.addEventListener("click", showQuizBuilder);
 
+chapterPreviousButton.addEventListener("click", () => {
+  showChapterSpread(currentChapterSpread - 1);
+});
+
+chapterNextButton.addEventListener("click", () => {
+  showChapterSpread(currentChapterSpread + 1);
+});
+
+chapterPageNumbers.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-chapter-spread]");
+
+  if (!button) {
+    return;
+  }
+
+  showChapterSpread(Number(button.dataset.chapterSpread));
+});
+
 const BOOK_LAUNCH_DURATION_MS = 1150;
 const OPEN_BOOK_REVEAL_MS = 760;
 const OPEN_BOOK_TOTAL_MS = 1500;
@@ -1424,6 +1560,18 @@ document.querySelector("#back-button").addEventListener(
   "click",
   closeCurrentBook
 );
+
+chapterScreen.addEventListener("click", (event) => {
+  if (
+    event.target.closest(
+      ".chapter-book-hit-area, .chapter-header, .chapter-list, .chapter-pagination"
+    )
+  ) {
+    return;
+  }
+
+  closeCurrentBook();
+});
 document.querySelector("#exit-quiz").addEventListener("click", showSubjects);
 document.querySelector("#summary-exit").addEventListener("click", showSubjects);
 copyQuestionIdButton?.addEventListener("click", () => {

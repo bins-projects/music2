@@ -101,7 +101,9 @@ body {
 }
 
 .board-button:focus-visible,
-.answer-input:focus-visible {
+.answer-input:focus-visible,
+.setup-radio input:focus-visible + span,
+.setup-check input:focus-visible + span {
   outline: 3px solid #3b82f6;
   outline-offset: 2px;
 }
@@ -127,7 +129,8 @@ body {
   min-height: 0;
 }
 
-.formula-card {
+.formula-card,
+.working-formula {
   border: 2px solid rgba(37, 51, 72, .55);
   border-radius: 8px;
   padding: clamp(6px, .8vw, 14px);
@@ -144,10 +147,15 @@ body {
   font: 700 clamp(12px, 1.45vw, 25px)/1.2 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
 }
 
-.formula-card p {
+.formula-card p,
+.working-formula p {
   margin: 3px 0;
   font-size: clamp(9px, 1vw, 16px);
   line-height: 1.25;
+}
+
+.working-formula {
+  margin-top: clamp(7px, .8vw, 12px);
 }
 
 .problem-meta {
@@ -207,6 +215,105 @@ body {
 .summary-score {
   margin: clamp(8px, 1vw, 16px) 0;
   font: 700 clamp(28px, 4vw, 66px)/1 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+}
+
+.setup-layout {
+  display: grid;
+  gap: clamp(5px, .55vw, 10px);
+  min-height: 0;
+}
+
+.setup-section {
+  border-top: 1px solid rgba(37, 51, 72, .28);
+  padding-top: clamp(4px, .45vw, 8px);
+}
+
+.setup-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.setup-section h3,
+.setup-heading-row h3 {
+  margin: 0 0 clamp(3px, .35vw, 6px);
+  font-size: clamp(10px, 1.05vw, 18px);
+  line-height: 1.1;
+}
+
+.setup-heading-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(4px, .45vw, 8px);
+}
+
+.setup-radio,
+.setup-check {
+  position: relative;
+  cursor: pointer;
+}
+
+.setup-radio input,
+.setup-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.setup-radio span,
+.setup-check span {
+  display: block;
+  border: 1.5px solid rgba(37, 51, 72, .58);
+  border-radius: 6px;
+  background: rgba(255,255,255,.34);
+  padding: clamp(3px, .35vw, 6px) clamp(5px, .55vw, 10px);
+  font: 700 clamp(8px, .78vw, 13px)/1.1 Arial, Helvetica, sans-serif;
+}
+
+.setup-radio input:checked + span,
+.setup-check input:checked + span {
+  background: #253348;
+  color: #fff8df;
+  border-color: #253348;
+}
+
+.setup-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(3px, .38vw, 7px);
+}
+
+.setup-note,
+.setup-message {
+  margin: clamp(3px, .35vw, 6px) 0 0;
+  font-size: clamp(7px, .72vw, 12px);
+  line-height: 1.2;
+}
+
+.setup-message {
+  min-height: 1em;
+  font-weight: 700;
+}
+
+.setup-text-button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #203a65;
+  padding: 0;
+  font: 700 clamp(8px, .78vw, 13px)/1 Arial, Helvetica, sans-serif;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.setup-actions {
+  margin-top: auto;
 }
 
 @media (max-aspect-ratio: 1/1) {

@@ -1,0 +1,60 @@
+.formula-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(18px, 2vw, 34px);
+  row-gap: clamp(8px, .8vw, 14px);
+  margin-top: clamp(6px, .6vw, 10px);
+}
+
+.formula-line-item {
+  min-width: 0;
+  padding-bottom: clamp(5px, .55vw, 9px);
+  border-bottom: 1px solid rgba(39, 54, 75, .18);
+}
+
+.formula-line-item h3 {
+  margin: 0 0 2px;
+  color: #1f2933;
+  font: 700 clamp(12px, 1.12vw, 19px)/1.1 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+}
+
+.formula-line-item .formula-equation {
+  margin: 0 0 2px;
+  color: #182438;
+  font: 700 clamp(11px, 1.02vw, 17px)/1.15 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+}
+
+.formula-line-item p {
+  margin: 0;
+  color: #344154;
+  font: 600 clamp(8px, .76vw, 13px)/1.18 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+}
+
+.formula-sheet-nav {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  margin-top: clamp(9px, 1vw, 16px);
+}
+
+.formula-sheet-nav > :last-child {
+  justify-self: end;
+}
+
+.formula-text-action {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #203a65;
+  padding: 2px 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font: 700 clamp(11px, 1vw, 17px)/1 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+}
+
+.formula-text-action:hover,
+.formula-text-action:focus-visible {
+  outline: 0;
+  text-decoration-thickness: 2px;
+}

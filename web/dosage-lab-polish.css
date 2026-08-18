@@ -86,7 +86,7 @@
 .setup-check {
   display: inline-flex !important;
   align-items: center !important;
-  gap: clamp(4px, .45vw, 8px) !important;
+  gap: clamp(5px, .52vw, 9px) !important;
   cursor: pointer !important;
 }
 
@@ -97,8 +97,8 @@
   pointer-events: auto !important;
   appearance: none !important;
   -webkit-appearance: none !important;
-  width: clamp(10px, .95vw, 16px) !important;
-  height: clamp(10px, .95vw, 16px) !important;
+  width: clamp(12px, 1.05vw, 18px) !important;
+  height: clamp(12px, 1.05vw, 18px) !important;
   margin: 0 !important;
   flex: 0 0 auto !important;
   border: 1.5px solid #27364b !important;
@@ -131,21 +131,28 @@
   color: #1f2933 !important;
   padding: 0 !important;
   box-shadow: none !important;
-  font: 700 clamp(9px, .9vw, 15px)/1.2 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive !important;
+  font: 700 clamp(11px, 1.05vw, 18px)/1.2 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive !important;
 }
 
 .setup-type-grid {
   column-gap: clamp(12px, 1.3vw, 24px) !important;
-  row-gap: clamp(5px, .55vw, 9px) !important;
+  row-gap: clamp(7px, .7vw, 12px) !important;
 }
 
 .setup-choice-row {
-  gap: clamp(10px, 1vw, 18px) !important;
+  gap: clamp(12px, 1.15vw, 20px) !important;
 }
 
 .setup-heading-row h3,
 .setup-section h3 {
   font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive !important;
+  font-size: clamp(13px, 1.25vw, 21px) !important;
+}
+
+.setup-note,
+.setup-message {
+  font-size: clamp(9px, .88vw, 15px) !important;
+  line-height: 1.25 !important;
 }
 
 .setup-text-button {
@@ -155,6 +162,7 @@
   background: transparent !important;
   border: 0 !important;
   padding: 0 !important;
+  font-size: clamp(10px, .95vw, 16px) !important;
 }
 
 .setup-actions .board-button {
@@ -162,8 +170,8 @@
   color: #27364b !important;
   border: 1px solid rgba(39,54,75,.65) !important;
   box-shadow: none !important;
-  padding: clamp(3px, .32vw, 6px) clamp(7px, .65vw, 12px) !important;
-  font-size: clamp(9px, .9vw, 15px) !important;
+  padding: clamp(4px, .4vw, 7px) clamp(8px, .72vw, 13px) !important;
+  font-size: clamp(11px, 1vw, 17px) !important;
 }
 
 .setup-actions .board-button.primary {

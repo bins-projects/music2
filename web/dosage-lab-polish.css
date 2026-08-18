@@ -1,0 +1,65 @@
+.problem-meta {
+  font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive !important;
+  font-size: clamp(10px, 1.05vw, 17px) !important;
+  font-weight: 700 !important;
+  color: #27364b !important;
+}
+
+.answer-row {
+  align-items: flex-end !important;
+  gap: 0 !important;
+}
+
+.answer-input {
+  width: clamp(150px, 22vw, 360px) !important;
+  min-width: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  border: 0 !important;
+  border-bottom: 2px solid #27364b !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 2px 3px 3px !important;
+  color: #162133 !important;
+  font: 700 clamp(16px, 2vw, 34px)/1.1 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive !important;
+  text-align: left !important;
+}
+
+.answer-input:focus,
+.answer-input:focus-visible {
+  outline: 0 !important;
+  box-shadow: none !important;
+  border-bottom-color: #27364b !important;
+}
+
+.answer-unit {
+  display: none !important;
+}
+
+.board-actions [data-action="submit"] {
+  padding: clamp(3px, .32vw, 6px) clamp(7px, .6vw, 11px) !important;
+  border-width: 1px !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  color: #27364b !important;
+  font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive !important;
+  font-size: clamp(10px, .9vw, 15px) !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+}
+
+.board-actions [data-action="submit"]:hover,
+.board-actions [data-action="submit"]:focus-visible {
+  background: rgba(39, 54, 75, .07) !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.unit-entry-message {
+  margin: clamp(5px, .6vw, 9px) 0 0;
+  min-height: 1em;
+  color: #6b2d2d;
+  font: 700 clamp(9px, .9vw, 14px)/1.2 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+}

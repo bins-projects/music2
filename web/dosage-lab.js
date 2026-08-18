@@ -33,6 +33,8 @@
       answer,
       unit: "mL/hr",
       tolerance: 0.05,
+      formula: "mL ÷ hours = mL/hr",
+      formulaNote: "Use the total IV volume as mL and the infusion duration as hours.",
       solution: `${volumeMl.toLocaleString()} mL ÷ ${hours} hr = ${answer} mL/hr`
     };
   }
@@ -53,6 +55,8 @@
       answer,
       unit: "gtt/min",
       tolerance: 0.05,
+      formula: "mL × gtt/mL ÷ minutes = gtt/min",
+      formulaNote: "Convert hours to minutes first, then round the final answer to a whole drop.",
       solution: `${hours} hr × 60 = ${minutes} min\n(${volumeMl.toLocaleString()} mL × ${dropFactor} gtt/mL) ÷ ${minutes} min = ${round(raw, 2)}\nRound to a whole drop = ${answer} gtt/min`
     };
   }
@@ -81,6 +85,8 @@
       answer,
       unit: "hours",
       tolerance: 0.02,
+      formula: "mL ÷ mL/hr = hours",
+      formulaNote: "Divide the total volume by the hourly pump rate.",
       solution: `${volumeMl.toLocaleString()} mL ÷ ${rateMlHr} mL/hr = ${answer} hr\nInfusion time = ${displayTime}`
     };
   }
@@ -159,7 +165,6 @@
       </div>
       <div class="board-actions">
         <button class="board-button primary" type="button" data-action="submit">Submit answer</button>
-        <button class="board-button" type="button" data-action="reference">Formula reference</button>
       </div>
       <div id="dosage-feedback" class="feedback" hidden aria-live="polite"></div>
     `;
@@ -197,10 +202,30 @@
     feedback.innerHTML = `
       <h2 class="feedback-result">${isCorrect ? "Correct" : `Not quite — ${problem.answer} ${problem.unit}`}</h2>
       <p class="solution-work">${problem.solution}</p>
+      ${isCorrect ? "" : `
+        <div class="board-actions">
+          <button class="board-button" type="button" data-action="toggle-formula" aria-expanded="false">Formula</button>
+        </div>
+        <section id="missed-formula" class="formula-card" hidden>
+          <h3 class="board-hand">Formula</h3>
+          <div class="formula-equation">${problem.formula}</div>
+          <p>${problem.formulaNote}</p>
+        </section>
+      `}
       <div class="board-actions">
         <button class="board-button primary" type="button" data-action="next">${questionIndex + 1 === SESSION_LENGTH ? "See results" : "Next problem"}</button>
       </div>
     `;
+  }
+
+  function toggleMissedFormula(button) {
+    const formula = board.querySelector("#missed-formula");
+    if (!formula) return;
+
+    const willShow = formula.hidden;
+    formula.hidden = !willShow;
+    button.setAttribute("aria-expanded", String(willShow));
+    button.textContent = willShow ? "Hide formula" : "Formula";
   }
 
   function nextQuestion() {
@@ -225,28 +250,6 @@
     `;
   }
 
-  function showReferenceDuringPractice() {
-    const problemNumber = questionIndex;
-    board.innerHTML = `
-      <h1 class="board-title board-hand">Quick Formula Reference</h1>
-      <div class="formula-grid">
-        <section class="formula-card">
-          <h3 class="board-hand">mL/hr</h3>
-          <div class="formula-equation">mL ÷ hours = mL/hr</div>
-          <p>Convert minutes to hours when needed.</p>
-        </section>
-        <section class="formula-card">
-          <h3 class="board-hand">gtt/min</h3>
-          <div class="formula-equation">mL × gtt/mL ÷ minutes</div>
-          <p>Round drops to a whole number.</p>
-        </section>
-      </div>
-      <div class="board-actions">
-        <button class="board-button primary" type="button" data-action="resume-question" data-index="${problemNumber}">Return to question</button>
-      </div>
-    `;
-  }
-
   board.addEventListener("click", (event) => {
     const button = event.target.closest("[data-action]");
     if (!button) return;
@@ -257,8 +260,7 @@
     if (action === "start") startSession();
     if (action === "submit") submitAnswer();
     if (action === "next") nextQuestion();
-    if (action === "reference") showReferenceDuringPractice();
-    if (action === "resume-question") renderQuestion();
+    if (action === "toggle-formula") toggleMissedFormula(button);
   });
 
   homeButton?.addEventListener("click", () => {

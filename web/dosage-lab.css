@@ -1,0 +1,216 @@
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: #15172b;
+}
+
+body {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.dosage-lab-shell {
+  width: 100vw;
+  height: 100svh;
+  display: grid;
+  place-items: center;
+  background: #15172b;
+}
+
+.dosage-lab-stage {
+  position: relative;
+  width: min(100vw, calc(100svh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  background: url("images/dosage-lab/dosage-lab-classroom.png") center / contain no-repeat;
+  overflow: hidden;
+}
+
+.dosage-board {
+  position: absolute;
+  left: 17.2%;
+  top: 14.2%;
+  width: 55.4%;
+  height: 63.5%;
+  box-sizing: border-box;
+  padding: clamp(8px, 1.25vw, 24px);
+  display: flex;
+  flex-direction: column;
+  color: #1f2933;
+}
+
+.board-hand {
+  font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+}
+
+.board-title {
+  margin: 0 0 clamp(4px, .7vw, 12px);
+  font-size: clamp(16px, 2.2vw, 38px);
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.board-subtitle,
+.board-copy,
+.problem-text,
+.solution-work {
+  margin: 0;
+  font-size: clamp(11px, 1.35vw, 23px);
+  line-height: 1.35;
+}
+
+.board-subtitle {
+  margin-bottom: clamp(8px, 1vw, 18px);
+}
+
+.board-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(6px, .8vw, 12px);
+  margin-top: clamp(10px, 1.4vw, 22px);
+}
+
+.board-button {
+  appearance: none;
+  border: 2px solid #253348;
+  border-radius: clamp(5px, .55vw, 9px);
+  background: rgba(255, 255, 255, .82);
+  color: #172033;
+  padding: clamp(5px, .55vw, 10px) clamp(9px, 1vw, 18px);
+  font: 700 clamp(10px, 1vw, 17px)/1.1 Arial, Helvetica, sans-serif;
+  cursor: pointer;
+}
+
+.board-button.primary {
+  background: #253348;
+  color: #fff8df;
+}
+
+.board-button:focus-visible,
+.answer-input:focus-visible {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.board-home {
+  position: absolute;
+  top: 1.4%;
+  left: 1.2%;
+  z-index: 3;
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: 8px;
+  background: rgba(20, 25, 45, .78);
+  color: white;
+  padding: 7px 10px;
+  font: 700 13px Arial, Helvetica, sans-serif;
+  cursor: pointer;
+}
+
+.formula-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(7px, 1vw, 16px);
+  min-height: 0;
+}
+
+.formula-card {
+  border: 2px solid rgba(37, 51, 72, .55);
+  border-radius: 8px;
+  padding: clamp(6px, .8vw, 14px);
+  background: rgba(255,255,255,.28);
+}
+
+.formula-card h3 {
+  margin: 0 0 4px;
+  font-size: clamp(12px, 1.35vw, 22px);
+}
+
+.formula-equation {
+  margin: 4px 0 8px;
+  font: 700 clamp(12px, 1.45vw, 25px)/1.2 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+}
+
+.formula-card p {
+  margin: 3px 0;
+  font-size: clamp(9px, 1vw, 16px);
+  line-height: 1.25;
+}
+
+.problem-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: clamp(4px, .7vw, 10px);
+  font: 700 clamp(9px, .9vw, 15px)/1 Arial, Helvetica, sans-serif;
+  color: #46515f;
+}
+
+.problem-text {
+  font-size: clamp(13px, 1.7vw, 29px);
+  line-height: 1.32;
+  margin-top: clamp(2px, .5vw, 8px);
+}
+
+.answer-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, .8vw, 12px);
+  margin-top: clamp(12px, 1.5vw, 24px);
+}
+
+.answer-input {
+  width: clamp(75px, 10vw, 165px);
+  box-sizing: border-box;
+  border: 0;
+  border-bottom: 3px solid #27364b;
+  background: transparent;
+  color: #162133;
+  padding: 2px 4px;
+  font: 700 clamp(16px, 2vw, 34px)/1.1 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+  text-align: center;
+}
+
+.answer-unit {
+  font: 700 clamp(12px, 1.35vw, 23px)/1.1 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+}
+
+.feedback {
+  margin-top: clamp(8px, 1.2vw, 18px);
+  padding-top: clamp(5px, .7vw, 10px);
+  border-top: 2px solid rgba(37, 51, 72, .32);
+}
+
+.feedback-result {
+  margin: 0 0 4px;
+  font: 700 clamp(15px, 1.8vw, 30px)/1.1 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+}
+
+.solution-work {
+  font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+  white-space: pre-line;
+}
+
+.summary-score {
+  margin: clamp(8px, 1vw, 16px) 0;
+  font: 700 clamp(28px, 4vw, 66px)/1 "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+}
+
+@media (max-aspect-ratio: 1/1) {
+  body {
+    overflow: auto;
+  }
+
+  .dosage-lab-shell {
+    min-height: 100svh;
+    height: auto;
+    align-content: start;
+    background: #15172b;
+  }
+
+  .dosage-lab-stage {
+    width: 100vw;
+    margin-top: max(0px, calc((100svh - 56.25vw) / 2));
+  }
+}

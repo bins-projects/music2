@@ -5,6 +5,31 @@
   color: #27364b !important;
 }
 
+/* The whiteboard should read as one handwritten worksheet, not a mix of app UI and board text. */
+.dosage-board,
+.dosage-board button,
+.dosage-board input,
+.dosage-board label,
+.dosage-board span,
+.dosage-board p,
+.dosage-board h1,
+.dosage-board h2,
+.dosage-board h3,
+.setup-layout,
+.setup-section,
+.setup-section h3,
+.setup-note,
+.setup-message,
+.setup-check,
+.setup-check span,
+.setup-radio,
+.setup-radio span,
+.setup-text-button,
+.setup-heading-row,
+.board-button {
+  font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive !important;
+}
+
 .answer-row {
   align-items: flex-end !important;
   gap: 0 !important;
@@ -41,7 +66,7 @@
 .board-actions [data-action="submit"] {
   padding: clamp(3px, .32vw, 6px) clamp(7px, .6vw, 11px) !important;
   border-width: 1px !important;
-  border-radius: 5px !important;
+  border-radius: 4px !important;
   background: transparent !important;
   color: #27364b !important;
   font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive !important;
@@ -55,6 +80,29 @@
   background: rgba(39, 54, 75, .07) !important;
   outline: 0 !important;
   box-shadow: none !important;
+}
+
+/* Keep session selectors compact and worksheet-like rather than chunky app buttons. */
+.setup-check,
+.setup-radio {
+  font-size: clamp(9px, .9vw, 14px) !important;
+  font-weight: 700 !important;
+  color: #27364b !important;
+}
+
+.setup-note,
+.setup-message {
+  font-size: clamp(8px, .78vw, 12px) !important;
+  line-height: 1.25 !important;
+}
+
+.setup-text-button {
+  font-size: clamp(8px, .82vw, 13px) !important;
+  font-weight: 700 !important;
+}
+
+.board-button {
+  font-weight: 700 !important;
 }
 
 .unit-entry-message {

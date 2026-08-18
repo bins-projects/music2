@@ -78,6 +78,64 @@
   text-shadow: 2px 2px 0 #321046;
 }
 
+/* Second live entry in the existing REFERENCES sign. */
+#open-dosage-lab.reference-library-callout {
+  position: absolute !important;
+  z-index: 20 !important;
+  right: 2.8% !important;
+  left: auto !important;
+  top: auto !important;
+  bottom: 25.8% !important;
+  width: 9.2% !important;
+  height: 4.8% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 .35rem !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #f7dc91 !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  text-align: center !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transform: none !important;
+}
+
+#open-dosage-lab .reference-callout-icon,
+#open-dosage-lab .reference-callout-copy small,
+#open-dosage-lab .reference-callout-arrow {
+  display: none !important;
+}
+
+#open-dosage-lab .reference-callout-copy {
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+#open-dosage-lab .reference-callout-copy strong {
+  display: block !important;
+  color: #f7dc91 !important;
+  font-size: clamp(.78rem, 1.05vw, 1.15rem) !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  letter-spacing: .045em !important;
+  white-space: nowrap !important;
+  text-shadow: 0 1px 0 #4b260d, 0 0 7px rgba(255, 184, 74, .35) !important;
+}
+
+#open-dosage-lab:hover .reference-callout-copy strong,
+#open-dosage-lab:focus-visible .reference-callout-copy strong {
+  color: #fff1b5 !important;
+  text-shadow: 0 1px 0 #3b210c, 0 0 8px rgba(255, 203, 105, .9), 0 0 15px rgba(255, 173, 55, .5) !important;
+}
+
 @media (max-width: 900px) {
   .subjects {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -101,5 +159,11 @@
     right: 18px;
     left: 18px;
     min-width: 0;
+  }
+
+  #open-dosage-lab.reference-library-callout {
+    left: auto !important;
+    right: 2.8% !important;
+    min-width: 0 !important;
   }
 }

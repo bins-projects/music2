@@ -14,6 +14,15 @@
     return values[Math.floor(Math.random() * values.length)];
   }
 
+  function shuffle(values) {
+    const result = [...values];
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+    }
+    return result;
+  }
+
   function round(value, places = 1) {
     const factor = 10 ** places;
     return Math.round((value + Number.EPSILON) * factor) / factor;
@@ -39,6 +48,27 @@
     };
   }
 
+  function generateMlHrFromMinutes() {
+    const options = [
+      [100, 30], [250, 90], [500, 150], [150, 45],
+      [50, 30], [100, 45], [250, 120], [75, 30]
+    ];
+    const [volumeMl, minutes] = choice(options);
+    const hours = minutes / 60;
+    const answer = round(volumeMl / hours, 1);
+
+    return {
+      type: "Minutes → mL/hr",
+      prompt: `Infuse ${volumeMl.toLocaleString()} mL over ${minutes} minutes. What rate should the IV pump be programmed to?`,
+      answer,
+      unit: "mL/hr",
+      tolerance: 0.05,
+      formula: "mL ÷ hours = mL/hr",
+      formulaNote: "A pump rate is per hour, so convert the ordered minutes to hours before dividing.",
+      solution: `${minutes} min ÷ 60 = ${round(hours, 2)} hr\n${volumeMl.toLocaleString()} mL ÷ ${round(hours, 2)} hr = ${answer} mL/hr`
+    };
+  }
+
   function generateGttMin() {
     const options = [
       [1000, 8, 15], [500, 4, 20], [1000, 10, 10], [250, 2, 15],
@@ -58,6 +88,48 @@
       formula: "mL × gtt/mL ÷ minutes = gtt/min",
       formulaNote: "Convert hours to minutes first, then round the final answer to a whole drop.",
       solution: `${hours} hr × 60 = ${minutes} min\n(${volumeMl.toLocaleString()} mL × ${dropFactor} gtt/mL) ÷ ${minutes} min = ${round(raw, 2)}\nRound to a whole drop = ${answer} gtt/min`
+    };
+  }
+
+  function generateGttFromMlHr() {
+    const options = [
+      [100, 15], [125, 20], [150, 10], [75, 20],
+      [80, 15], [120, 10], [60, 60], [125, 15]
+    ];
+    const [rateMlHr, dropFactor] = choice(options);
+    const raw = (rateMlHr * dropFactor) / 60;
+    const answer = Math.round(raw);
+
+    return {
+      type: "mL/hr → gtt/min",
+      prompt: `An IV is infusing at ${rateMlHr} mL/hr. The tubing drop factor is ${dropFactor} gtt/mL. What gravity flow rate should be set?`,
+      answer,
+      unit: "gtt/min",
+      tolerance: 0.05,
+      formula: "mL/hr × gtt/mL ÷ 60 = gtt/min",
+      formulaNote: "The pump rate already gives mL per hour. Multiply by the drop factor and divide by 60 minutes.",
+      solution: `(${rateMlHr} mL/hr × ${dropFactor} gtt/mL) ÷ 60 min/hr = ${round(raw, 2)}\nRound to a whole drop = ${answer} gtt/min`
+    };
+  }
+
+  function generateMlHrFromGtt() {
+    const options = [
+      [25, 15], [42, 20], [20, 10], [60, 60],
+      [30, 15], [40, 20], [15, 10], [50, 20]
+    ];
+    const [gttMin, dropFactor] = choice(options);
+    const raw = (gttMin * 60) / dropFactor;
+    const answer = round(raw, 1);
+
+    return {
+      type: "gtt/min → mL/hr",
+      prompt: `An IV is running at ${gttMin} gtt/min using tubing with a drop factor of ${dropFactor} gtt/mL. What is the equivalent infusion rate?`,
+      answer,
+      unit: "mL/hr",
+      tolerance: 0.05,
+      formula: "gtt/min × 60 ÷ gtt/mL = mL/hr",
+      formulaNote: "Convert drops per minute into drops per hour, then divide by the tubing drop factor.",
+      solution: `(${gttMin} gtt/min × 60 min/hr) ÷ ${dropFactor} gtt/mL = ${answer} mL/hr`
     };
   }
 
@@ -91,14 +163,19 @@
     };
   }
 
-  const generators = [generateMlHr, generateGttMin, generateInfusionTime];
+  const generators = [
+    generateMlHr,
+    generateMlHrFromMinutes,
+    generateGttMin,
+    generateGttFromMlHr,
+    generateMlHrFromGtt,
+    generateInfusionTime
+  ];
 
   function buildSession() {
-    const session = [];
-    while (session.length < SESSION_LENGTH) {
-      session.push(choice(generators)());
-    }
-    return session;
+    return shuffle(generators)
+      .slice(0, SESSION_LENGTH)
+      .map((generate) => generate());
   }
 
   function renderWelcome() {

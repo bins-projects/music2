@@ -3,18 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PrepFlow Dosage Lab Prototype</title>
-  <link rel="stylesheet" href="dosage-lab.css?v=20260818-4">
-  <link rel="stylesheet" href="dosage-lab-polish.css?v=20260818-4">
+  <title>Dr. Reid's Dosage Calc Pro</title>
+  <link rel="stylesheet" href="dosage-lab-home.css">
 </head>
 <body>
-  <main class="dosage-lab-shell">
-    <section class="dosage-lab-stage" aria-label="Dosage calculation classroom">
-      <button id="dosage-home" class="board-home" type="button">← PrepFlow</button>
-      <section id="dosage-board" class="dosage-board" aria-live="polite"></section>
+  <main class="home-shell">
+    <section class="home-stage" aria-label="Dr. Reid's Dosage Calc Pro">
+      <nav class="home-actions" aria-label="Dosage calculation options">
+        <a class="home-action primary" href="dosage-lab-run.html">Start Session</a>
+        <a class="home-action guide" href="dosage-how-to.html">How to Use</a>
+        <a class="home-action" href="dosage-lab-run.html#formulas">Formula Review</a>
+      </nav>
+    </section>
+
+    <section class="portrait-home" aria-label="Dr. Reid's Dosage Calc Pro mobile home">
+      <nav class="portrait-actions" aria-label="Dosage calculation options">
+        <a class="portrait-action primary" href="dosage-lab-run.html">Start Session</a>
+        <a class="portrait-action guide" href="dosage-how-to.html"><span class="new-here">New here?</span>How to Use</a>
+        <a class="portrait-action" href="dosage-lab-run.html#formulas">Formula Review</a>
+      </nav>
     </section>
   </main>
-  <script src="dosage-lab.js?v=20260818-4"></script>
-  <script src="dosage-lab-input.js?v=20260818-4"></script>
 </body>
 </html>

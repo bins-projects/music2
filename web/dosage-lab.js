@@ -1,413 +1,61 @@
 (() => {
-  const board = document.querySelector("#dosage-board");
-  const homeButton = document.querySelector("#dosage-home");
-
-  if (!board) return;
-
-  let questions = [];
-  let questionIndex = 0;
-  let correctCount = 0;
-  let currentAnswered = false;
-  let sessionMode = "practice";
-  let sessionLength = 10;
-  let selectedTypeIds = [];
-
-  function choice(values) {
-    return values[Math.floor(Math.random() * values.length)];
-  }
-
-  function shuffle(values) {
-    const result = [...values];
-    for (let index = result.length - 1; index > 0; index -= 1) {
-      const swapIndex = Math.floor(Math.random() * (index + 1));
-      [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
-    }
-    return result;
-  }
-
-  function round(value, places = 1) {
-    const factor = 10 ** places;
-    return Math.round((value + Number.EPSILON) * factor) / factor;
-  }
-
-  function generateMlHr() {
-    const [volumeMl, hours] = choice([
-      [1000, 8], [1000, 10], [500, 4], [500, 5], [250, 2],
-      [150, 1.5], [100, 0.5], [250, 2.5], [1000, 12], [500, 8]
-    ]);
-    const answer = round(volumeMl / hours, 1);
-    return {
-      type: "mL/hr",
-      prompt: `Infuse ${volumeMl.toLocaleString()} mL of IV fluid over ${hours} ${hours === 1 ? "hour" : "hours"}. What rate should the IV pump be programmed to?`,
-      answer,
-      unit: "mL/hr",
-      tolerance: 0.05,
-      formula: "mL ÷ hours = mL/hr",
-      formulaNote: "Use the total IV volume as mL and the infusion duration as hours.",
-      solution: `${volumeMl.toLocaleString()} mL ÷ ${hours} hr = ${answer} mL/hr`
-    };
-  }
-
-  function generateMlHrFromMinutes() {
-    const [volumeMl, minutes] = choice([
-      [100, 30], [250, 90], [500, 150], [150, 45],
-      [50, 30], [100, 45], [250, 120], [75, 30]
-    ]);
-    const hours = minutes / 60;
-    const answer = round(volumeMl / hours, 1);
-    return {
-      type: "Minutes → mL/hr",
-      prompt: `Infuse ${volumeMl.toLocaleString()} mL over ${minutes} minutes. What rate should the IV pump be programmed to?`,
-      answer,
-      unit: "mL/hr",
-      tolerance: 0.05,
-      formula: "mL ÷ (minutes ÷ 60) = mL/hr",
-      formulaNote: "A pump rate is per hour, so convert ordered minutes to hours before dividing.",
-      solution: `${minutes} min ÷ 60 = ${round(hours, 2)} hr\n${volumeMl.toLocaleString()} mL ÷ ${round(hours, 2)} hr = ${answer} mL/hr`
-    };
-  }
-
-  function generateGttMin() {
-    const [volumeMl, hours, dropFactor] = choice([
-      [1000, 8, 15], [500, 4, 20], [1000, 10, 10], [250, 2, 15],
-      [500, 6, 20], [1000, 12, 15], [250, 4, 10], [120, 2, 60]
-    ]);
-    const minutes = hours * 60;
-    const raw = (volumeMl * dropFactor) / minutes;
-    const answer = Math.round(raw);
-    return {
-      type: "gtt/min",
-      prompt: `Infuse ${volumeMl.toLocaleString()} mL over ${hours} ${hours === 1 ? "hour" : "hours"}. The tubing drop factor is ${dropFactor} gtt/mL. Calculate the flow rate.`,
-      answer,
-      unit: "gtt/min",
-      tolerance: 0.05,
-      formula: "mL × gtt/mL ÷ minutes = gtt/min",
-      formulaNote: "Convert hours to minutes first, then round the final answer to a whole drop.",
-      solution: `${hours} hr × 60 = ${minutes} min\n(${volumeMl.toLocaleString()} mL × ${dropFactor} gtt/mL) ÷ ${minutes} min = ${round(raw, 2)}\nRound to a whole drop = ${answer} gtt/min`
-    };
-  }
-
-  function generateGttFromMlHr() {
-    const [rateMlHr, dropFactor] = choice([
-      [100, 15], [125, 20], [150, 10], [75, 20],
-      [80, 15], [120, 10], [60, 60], [125, 15]
-    ]);
-    const raw = (rateMlHr * dropFactor) / 60;
-    const answer = Math.round(raw);
-    return {
-      type: "mL/hr → gtt/min",
-      prompt: `An IV is infusing at ${rateMlHr} mL/hr. The tubing drop factor is ${dropFactor} gtt/mL. What gravity flow rate should be set?`,
-      answer,
-      unit: "gtt/min",
-      tolerance: 0.05,
-      formula: "mL/hr × gtt/mL ÷ 60 = gtt/min",
-      formulaNote: "Multiply the hourly pump rate by the drop factor and divide by 60 minutes.",
-      solution: `(${rateMlHr} mL/hr × ${dropFactor} gtt/mL) ÷ 60 = ${round(raw, 2)}\nRound to a whole drop = ${answer} gtt/min`
-    };
-  }
-
-  function generateMlHrFromGtt() {
-    const [gttMin, dropFactor] = choice([
-      [25, 15], [42, 20], [20, 10], [60, 60],
-      [30, 15], [40, 20], [15, 10], [50, 20]
-    ]);
-    const raw = (gttMin * 60) / dropFactor;
-    const answer = round(raw, 1);
-    return {
-      type: "gtt/min → mL/hr",
-      prompt: `An IV is running at ${gttMin} gtt/min using tubing with a drop factor of ${dropFactor} gtt/mL. What is the equivalent infusion rate?`,
-      answer,
-      unit: "mL/hr",
-      tolerance: 0.05,
-      formula: "gtt/min × 60 ÷ gtt/mL = mL/hr",
-      formulaNote: "Convert drops per minute into drops per hour, then divide by the tubing drop factor.",
-      solution: `(${gttMin} gtt/min × 60 min/hr) ÷ ${dropFactor} gtt/mL = ${answer} mL/hr`
-    };
-  }
-
-  function generateInfusionTime() {
-    const [volumeMl, rateMlHr] = choice([
-      [1000, 125], [500, 100], [250, 125], [1000, 100],
-      [500, 125], [250, 100], [100, 200], [500, 80]
-    ]);
-    const hours = volumeMl / rateMlHr;
-    const answer = round(hours, 2);
-    const wholeHours = Math.floor(hours);
-    const minutes = Math.round((hours - wholeHours) * 60);
-    const displayTime = Number.isInteger(hours)
-      ? `${hours} ${hours === 1 ? "hour" : "hours"}`
-      : `${wholeHours ? `${wholeHours} hr ` : ""}${minutes} min`;
-    return {
-      type: "Infusion time",
-      prompt: `${volumeMl.toLocaleString()} mL of IV fluid is infusing at ${rateMlHr} mL/hr. How many hours will the infusion take? Enter your answer in hours.`,
-      answer,
-      unit: "hours",
-      tolerance: 0.02,
-      formula: "mL ÷ mL/hr = hours",
-      formulaNote: "Divide the total volume by the hourly pump rate.",
-      solution: `${volumeMl.toLocaleString()} mL ÷ ${rateMlHr} mL/hr = ${answer} hr\nInfusion time = ${displayTime}`
-    };
-  }
-
-  const typeRegistry = [
-    { id: "mlhr-hours", label: "mL/hr — hours", group: "IV Rates", generate: generateMlHr },
-    { id: "mlhr-minutes", label: "mL/hr — minutes", group: "IV Rates", generate: generateMlHrFromMinutes },
-    { id: "gtt-volume-time", label: "gtt/min — volume + time", group: "Gravity", generate: generateGttMin },
-    { id: "gtt-from-mlhr", label: "mL/hr → gtt/min", group: "Gravity", generate: generateGttFromMlHr },
-    { id: "mlhr-from-gtt", label: "gtt/min → mL/hr", group: "Gravity", generate: generateMlHrFromGtt },
-    { id: "infusion-time", label: "Infusion duration", group: "IV Time", generate: generateInfusionTime }
-  ];
-
-  function renderWelcome() {
-    board.innerHTML = `
-      <h1 class="board-title board-hand">Dosage Calculations</h1>
-      <p class="board-subtitle board-hand">How do you want to study?</p>
-      <p class="board-copy">Choose exactly what you want to practice, combine several types, or let Dosage Lab mix them for you.</p>
-      <div class="board-actions">
-        <button class="board-button" type="button" data-action="review">Review formulas</button>
-        <button class="board-button primary" type="button" data-action="setup">Build a session</button>
-      </div>
-    `;
-  }
-
-  function renderSetup() {
-    const typeRows = typeRegistry.map((entry) => `
-      <label class="setup-check">
-        <input type="checkbox" name="question-type" value="${entry.id}">
-        <span>${entry.label}</span>
-      </label>
-    `).join("");
-
-    board.innerHTML = `
-      <h1 class="board-title board-hand">Build a Session</h1>
-      <div class="setup-layout">
-        <section class="setup-section">
-          <h3>Mode</h3>
-          <div class="setup-choice-row">
-            <label class="setup-radio"><input type="radio" name="session-mode" value="practice" checked><span>Practice</span></label>
-            <label class="setup-radio"><input type="radio" name="session-mode" value="quiz"><span>Quiz</span></label>
-          </div>
-          <p class="setup-note"><strong>Practice:</strong> formula available while working. <strong>Quiz:</strong> no formula help.</p>
-        </section>
-
-        <section class="setup-section">
-          <div class="setup-heading-row">
-            <h3>Question types</h3>
-            <button class="setup-text-button" type="button" data-action="random-mix">Random mix</button>
-          </div>
-          <div class="setup-type-grid">${typeRows}</div>
-          <p class="setup-note">Pick one type to drill one formula, or select several.</p>
-        </section>
-
-        <section class="setup-section setup-length-section">
-          <h3>Questions</h3>
-          <div class="setup-choice-row">
-            ${[5,10,15,25].map((count) => `<label class="setup-radio"><input type="radio" name="session-length" value="${count}" ${count === 10 ? "checked" : ""}><span>${count}</span></label>`).join("")}
-          </div>
-        </section>
-      </div>
-      <p id="setup-message" class="setup-message" aria-live="polite"></p>
-      <div class="board-actions setup-actions">
-        <button class="board-button" type="button" data-action="welcome">Back</button>
-        <button class="board-button primary" type="button" data-action="start-configured">Start session</button>
-      </div>
-    `;
-  }
-
-  function chooseRandomMix() {
-    board.querySelectorAll('input[name="question-type"]').forEach((input) => {
-      input.checked = true;
-    });
-    const message = board.querySelector("#setup-message");
-    if (message) message.textContent = "Random mix selected — all available types are included.";
-  }
-
-  function buildSession(generators, count) {
-    const session = [];
-    const order = shuffle(generators);
-    let cursor = 0;
-    while (session.length < count) {
-      if (cursor >= order.length) {
-        cursor = 0;
-        order.splice(0, order.length, ...shuffle(generators));
-      }
-      session.push(order[cursor].generate());
-      cursor += 1;
-    }
-    return session;
-  }
-
-  function startConfiguredSession() {
-    const selectedMode = board.querySelector('input[name="session-mode"]:checked');
-    const selectedLength = board.querySelector('input[name="session-length"]:checked');
-    const selectedInputs = [...board.querySelectorAll('input[name="question-type"]:checked')];
-    const message = board.querySelector("#setup-message");
-
-    if (!selectedInputs.length) {
-      if (message) message.textContent = "Choose at least one question type, or tap Random mix.";
-      return;
-    }
-
-    sessionMode = selectedMode?.value || "practice";
-    sessionLength = Number(selectedLength?.value || 10);
-    selectedTypeIds = selectedInputs.map((input) => input.value);
-
-    const selectedGenerators = typeRegistry.filter((entry) => selectedTypeIds.includes(entry.id));
-    questions = buildSession(selectedGenerators, sessionLength);
-    questionIndex = 0;
-    correctCount = 0;
-    currentAnswered = false;
-    renderQuestion();
-  }
-
-  function renderReference() {
-    board.innerHTML = `
-      <h1 class="board-title board-hand">Formula Review</h1>
-      <div class="formula-grid">
-        <section class="formula-card">
-          <h3 class="board-hand">Pump rate — mL/hr</h3>
-          <div class="formula-equation">mL ÷ hours = mL/hr</div>
-          <p><strong>Example:</strong> Infuse 1,000 mL over 8 hr.</p>
-          <p class="board-hand">1,000 ÷ 8 = 125</p>
-          <p><strong>Answer: 125 mL/hr</strong></p>
-        </section>
-        <section class="formula-card">
-          <h3 class="board-hand">Gravity flow — gtt/min</h3>
-          <div class="formula-equation">mL × drop factor ÷ minutes</div>
-          <p><strong>Example:</strong> 500 mL over 4 hr; tubing 20 gtt/mL.</p>
-          <p class="board-hand">4 × 60 = 240 min</p>
-          <p class="board-hand">500 × 20 ÷ 240 = 41.67</p>
-          <p><strong>Answer: 42 gtt/min</strong></p>
-        </section>
-      </div>
-      <div class="board-actions">
-        <button class="board-button" type="button" data-action="welcome">Back</button>
-        <button class="board-button primary" type="button" data-action="setup">Build a session</button>
-      </div>
-    `;
-  }
-
-  function renderQuestion() {
-    currentAnswered = false;
-    const problem = questions[questionIndex];
-    const practiceFormula = sessionMode === "practice" ? `
-      <button class="board-button" type="button" data-action="toggle-working-formula" aria-expanded="false">Formula</button>
-    ` : "";
-
-    board.innerHTML = `
-      <div class="problem-meta">
-        <span>${sessionMode === "practice" ? "Practice" : "Quiz"} · Question ${questionIndex + 1} of ${sessionLength}</span>
-        <span>${problem.type}</span>
-      </div>
-      <h1 class="board-title board-hand">Calculate the dose</h1>
-      <p class="problem-text board-hand">${problem.prompt}</p>
-      <section id="working-formula" class="working-formula" hidden>
-        <div class="formula-equation">${problem.formula}</div>
-        <p>${problem.formulaNote}</p>
-      </section>
-      <div class="answer-row">
-        <label class="sr-only" for="dosage-answer">Your answer</label>
-        <input id="dosage-answer" class="answer-input" type="number" step="any" inputmode="decimal" autocomplete="off">
-        <span class="answer-unit">${problem.unit}</span>
-      </div>
-      <div class="board-actions">
-        <button class="board-button primary" type="button" data-action="submit">Submit answer</button>
-        ${practiceFormula}
-      </div>
-      <div id="dosage-feedback" class="feedback" hidden aria-live="polite"></div>
-    `;
-
-    const input = board.querySelector("#dosage-answer");
-    input?.focus();
-    input?.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") submitAnswer();
-    });
-  }
-
-  function toggleWorkingFormula(button) {
-    const formula = board.querySelector("#working-formula");
-    if (!formula) return;
-    const willShow = formula.hidden;
-    formula.hidden = !willShow;
-    button.setAttribute("aria-expanded", String(willShow));
-    button.textContent = willShow ? "Hide formula" : "Formula";
-  }
-
-  function submitAnswer() {
-    if (currentAnswered) return;
-    const input = board.querySelector("#dosage-answer");
-    const feedback = board.querySelector("#dosage-feedback");
-    const submitButton = board.querySelector('[data-action="submit"]');
-    const formulaButton = board.querySelector('[data-action="toggle-working-formula"]');
-    const problem = questions[questionIndex];
-
-    if (!input || input.value.trim() === "") {
-      input?.focus();
-      return;
-    }
-
-    const student = Number(input.value);
-    if (!Number.isFinite(student)) return;
-
-    const isCorrect = Math.abs(student - problem.answer) <= problem.tolerance;
-    currentAnswered = true;
-    if (isCorrect) correctCount += 1;
-
-    input.disabled = true;
-    if (submitButton) submitButton.hidden = true;
-    if (formulaButton) formulaButton.hidden = true;
-
-    const showWorkedSolution = sessionMode === "practice";
-    feedback.hidden = false;
-    feedback.innerHTML = `
-      <h2 class="feedback-result">${isCorrect ? "Correct" : `Not quite — ${problem.answer} ${problem.unit}`}</h2>
-      ${showWorkedSolution ? `<p class="solution-work">${problem.solution}</p>` : ""}
-      <div class="board-actions">
-        <button class="board-button primary" type="button" data-action="next">${questionIndex + 1 === sessionLength ? "See results" : "Next problem"}</button>
-      </div>
-    `;
-  }
-
-  function nextQuestion() {
-    questionIndex += 1;
-    if (questionIndex >= sessionLength) {
-      renderSummary();
-      return;
-    }
-    renderQuestion();
-  }
-
-  function renderSummary() {
-    const percent = Math.round((correctCount / sessionLength) * 100);
-    board.innerHTML = `
-      <h1 class="board-title board-hand">${sessionMode === "practice" ? "Practice" : "Quiz"} Complete</h1>
-      <div class="summary-score">${correctCount} / ${sessionLength}</div>
-      <p class="board-subtitle board-hand">${percent}% correct</p>
-      <div class="board-actions">
-        <button class="board-button primary" type="button" data-action="setup">Build another session</button>
-        <button class="board-button" type="button" data-action="review">Review formulas</button>
-      </div>
-    `;
-  }
-
-  board.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-action]");
-    if (!button) return;
-
-    const action = button.dataset.action;
-    if (action === "review") renderReference();
-    if (action === "welcome") renderWelcome();
-    if (action === "setup") renderSetup();
-    if (action === "random-mix") chooseRandomMix();
-    if (action === "start-configured") startConfiguredSession();
-    if (action === "submit") submitAnswer();
-    if (action === "next") nextQuestion();
-    if (action === "toggle-working-formula") toggleWorkingFormula(button);
-  });
-
-  homeButton?.addEventListener("click", () => {
-    window.location.href = "./";
-  });
-
-  renderWelcome();
+const app=document.querySelector('#app');if(!app)return;const scrollCue=document.querySelector('#scroll-cue');const E=window.DosageEngine;if(!E)throw new Error('DosageEngine not loaded');
+let mode='practice',difficulty='standard',length=10,qs=[],i=0,score=0,answered=false,selected=[];
+const shuffle=a=>{a=[...a];for(let j=a.length-1;j>0;j--){const k=Math.floor(Math.random()*(j+1));[a[j],a[k]]=[a[k],a[j]]}return a};
+const fingerprint=x=>E.semanticSignature?E.semanticSignature(x):`${x.key}|${String(x.prompt).toLowerCase().replace(/\s+/g,' ').trim()}`;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Number.isFinite(Number(n))?String(Math.round((Number(n)+Number.EPSILON)*10000)/10000):String(n??'');
+function syncScrollCue(){if(!scrollCue)return;const view=app.dataset.view,scrollableView=view==='setup'||view==='formulas',show=scrollableView&&app.scrollHeight>app.clientHeight+6&&app.scrollTop<8;scrollCue.setAttribute('aria-label',view==='formulas'?'Show more formulas':'Show more session options');scrollCue.hidden=!show;scrollCue.classList.toggle('is-done',!show)}
+function setView(view){app.dataset.view=view;app.scrollTop=0;if(scrollCue)scrollCue.hidden=true;requestAnimationFrame(syncScrollCue)}
+const families=()=>E.families||[{key:'all',label:'All Question Types',description:'All available calculations.',types:E.types.map(t=>t.key)}];
+function familyMarkup(){return families().map((f,idx)=>`<section class="type-group"><label class="choice"><input type="checkbox" name="family" value="${f.key}" ${idx===0?'checked':''}> <strong>${f.label}</strong></label><p class="note">${f.description||''}</p><label class="field">Focus<select data-family-select="${f.key}"><option value="all">All ${f.label}</option>${f.types.map(k=>`<option value="${k}">${E.typeLabel?E.typeLabel(k):(E.types.find(t=>t.key===k)?.label||k)}</option>`).join('')}</select></label></section>`).join('')}
+function welcome(){app.innerHTML=`<h1 class="title">Dosage Calculations</h1><p class="subtitle">How do you want to study?</p><p class="copy">Choose a broad calculation family for variety, or narrow any family to one specific subtype.</p><div class="actions"><button class="text-action" data-a="formulas">Review formulas</button><button class="text-action submit" data-a="setup">Build a session</button></div>`;setView('welcome')}
+function setup(){app.innerHTML=`<h1 class="title">Build a Session</h1><div class="setup"><section class="section"><h3>Mode</h3><div class="choice-row"><label class="choice"><input type="radio" name="mode" value="practice" checked>Practice</label><label class="choice"><input type="radio" name="mode" value="quiz">Quiz</label></div></section><section class="section"><h3>Difficulty</h3><div class="choice-row"><label class="choice"><input type="radio" name="difficulty" value="easy">Easy</label><label class="choice"><input type="radio" name="difficulty" value="standard" checked>Standard</label><label class="choice"><input type="radio" name="difficulty" value="challenge">Challenge</label></div><p class="note">Difficulty changes how conveniently the numbers work out, not the clinical logic.</p></section><section class="section"><h3>Question families</h3><p class="note">Leave a family on “All” for the widest mix, or choose one subtype to drill it.</p><div class="type-groups">${familyMarkup()}</div><button class="text-action" data-a="mix">Random mix — all families</button></section><section class="section"><h3>Questions</h3><div class="choice-row">${[5,10,15,20,25].map(n=>`<label class="choice"><input type="radio" name="length" value="${n}" ${n===10?'checked':''}>${n}</label>`).join('')}</div></section></div><p id="msg" class="setup-message"></p><div class="actions"><button class="text-action" data-a="welcome">Back</button><button class="text-action submit" data-a="start">Start session</button></div>`;setView('setup')}
+function selectedKeys(){const keys=[];app.querySelectorAll('input[name="family"]:checked').forEach(cb=>{const f=families().find(x=>x.key===cb.value);if(!f)return;const focus=app.querySelector(`[data-family-select="${f.key}"]`)?.value||'all';if(focus==='all')keys.push(...f.types);else keys.push(focus)});return [...new Set(keys)]}
+function build(){const keys=shuffle(selected),out=[],used=new Set();for(let n=0;n<length;n++){const key=keys[n%keys.length];let x=null;for(let a=0;a<800;a++){const candidate=E.generate(key,difficulty),sig=fingerprint(candidate);if(!used.has(sig)){x=candidate;used.add(sig);break}}if(!x){for(const alt of shuffle(keys)){for(let a=0;a<120;a++){const candidate=E.generate(alt,difficulty),sig=fingerprint(candidate);if(!used.has(sig)){x=candidate;used.add(sig);break}}if(x)break}}if(!x)x=E.generate(key,difficulty);out.push(x)}return out}
+function start(){selected=selectedKeys();if(!selected.length){app.querySelector('#msg').textContent='Choose at least one family.';return}mode=app.querySelector('input[name="mode"]:checked')?.value||'practice';difficulty=app.querySelector('input[name="difficulty"]:checked')?.value||'standard';length=+app.querySelector('input[name="length"]:checked')?.value||10;qs=build();i=0;score=0;renderQ()}
+function parseAnswer(s){const m=s.trim().match(/^(-?\d+(?:\.\d+)?)\s*(.*)$/);if(!m)return null;return{n:+m[1],u:m[2].trim().toLowerCase().replace(/\s+/g,'')}}
+function normUnit(u){return u.replace('ml/hour','ml/hr').replace('mlhr','ml/hr').replace('gtt/minute','gtt/min').replace('gttmin','gtt/min').replace('hrs','hours').replace(/^hr$/,'hours').replace(/^tablet$/,'tablets').replace(/^mg$/,'mg').replace('mg/dose','mg')}
+function normClock(s){const x=s.trim().replace(/\s+/g,''),m=x.match(/^(\d{1,2}):?(\d{2})$/);if(!m)return null;const h=+m[1],min=+m[2];if(h>23||min>59)return null;return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`}
+function safetyCode(x){return x.answer==='safe'?'safe':x.answer==='too low'?'low':'high'}
+function renderQ(){answered=false;const x=qs[i],isSafety=x.key==='peds-safe-range',isClock=x.key==='completion-time';let area;if(isSafety){area=`<div class="safety-choices"><button class="text-action safety-choice" data-safe="safe">Safe</button><button class="text-action safety-choice" data-safe="low">Too low</button><button class="text-action safety-choice" data-safe="high">Too high</button></div><div id="safety-next"></div>`}else{area=`<div class="answer-row"><input id="answer" class="answer-input" autocomplete="off" placeholder="${isClock?'Type 24-hour time, e.g. 16:30':'Type answer with unit, e.g. 4.7 mL'}"><button class="text-action submit" data-a="submit">Submit</button></div>`}app.innerHTML=`<div class="meta"><span>${mode==='practice'?'Practice':'Quiz'} · ${difficulty[0].toUpperCase()+difficulty.slice(1)} · Question ${i+1} of ${length}</span><span>${x.type}</span></div><div class="problem">${x.prompt}</div>${area}${mode==='practice'?`<div class="actions"><button class="text-action" data-a="hint">See formula</button></div><div id="hint"></div>`:''}<div id="feedback"></div>`;setView('question');app.querySelector('#answer')?.focus()}
+function answerText(x){if(x.key==='peds-safe-range'){return x.answer==='safe'?'Safe':x.answer==='too low'?'Too low':'Too high'}return `${x.answer}${x.unit?` ${x.unit}`:''}`}
+const term=(label,value,result=false)=>({label,value,result});
+const op=value=>({op:value});
+const step=(title,...items)=>({title,items});
+function translatedSteps(x){const v=x.vars||{},ans=answerText(x);switch(x.key){
+case'basic-dose':return[step('Put the question values into the formula',term('Desired dose',`${fmt(v.order)} mg`),op('÷'),term('Dose on hand',`${fmt(v.have)} mg`),op('×'),term('Quantity',`${fmt(v.qty)} ${v.unit}`),op('='),term('Amount to give',ans,true))];
+case'weight-dose':return[step('Translate the weight-based order',term('Dose per kg',`${fmt(v.dose)} mg/kg`),op('×'),term('Patient weight',`${fmt(v.kg)} kg`),op('='),term('Dose',ans,true))];
+case'peds-safe-range':{const rows=[step('Calculate the minimum safe dose',term('Minimum daily dose',`${fmt(v.minDay)} mg/kg/day`),op('×'),term('Weight',`${fmt(v.kg)} kg`),op('÷'),term('Doses per day',fmt(v.doses)),op('='),term('Minimum',`${fmt(v.min)} mg/dose`,true)),step('Calculate the maximum safe dose',term('Maximum daily dose',`${fmt(v.maxDay)} mg/kg/day`),op('×'),term('Weight',`${fmt(v.kg)} kg`),op('÷'),term('Doses per day',fmt(v.doses)),op('='),term('Maximum',`${fmt(v.max)} mg/dose`,true)),step('Compare the provider order',term('Safe range',`${fmt(v.min)}–${fmt(v.max)} mg/dose`),op('↔'),term('Ordered dose',`${fmt(v.order)} mg`),op('='),term('Decision',answerText(x),true))];if(x.answer==='safe'&&v.ml!=null)rows.push(step('Convert the safe dose to mL',term('Ordered dose',`${fmt(v.order)} mg`),op('÷'),term('Dose on hand',`${fmt(v.have)} mg`),op('×'),term('Quantity',`${fmt(v.qty)} mL`),op('='),term('Amount',`${fmt(v.ml)} mL`,true)));return rows}
+case'mlhr-hours':return[step('Translate volume and time',term('Volume',`${fmt(v.volume)} mL`),op('÷'),term('Time',`${fmt(v.hours)} hr`),op('='),term('Pump rate',ans,true))];
+case'mlhr-minutes':{const hours=Number(v.minutes)/60;return[step('Convert minutes to hours',term('Ordered time',`${fmt(v.minutes)} min`),op('÷'),term('Minutes per hour','60 min/hr'),op('='),term('Time in hours',`${fmt(hours)} hr`,true)),step('Calculate the pump rate',term('Volume',`${fmt(v.volume)} mL`),op('÷'),term('Time',`${fmt(hours)} hr`),op('='),term('Pump rate',ans,true))]}
+case'infusion-time':return[step('Translate volume and pump rate',term('Volume',`${fmt(v.volume)} mL`),op('÷'),term('Pump rate',`${fmt(v.rate)} mL/hr`),op('='),term('Infusion time',ans,true))];
+case'completion-time':{const volume=v.volume??v.v,rate=v.rate??v.r,hours=Number(volume)/Number(rate);return[step('Find the infusion duration',term('Volume',`${fmt(volume)} mL`),op('÷'),term('Pump rate',`${fmt(rate)} mL/hr`),op('='),term('Duration',`${fmt(hours)} hr`,true)),step('Add the duration to the clock',term('Start time',v.start),op('+'),term('Infusion duration',`${fmt(Math.round(hours*60))} min`),op('='),term('Completion time',x.answer,true))]}
+case'gtt-volume-time':{const minutes=Number(v.hours)*60;return[step('Convert the infusion time',term('Hours',`${fmt(v.hours)} hr`),op('×'),term('Minutes per hour','60 min/hr'),op('='),term('Total time',`${fmt(minutes)} min`,true)),step('Calculate gravity flow',term('Volume',`${fmt(v.volume)} mL`),op('×'),term('Drop factor',`${fmt(v.dropFactor)} gtt/mL`),op('÷'),term('Total time',`${fmt(minutes)} min`),op('='),term('Flow rate',ans,true))]}
+case'gtt-from-mlhr':return[step('Translate pump rate to drops per minute',term('Pump rate',`${fmt(v.rate)} mL/hr`),op('×'),term('Drop factor',`${fmt(v.dropFactor)} gtt/mL`),op('÷'),term('Minutes per hour','60 min/hr'),op('='),term('Gravity rate',ans,true))];
+case'mlhr-from-gtt':return[step('Translate drops per minute to mL per hour',term('Gravity rate',`${fmt(v.dropsPerMinute)} gtt/min`),op('×'),term('Minutes per hour','60 min/hr'),op('÷'),term('Drop factor',`${fmt(v.dropFactor)} gtt/mL`),op('='),term('Pump rate',ans,true))];
+case'reconstitution':return[step('Use the final reconstituted concentration',term('Ordered dose',`${fmt(v.order)} mg`),op('÷'),term('Final concentration',`${fmt(v.conc)} mg/mL`),op('='),term('Volume to withdraw',ans,true))];
+case'units-hour':{const conc=Number(v.bagUnits)/Number(v.bagMl);return[step('Find the bag concentration',term('Medication in bag',`${fmt(v.bagUnits)} units`),op('÷'),term('Bag volume',`${fmt(v.bagMl)} mL`),op('='),term('Concentration',`${fmt(conc)} units/mL`,true)),step('Calculate the pump rate',term('Ordered rate',`${fmt(v.order)} units/hr`),op('÷'),term('Concentration',`${fmt(conc)} units/mL`),op('='),term('Pump rate',ans,true))]}
+case'mcg-minute':{const hourly=Number(v.order)*60,conc=Number(v.bagMcg)/Number(v.bagMl);return[step('Convert the order to an hourly dose',term('Ordered dose',`${fmt(v.order)} mcg/min`),op('×'),term('Minutes per hour','60 min/hr'),op('='),term('Hourly dose',`${fmt(hourly)} mcg/hr`,true)),step('Find the bag concentration',term('Medication in bag',`${fmt(v.bagMcg)} mcg`),op('÷'),term('Bag volume',`${fmt(v.bagMl)} mL`),op('='),term('Concentration',`${fmt(conc)} mcg/mL`,true)),step('Calculate the pump rate',term('Hourly dose',`${fmt(hourly)} mcg/hr`),op('÷'),term('Concentration',`${fmt(conc)} mcg/mL`),op('='),term('Pump rate',ans,true))]}
+case'mcg-kg-minute':{const hourly=Number(v.dose)*Number(v.kg)*60,conc=Number(v.bagMcg)/Number(v.bagMl);return[step('Find the patient’s hourly dose',term('Dose per kg',`${fmt(v.dose)} mcg/kg/min`),op('×'),term('Weight',`${fmt(v.kg)} kg`),op('×'),term('Minutes per hour','60 min/hr'),op('='),term('Hourly dose',`${fmt(hourly)} mcg/hr`,true)),step('Find the bag concentration',term('Medication in bag',`${fmt(v.bagMcg)} mcg`),op('÷'),term('Bag volume',`${fmt(v.bagMl)} mL`),op('='),term('Concentration',`${fmt(conc)} mcg/mL`,true)),step('Calculate the pump rate',term('Hourly dose',`${fmt(hourly)} mcg/hr`),op('÷'),term('Concentration',`${fmt(conc)} mcg/mL`),op('='),term('Pump rate',ans,true))]}
+case'mcg-kg-hour':{const hourly=Number(v.dose)*Number(v.kg),conc=Number(v.bagMcg)/Number(v.bagMl);return[step('Find the patient’s hourly dose',term('Dose per kg',`${fmt(v.dose)} mcg/kg/hr`),op('×'),term('Weight',`${fmt(v.kg)} kg`),op('='),term('Hourly dose',`${fmt(hourly)} mcg/hr`,true)),step('Find the bag concentration',term('Medication in bag',`${fmt(v.bagMcg)} mcg`),op('÷'),term('Bag volume',`${fmt(v.bagMl)} mL`),op('='),term('Concentration',`${fmt(conc)} mcg/mL`,true)),step('Calculate the pump rate',term('Hourly dose',`${fmt(hourly)} mcg/hr`),op('÷'),term('Concentration',`${fmt(conc)} mcg/mL`),op('='),term('Pump rate',ans,true))]}
+case'amount-hour':{const unit=String(v.orderUnit||'').split('/')[0]||'mg',conc=Number(v.bagAmt)/Number(v.bagMl),perMinute=String(v.orderUnit||'').includes('/min'),rows=[];let hourly=Number(v.order);if(perMinute){hourly*=60;rows.push(step('Convert the order to an hourly dose',term('Ordered dose',`${fmt(v.order)} ${v.orderUnit}`),op('×'),term('Minutes per hour','60 min/hr'),op('='),term('Hourly dose',`${fmt(hourly)} ${unit}/hr`,true)))}rows.push(step('Find the bag concentration',term('Medication in bag',`${fmt(v.bagAmt)} ${unit}`),op('÷'),term('Bag volume',`${fmt(v.bagMl)} mL`),op('='),term('Concentration',`${fmt(conc)} ${unit}/mL`,true)),step('Calculate the pump rate',term('Hourly dose',`${fmt(hourly)} ${unit}/hr`),op('÷'),term('Concentration',`${fmt(conc)} ${unit}/mL`),op('='),term('Pump rate',ans,true)));return rows}
+case'meq-ml':return[step('Translate the ordered dose and concentration',term('Ordered dose',`${fmt(v.order)} mEq`),op('÷'),term('Concentration',`${fmt(v.conc)} mEq/mL`),op('='),term('Volume',ans,true))];
+case'daily-divided':{const daily=Number(v.daily)*Number(v.kg);return[step('Find the total daily dose',term('Dose per kg per day',`${fmt(v.daily)} mg/kg/day`),op('×'),term('Weight',`${fmt(v.kg)} kg`),op('='),term('Daily dose',`${fmt(daily)} mg/day`,true)),step('Divide the daily dose',term('Daily dose',`${fmt(daily)} mg/day`),op('÷'),term('Doses per day',fmt(v.doses)),op('='),term('Dose each time',ans,true))]}
+default:return[step('Formula translated with this question',term('Formula',x.formula),op('→'),term('Question values',x.solution),op('='),term('Answer',ans,true))]}}
+function translationMarkup(x){return`<div class="translation">${translatedSteps(x).map(s=>`<section class="translation-step"><h3 class="translation-step-title">${esc(s.title)}</h3><div class="translation-line">${s.items.map(item=>item.op?`<span class="translation-op" aria-hidden="true">${esc(item.op)}</span>`:`<span class="translation-term${item.result?' result':''}"><span class="translation-label">${esc(item.label)}</span><span class="translation-value">${esc(item.value)}</span></span>`).join('')}</div></section>`).join('')}</div>`}
+function finishQuestion(ok,x,extra='',submitted=''){answered=true;if(ok)score++;app.innerHTML=`<article class="feedback-screen"><div class="meta"><span>${mode==='practice'?'Practice':'Quiz'} · ${difficulty[0].toUpperCase()+difficulty.slice(1)} · Question ${i+1} of ${length}</span><span>${esc(x.type)}</span></div><header class="feedback-head ${ok?'correct':'incorrect'}"><h2>${ok?'Correct':'Incorrect'}</h2></header><p class="feedback-question"><b>Question:</b> ${esc(x.prompt)}</p><div class="answer-summary">${submitted?`<span><b>Your answer:</b> ${esc(submitted)}</span>`:''}<span><b>Correct answer:</b> ${esc(answerText(x)+extra)}</span></div>${translationMarkup(x)}<p class="feedback-note">${esc(x.note)}</p><div class="actions"><button class="text-action submit" data-a="next">${i+1<length?'Next question':'See results'}</button></div></article>`;setView('feedback');app.focus()}
+function submitSafety(choice){if(answered)return;const x=qs[i],correct=safetyCode(x),label=choice==='safe'?'Safe':choice==='low'?'Too low':'Too high';if(choice!==correct){finishQuestion(false,x,'',label);return}if(correct!=='safe'){finishQuestion(true,x,'',label);return}const v=x.vars||{},box=app.querySelector('#safety-next');box.innerHTML=`<div class="feedback correct"><b>Safe.</b> The order is within ${v.min}–${v.max} mg/dose. Now calculate the amount to administer.</div><div class="answer-row"><input id="answer" class="answer-input" autocomplete="off" placeholder="Type answer with unit, e.g. 5.5 mL"><button class="text-action submit" data-a="submit-safety-amount">Submit</button></div>`;app.querySelectorAll('.safety-choice').forEach(b=>b.disabled=true);app.querySelector('#answer').focus()}
+function submit(){if(answered)return;const x=qs[i],raw=app.querySelector('#answer')?.value||'';let ok=false;if(x.key==='completion-time'){const val=normClock(raw);if(!val){app.querySelector('#feedback').innerHTML='<div class="feedback incorrect">Enter a valid 24-hour time.</div>';return}ok=val===x.answer}else{const p=parseAnswer(raw);if(!p){app.querySelector('#feedback').innerHTML='<div class="feedback incorrect">Enter a number and the unit.</div>';return}const expected=normUnit(String(x.unit||'').toLowerCase().replace(/\s+/g,''));ok=normUnit(p.u)===expected&&Math.abs(p.n-Number(x.answer))<=x.tolerance}finishQuestion(ok,x,'',raw)}
+function submitSafetyAmount(){if(answered)return;const x=qs[i],v=x.vars||{},raw=app.querySelector('#answer')?.value||'',p=parseAnswer(raw);if(!p){app.querySelector('#feedback').innerHTML='<div class="feedback incorrect">Enter a number and the unit.</div>';return}const ok=normUnit(p.u)==='ml'&&Math.abs(p.n-v.ml)<=.06;finishQuestion(ok,x,` — ${v.ml} mL`,raw)}
+function next(){i++;if(i>=length)results();else renderQ()}
+function results(){const pct=Math.round(score/length*100);app.innerHTML=`<div class="results"><h1 class="title">Session Complete</h1><div class="score">${score}/${length}</div><p class="subtitle">${pct}%</p><div class="actions" style="justify-content:center"><button class="text-action" data-a="setup">Build another session</button><a class="text-action" href="index.html">Home</a></div></div>`;setView('results')}
+function showFormulas(page=0){const perPage=9,pages=Math.ceil(E.formulaReview.length/perPage),slice=E.formulaReview.slice(page*perPage,page*perPage+perPage);app.innerHTML=`<h1 class="title">Formula Review · ${page+1} of ${pages}</h1><div class="formula-grid">${slice.map(x=>`<section class="formula-item"><h3>${x[0]}</h3><div class="equation">${x[1]}</div></section>`).join('')}</div><nav class="nav">${page?'<button class="text-action" data-a="fprev">← Previous</button>':'<span></span>'}<button class="text-action" data-a="welcome">Back</button>${page<pages-1?'<button class="text-action" data-a="fnext">Next →</button>':'<span></span>'}</nav>`;app.dataset.formulaPage=page;setView('formulas')}
+app.addEventListener('change',e=>{const s=e.target.closest('[data-family-select]');if(s&&s.value!=='all'){const cb=app.querySelector(`input[name="family"][value="${s.dataset.familySelect}"]`);if(cb)cb.checked=true}});
+app.addEventListener('click',e=>{const s=e.target.closest('[data-safe]');if(s){submitSafety(s.dataset.safe);return}const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;if(a==='welcome')welcome();if(a==='setup')setup();if(a==='mix'){app.querySelectorAll('input[name="family"]').forEach(x=>x.checked=true);app.querySelectorAll('[data-family-select]').forEach(x=>x.value='all');app.querySelector('#msg').textContent='Random mix selected — all families and subtypes are included.'}if(a==='start')start();if(a==='submit')submit();if(a==='submit-safety-amount')submitSafetyAmount();if(a==='next')next();if(a==='hint'){const x=qs[i];app.querySelector('#hint').innerHTML=`<div class="formula-help"><b>${x.formula}</b><div class="small">${x.note}</div></div>`}if(a==='formulas')showFormulas(0);if(a==='fprev')showFormulas(Math.max(0,(+app.dataset.formulaPage||0)-1));if(a==='fnext')showFormulas((+app.dataset.formulaPage||0)+1)});
+app.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='answer'){e.preventDefault();qs[i]?.key==='peds-safe-range'?submitSafetyAmount():submit()}});
+app.addEventListener('scroll',syncScrollCue,{passive:true});
+scrollCue?.addEventListener('click',()=>{app.scrollBy({top:Math.max(80,app.clientHeight*.72),behavior:'smooth'});scrollCue.classList.add('is-done')});
+window.addEventListener('resize',syncScrollCue,{passive:true});
+if(location.hash==='#formulas')showFormulas(0);else setup();
 })();
